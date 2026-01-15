@@ -1,0 +1,40 @@
+name: postways-v2
+
+services:
+  db:
+    image: postgres:16-alpine
+    env_file:
+      - ../config/.env
+    volumes:
+      - postways-v2-db_data:/var/lib/postgresql/data
+    ports:
+      # 5432 and 5433 are taken on the host; expose Postgres on 5434 for local access (psql/GUI tools).
+      - "5434:5432"
+    healthcheck:
+      # Use $$ to defer env expansion to runtime inside the container (Compose expands ${...} too early).
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} -h 127.0.0.1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    env_file:
+      - ../config/.env
+    volumes:
+      # Development: live-reload code from the host.
+      - ..:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: python manage.py runserver 0.0.0.0:8000
+    restart: unless-stopped
+
+volumes:
+  postways-v2-db_data:
