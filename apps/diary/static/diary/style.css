@@ -1,0 +1,81 @@
+html {
+    scroll-padding-top: 4rem;
+  }
+
+.like {
+    font-size: small;
+}
+
+a {
+    text-decoration: none !important;
+}
+
+a:focus {
+    outline: 0;
+    border: none;
+  }
+
+.author {
+    font-size: x-small;
+}
+
+.short-post {
+    font-family: 'Nunito', sans-serif;
+    font-style: italic;
+}
+
+.errorlist {
+    font-style: italic;
+    color: red;
+}
+
+.auth-form {
+    max-width: 500px;
+}
+
+.author-list {
+    font-size: small;
+}
+
+
+.add-post {
+    position: fixed;
+    top: 100px;
+    right: 0;
+}
+
+.post {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.post-img {
+    object-fit: cover;
+    width: 200px;
+    height: 200px;
+}
+
+.post-content {
+    color: black;
+}
+
+.selected {
+    font-weight: bold;
+}
+
+.center {
+    margin: auto;
+    padding: 10px;
+    text-align: center;
+}
+
+.title {
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 991px) {
+  .phone {
+    display: none;
+  }
+}

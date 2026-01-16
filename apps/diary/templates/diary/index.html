@@ -1,0 +1,68 @@
+{% extends 'diary/base.html' %} 
+
+{% block title %} postways {% endblock %}
+
+{% block content %} 
+
+
+<div class="left">
+<a href="{% url 'home' %}" style="color:black;"> 
+    {% if ordering == 'fresh' %}
+    <u>fresh</u>
+    {% else %}
+    fresh
+    {% endif %}
+</a>
+&nbsp;&nbsp;|&nbsp;&nbsp;
+<a href="{% url 'home-like-ordering' %}" style="color:black;">  
+    
+    {% if ordering == 'liked' %}
+    <u>popular</u>
+    {% else %}
+    popular
+    {% endif %}
+</a>
+</div>
+<hr>
+<br>
+{% for post in object_list %}
+<div class="post">
+    
+    <div>
+        <a href="{% url 'post-detail' post.pk %}">
+            <h3 class="title">{{ post.title }}</h3>
+        </a>
+        <p class="author">
+            <a href="{% url 'author-detail' post.author.pk %}">{{ post.author.username }}</a>
+            <br>
+            {{post.created|date }} at {{ post.created|time:"H:i" }}
+        </p>
+        <p class="title">
+            <a href="{% url 'post-detail' post.pk %}" class="post-content short-post">
+                <span class="short-post">{{ post.content|truncatechars:100 }}</span>
+            </a>
+            <br>
+            {% if user.is_authenticated and post in liked_by_user %}
+            <a href="{% url 'like-create-destroy-post-api' %}" id="{{ post.id }}" class="like">&#10084; {{ post.like__count }}</a>
+            {% elif user.is_authenticated %}
+            <a href="{% url 'like-create-destroy-post-api' %}" id="{{ post.id }}" class="like">&#9825; {{ post.like__count }}</a>
+            {% else %}
+            <a href="{% url 'login' %}" id="{{ post.id }}" class="like">&#9825; {{ post.like__count }}</a>
+            {% endif %}
+        </p>
+    </div>
+
+    {% if post.image %}
+    <div>
+        <a href="{% url 'post-detail' post.pk %}">
+            <img src="{{ post.thumbnail.url }}" alt="" class="rounded float-left post-img">
+        </a>
+    </div>
+    {% endif %}
+    
+</div>
+<hr>
+<br>
+{% endfor %} 
+
+{% endblock %}

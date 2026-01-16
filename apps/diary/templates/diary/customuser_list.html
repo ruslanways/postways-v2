@@ -1,0 +1,49 @@
+{% extends 'diary/base.html' %}
+
+{% block title %} Authors {% endblock %}
+
+{% block content %}
+
+<h2>All authors</h2>
+<br>
+
+
+<table class="table table-hover author-list">
+    <thead>
+      <tr class="table-light">
+        <th scope="col"><a href="{% url 'author-list' %}id/">#</a></th>
+        <th scope="col"><a href="{% url 'author-list' %}username/">Username</a></th>
+        <th scope="col"><a href="{% url 'author-list' %}date_joined/">Date joined</a></th>
+        <th scope="col"><a href="{% url 'author-list' %}post__count/">Total posts</a></th>
+        <th scope="col"><a href="{% url 'author-list' %}like__count/">Likes provided</a></th>
+        <th scope="col"><a href="{% url 'author-list' %}post__like__count/">Likes recieved</a></th>
+      </tr>
+
+      <tr class="table-light">
+        <th scope="col" class="link-secondary">{{ object_list.count }}</th>
+        <th scope="col" class="link-secondary"></th>
+        <th scope="col" class="link-secondary"></th>
+        <th scope="col" class="link-secondary">{{ posts }}</th>
+        <th scope="col" class="link-secondary">{{ likes }}</th>
+        <th scope="col" class="link-secondary"></th>
+      </tr>
+
+    </thead>
+    <tbody>
+      {% for author in  object_list %}
+      <tr>
+        <th scope="row">{{ author.pk }}</th>
+        <td><a href="{% url 'author-detail' author.pk %}" class="title">{{ author.username }}</a></td>
+        <td>{{ author.date_joined|date:"d/m/Y" }}</td>
+        <td> {{ author.post__count }} </td>
+        <td> {{ author.like__count }} </td>
+        <td> {{ author.post__like__count }} </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+
+
+{% endblock %}
+

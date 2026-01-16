@@ -1,0 +1,52 @@
+{% extends 'diary/base.html' %}
+
+{% block title %} author#{{object.pk}} {{ object.username }} {% endblock %}
+
+{% block content %}
+
+{% load diary_tags %}
+ 
+<h2>
+    {% if user.is_staff %}
+    {{object.username}} posts:
+    {% else %}
+    My posts:
+    {% endif %}
+    {{ object.post_set.count }}</h2> 
+<br>
+
+{% for post in  page_obj %}
+<div class="post">
+<div>
+<a href="{% url 'post-detail' post.pk %}"><h3 class="title">{{ post.title }}</h3></a>
+<p class="author">{{ post.created|date }} at {{ post.created|time:"H:i" }}
+    {% if not post.published %}
+    <br><b>*unpublished</b>
+    {% endif %}
+<p class="title">
+    <a href="{% url 'post-detail' post.pk %}" class="post-content">
+    <span class="short-post">{{ post.content|truncatechars:100 }}</span>
+    </a>
+    <br>
+    <a href="{% url 'like-create-destroy-post-api' %}" id="{{ post.id }}" class="like">
+        {% autoescape off %}{% like_or_unlike user post %}{% endautoescape %} {{ post.like_set.count }}
+    </a>
+</p>
+</div>
+
+{% if post.image %}
+<div>
+<a href="{% url 'post-detail' post.pk %}">
+<img src="{{ post.image.url }}" alt="" class="rounded float-left post-img">
+</a>
+</div>
+{% endif %}
+
+</div>
+<hr>
+<br>
+{% endfor %}
+
+
+{% endblock %}
+

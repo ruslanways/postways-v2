@@ -1,6 +1,25 @@
 name: postways-v2
 
 services:
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    env_file:
+      - ../config/.env
+    volumes:
+      # Development: live-reload code from the host.
+      - ..:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: daphne config.asgi:application -b 0.0.0.0 -p 8000
+    restart: unless-stopped
+
   db:
     image: postgres:16-alpine
     env_file:
@@ -19,7 +38,18 @@ services:
       start_period: 10s
     restart: unless-stopped
 
-  web:
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - postways-v2-redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  celery_worker:
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -28,13 +58,31 @@ services:
     volumes:
       # Development: live-reload code from the host.
       - ..:/app
-    ports:
-      - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
-    command: python manage.py runserver 0.0.0.0:8000
+      redis:
+        condition: service_healthy
+    command: celery -A config worker -l info
+    restart: unless-stopped
+
+  celery_beat:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    env_file:
+      - ../config/.env
+    volumes:
+      # Development: live-reload code from the host.
+      - ..:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A config beat -l info
     restart: unless-stopped
 
 volumes:
   postways-v2-db_data:
+  postways-v2-redis_data:
