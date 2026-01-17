@@ -1,0 +1,50 @@
+{% extends 'diary/base.html' %}
+
+{% block title %} Signup {% endblock %}
+
+{% block content %}
+
+<h1>Signup</h1>
+<br>
+
+<form method="post" class="auth-form">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    
+    <div class="mb-3">
+        <label for="{{ form.username.id_for_label }}" class="form-label">{{form.username.label}}:</label> 
+        {{ form.username }}
+    </div>
+    <div class="form-text">{{form.username.errors}}</div>
+
+    <div class="mb-3">
+        <label for="{{ form.username.id_for_label }}" class="form-label">{{form.email.label}}:</label> 
+        {{ form.email }}
+    </div>
+    <div class="form-text">{{form.email.errors}}</div>
+
+    <div class="mb-3">
+        <label for="{{ form.username.id_for_label }}" class="form-label">{{form.password1.label}}:</label> 
+        {{ form.password1 }}
+    </div>
+    <div class="form-text">{{form.password1.errors}}</div>
+
+    <div class="mb-3">
+        <label for="{{ form.username.id_for_label }}" class="form-label">{{form.password2.label}}:</label> 
+        {{ form.password2 }}
+    </div>
+    <div class="form-text">{{form.password2.errors}}</div>
+
+    <div class="mb-3">
+        By continue to register on this site you consent to use of cookies.
+        <br>
+        <label for="{{ form.agree.id_for_label }}" class="form-label">{{form.agree.label}}:</label> 
+        {{ form.agree }}
+    </div>
+    <div class="form-text">{{form.agree.errors}}</div>
+
+    <button type="submit" class="btn btn-primary">submit</button>
+</form>
+
+{% endblock %}
+

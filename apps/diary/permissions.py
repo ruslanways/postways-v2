@@ -7,8 +7,7 @@ class OwnerOrAdminOrReadOnly(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         if request.method in permissions.SAFE_METHODS:
             return True
-        if request.method in ('PUT', 'PATCH', 'DELETE'):
-            return obj.author == request.user or request.user.is_staff
+        return obj.author == request.user or request.user.is_staff
 
 
 class ReadForAdminCreateForAnonymous(permissions.BasePermission):
@@ -16,7 +15,9 @@ class ReadForAdminCreateForAnonymous(permissions.BasePermission):
     View level permission
     """
     def has_permission(self, request, view):
-        return request.user.is_staff if request.method not in ('POST',) else request.user.is_anonymous
+        if request.method == 'POST':
+            return request.user.is_anonymous
+        return request.user.is_staff
 
 
 class OwnerOrAdmin(permissions.BasePermission):

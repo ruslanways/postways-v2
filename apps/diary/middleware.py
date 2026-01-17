@@ -1,48 +1,90 @@
 import logging
+import traceback
 
-from django.utils import timezone
-from django.shortcuts import render
+from django.conf import settings
 from django.http import JsonResponse
-from django.core.exceptions import PermissionDenied
-from django.http import Http404
-
-class UserLastRequestMiddleware:
-    """
-    Saves the datetime of last user request.
-    Doesn't for AnonymousUser. 
-    """
-
-    def __init__(self, get_response):
-        self.get_response = get_response
-
-    def __call__(self, request):
-        print()
-        if request.user.is_authenticated:
-            request.user.last_request = timezone.now()
-            request.user.save()
-        response = self.get_response(request)
-        return response
-
+from django.shortcuts import render
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
-class UncaughtExceptionMiddleware:
+
+class UserLastRequestMiddleware:
     """
-    Handles uncaught exceptions: loges it.
+    Updates the last_request timestamp for authenticated users.
+    Throttled to avoid database writes on every request.
     """
+
+    # Only update if last request was more than 60 seconds ago
+    UPDATE_INTERVAL_SECONDS = 60
+
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
         response = self.get_response(request)
+
+        # Update last_request after response (non-blocking for user)
+        if request.user.is_authenticated:
+            self._update_last_request(request.user)
+
         return response
-    
+
+    def _update_last_request(self, user):
+        """Only update if enough time has passed since last update."""
+        now = timezone.now()
+        if user.last_request is None:
+            should_update = True
+        else:
+            elapsed = (now - user.last_request).total_seconds()
+            should_update = elapsed > self.UPDATE_INTERVAL_SECONDS
+
+        if should_update:
+            user.last_request = now
+            user.save(update_fields=["last_request"])
+
+
+class UncaughtExceptionMiddleware:
+    """
+    Catches unhandled exceptions, logs them with full traceback,
+    and returns user-friendly error responses.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        return self.get_response(request)
+
     def process_exception(self, request, exception):
-        if isinstance(exception, PermissionDenied):
-            return render(request, '403.html', status=403)
-        if isinstance(exception, Http404):
-            return render(request, '404.html', status=404)
-        logger.error(f'Exception {type(exception)}, User: {request.user}, Page requested: {request.get_full_path()}')
-        if request.path.startswith('/api/'):
-            return JsonResponse({'Uncaught Exception': str(exception)}, status=500)
-        return render(request, '500.html', status=500)
+        # Only catches truly unexpected exceptions
+        # Logs the full exception with traceback for debugging
+        logger.error(
+            "Uncaught exception: %s | User: %s | Path: %s\n%s",
+            type(exception).__name__,
+            request.user,
+            request.get_full_path(),
+            traceback.format_exc(),
+        )
+
+        # Return appropriate response
+        if request.path.startswith("/api/"):
+            return self._api_error_response(exception)
+        return render(request, "500.html", status=500)
+
+    def _api_error_response(self, exception):
+        """Return JSON error - hide details in production."""
+        if settings.DEBUG:
+            # Show details only in development
+            return JsonResponse(
+                {
+                    "error": type(exception).__name__,
+                    "detail": str(exception),
+                },
+                status=500,
+            )
+        # Generic message in production
+        return JsonResponse(
+            {"error": "Internal server error"},
+            status=500,
+        )

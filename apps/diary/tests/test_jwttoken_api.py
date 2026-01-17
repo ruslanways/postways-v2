@@ -40,13 +40,13 @@ class PostAPITestCase(DiaryAPITestCase):
 
         # Verify that refresh token (and access token too) is valid
         verify_token = self.client.post(
-            reverse("token_verify"), {"token": response2.data["refresh"]}
+            reverse("token-verify-api"), {"token": response2.data["refresh"]}
         )
         self.assertEqual(verify_token.status_code, status.HTTP_200_OK)
 
         # incorrect token
         verify_token = self.client.post(
-            reverse("token_verify"), {"token": "jsndvkajsdnvkajsnv"}
+            reverse("token-verify-api"), {"token": "jsndvkajsdnvkajsnv"}
         )
         self.assertEqual(verify_token.status_code, status.HTTP_401_UNAUTHORIZED)
 
@@ -62,12 +62,12 @@ class PostAPITestCase(DiaryAPITestCase):
         self.assertTrue(response3.data["refresh"])
         # Check wether new refreshed refresh token is valid
         verify_token = self.client.post(
-            reverse("token_verify"), {"token": response3.data["refresh"]}
+            reverse("token-verify-api"), {"token": response3.data["refresh"]}
         )
         self.assertEqual(verify_token.status_code, status.HTTP_200_OK)
         # Check wether OLD refresh token is invalid
         verify_token = self.client.post(
-            reverse("token_verify"), {"token": response2.data["refresh"]}
+            reverse("token-verify-api"), {"token": response2.data["refresh"]}
         )
         self.assertEqual(verify_token.status_code, status.HTTP_400_BAD_REQUEST)
 
@@ -80,16 +80,16 @@ class PostAPITestCase(DiaryAPITestCase):
         # # It will be use by user to change password
         # new_access_token = re.search(r"(?<='access': ).+", mail.outbox[0].body)
         # verify_token = self.client.post(
-        #     reverse("token_verify"), {"token": new_access_token.group()}
+        #     reverse("token-verify-api"), {"token": new_access_token.group()}
         # )
         # self.assertEqual(verify_token.status_code, status.HTTP_200_OK)
         # # Check wether OLD REFRESHED refresh token is invalid
         # verify_token = self.client.post(
-        #     reverse("token_verify"), {"token": response3.data["refresh"]}
+        #     reverse("token-verify-api"), {"token": response3.data["refresh"]}
         # )
         # self.assertEqual(verify_token.status_code, status.HTTP_400_BAD_REQUEST)
         # # Check wether OLD-OLD refresh token is invalid
         # verify_token = self.client.post(
-        #     reverse("token_verify"), {"token": response2.data["refresh"]}
+        #     reverse("token-verify-api"), {"token": response2.data["refresh"]}
         # )
         # self.assertEqual(verify_token.status_code, status.HTTP_400_BAD_REQUEST)

@@ -3,9 +3,18 @@ from django.contrib.auth.admin import UserAdmin
 from .models import CustomUser, Post, Like
 
 
+@admin.register(Post)
+class PostAdmin(admin.ModelAdmin):
+    list_display = ("title", "author", "created_at")
+    list_filter = ("created_at", "author")
+    search_fields = ("title", "content")
 
-admin.site.register(Post)
-admin.site.register(Like)
+
+@admin.register(Like)
+class LikeAdmin(admin.ModelAdmin):
+    list_display = ("user", "post", "created_at")
+    list_filter = ("created_at",)
+
 
 @admin.register(CustomUser)
 class CustomUserAdmin(UserAdmin):

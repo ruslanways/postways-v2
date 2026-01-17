@@ -11,26 +11,30 @@ if (document.getElementById("user") && likes.length) {
   likes.forEach((like) => like.addEventListener("click", makeLike));
 }
 
-// Create a WebSocket for live update likes
-const likeSocket = new WebSocket(
-  `wss://${window.location.host}/ws/socket-server/`
-);
 // Get post.id exists on a current page
 const posts_on_page = [];
 likes.forEach((like) => posts_on_page.push(like.id));
-// Console log of closed unexpectedly
-likeSocket.onclose = function (e) {
-  console.warn("WebSocket have closed unexpectedly");
-};
 
-likeSocket.onmessage = function (e) {
-  let data = JSON.parse(e.data);
-  if (posts_on_page.includes(data.post_id)) {
-    let like = document.getElementById(data.post_id);
-    const old_heart = like.innerHTML.trim().split(" ")[0];
-    like.innerHTML = old_heart + " " + data.like_count;
-  }
-};
+// Create a WebSocket for live update likes (all users see real-time updates)
+if (posts_on_page.length) {
+  const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const likeSocket = new WebSocket(
+    `${wsProtocol}//${window.location.host}/ws/socket-server/`
+  );
+
+  likeSocket.onclose = function (e) {
+    console.warn("WebSocket closed unexpectedly");
+  };
+
+  likeSocket.onmessage = function (e) {
+    let data = JSON.parse(e.data);
+    if (posts_on_page.includes(data.post_id)) {
+      let like = document.getElementById(data.post_id);
+      const old_heart = like.innerHTML.trim().split(" ")[0];
+      like.innerHTML = old_heart + " " + data.like_count;
+    }
+  };
+}
 // Send a POST request to add or delete like
 // Update a color and number of heart
 async function makeLike(evt) {

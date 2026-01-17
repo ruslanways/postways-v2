@@ -6,4 +6,4 @@ class DiaryConfig(AppConfig):
     name = 'apps.diary'
 
     def ready(self):
-        import apps.diary.signals
+        import apps.diary.signals  # noqa: F401

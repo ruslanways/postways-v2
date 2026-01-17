@@ -32,7 +32,7 @@ COPY . .
 
 # Create a non-root system user (no shell), and ensure app + venv are readable/writable
 RUN useradd --system --create-home --home-dir /home/appuser --shell /usr/sbin/nologin --user-group appuser && \
-    mkdir -p /app/staticfiles && \
+    mkdir -p /app/staticfiles /app/logs /app/media && \
     chown -R appuser:appuser /app /home/appuser /opt/venv
 
 # Ensure Python uses the project virtualenv by default.

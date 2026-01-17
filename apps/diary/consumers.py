@@ -1,24 +1,29 @@
 import json
-from channels.generic.websocket import WebsocketConsumer
-from asgiref.sync import async_to_sync
+import logging
+
+from channels.generic.websocket import AsyncWebsocketConsumer
+
+logger = logging.getLogger(__name__)
 
 
-class LikeConsumer(WebsocketConsumer):
-    def connect(self):
+class LikeConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
         self.room_group_name = "likes"
-        async_to_sync(self.channel_layer.group_add)(
-            self.room_group_name, self.channel_name
-        )
-        self.accept()
+        await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+        await self.accept()
 
-    def disconnect(self, close_code):
-        print("Socket Disconnected")
+    async def disconnect(self, close_code):
+        logger.debug("WebSocket disconnected with code %s", close_code)
+        await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
-    def like_message(self, event):
+    async def like_message(self, event):
         post_id = event["post_id"]
         like_count = event["like_count"]
         user_id = event["user_id"]
-        if self.scope["user"].id != user_id:
-            self.send(
+        # Don't send to the user who triggered the like (they update optimistically)
+        # Anonymous users (id=None) always receive updates
+        current_user_id = getattr(self.scope["user"], "id", None)
+        if current_user_id != user_id:
+            await self.send(
                 text_data=json.dumps({"post_id": post_id, "like_count": like_count})
             )

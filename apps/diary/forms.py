@@ -23,21 +23,19 @@ class CustomUserCreationForm(UserCreationForm):
     )
 
     agree = forms.BooleanField(
-                            label='Agree',
-                            required = True,
-                            disabled = False,
-                            widget=forms.widgets.CheckboxInput(
-                                attrs={'class': 'checkbox-inline'}),
-                                help_text = "I allow to use Cookies on that web-site",
-                                error_messages ={'required':'Please check the box'}
-                            )
+        label='Agree',
+        required=True,
+        disabled=False,
+        widget=forms.widgets.CheckboxInput(attrs={'class': 'checkbox-inline'}),
+        help_text="I allow to use Cookies on that web-site",
+        error_messages={'required': 'Please check the box'},
+    )
 
     class Meta(UserCreationForm.Meta):
         model = CustomUser
         fields = ('username', 'email', 'agree')
         widgets = {
             'username': forms.TextInput(attrs={'class':'form-control'}),
-            'agree': forms.CheckboxInput(attrs={'class':'form-control'}),
         }
 
 
@@ -58,7 +56,7 @@ class CustomPasswordResetForm(PasswordResetForm):
     )
 
 
-class CutomSetPasswordForm(SetPasswordForm):
+class CustomSetPasswordForm(SetPasswordForm):
 
     new_password1 = forms.CharField(
         label=_("New password"),
@@ -99,5 +97,5 @@ class UpdatePostForm(AddPostForm):
 
     class Meta(AddPostForm.Meta):
         help_texts = {
-            'image': _("if you don't wish to change the image - just left it unattached here"),
+            'image': _("If you don't wish to change the image, just leave it unattached here."),
         }

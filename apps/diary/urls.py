@@ -2,7 +2,6 @@ from django.urls import include, path
 from .views import (
     HomeView,
     HomeViewLikeOrdered,
-   
 
     SignUp,
     Login,
@@ -33,6 +32,7 @@ from .views import (
     LikeCreateDestroyAPIView,
     LikeDetailAPIView,
     getLikes,
+
 )
 from django.contrib.auth.views import LogoutView
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -67,7 +67,7 @@ urlpatterns = [
     path("api/v1/users/<int:pk>/", UserDetailAPIView.as_view(), name="user-detail-update-destroy-api"),
     path("api/v1/auth/login/", TokenObtainPairView.as_view(), name="login-api"),
     path("api/v1/mylogin/", MyTokenObtainPairView.as_view(), name="my-login-api"),
-    path('api/v1/auth/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
+    path('api/v1/auth/token/verify/', TokenVerifyView.as_view(), name='token-verify-api'),
     path("api/v1/auth/token-refresh/", MyTokenRefreshView.as_view(), name="token-refresh-api"),
     path("api/v1/auth/token-recovery/", TokenRecoveryAPIView.as_view(), name="token-recovery-api"),
 

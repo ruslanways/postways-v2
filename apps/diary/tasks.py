@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 from django.utils import timezone
 from django.core.mail import send_mail
 from django.conf import settings
@@ -6,9 +6,9 @@ from celery import shared_task
 from .models import CustomUser, Post, Like
 
 
-@shared_task()
-def send_email_task(link_to_change_user, token, user_email):
-    """Sends an email when the feedback form has been submitted."""
+@shared_task
+def send_token_recovery_email(link_to_change_user, token, user_email):
+    """Sends a token recovery email to the user."""
     send_mail(
             "Postways token recovery",
             f"Here are your new access token expires in 5 min."
@@ -21,11 +21,10 @@ def send_email_task(link_to_change_user, token, user_email):
         )
 
 
-@shared_task()
+@shared_task
 def send_week_report():
-
     now = timezone.now()
-    week_ago = datetime.now()-timedelta(days=7)
+    week_ago = timezone.now() - timedelta(days=7)
     users = CustomUser.objects.filter(date_joined__range=(week_ago, now)).count()
     posts = Post.objects.filter(created__range=(week_ago, now)).count()
     likes = Like.objects.filter(created__range=(week_ago, now)).count()

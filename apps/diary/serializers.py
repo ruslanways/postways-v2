@@ -1,5 +1,4 @@
 import copy
-from pprint import pprint
 from rest_framework import serializers
 from .models import CustomUser, Like, Post
 from django.contrib.auth.password_validation import validate_password
@@ -77,7 +76,6 @@ class UserSerializer(serializers.HyperlinkedModelSerializer):
             "password": {
                 "style": {"input_type": "password"},
                 "write_only": True,
-                "validators": [validate_password],
             },
         }
         read_only_fields = (
@@ -184,7 +182,7 @@ class PostSerializer(serializers.HyperlinkedModelSerializer):
         write_only=True, required=False, default=True, initial=True
     )
     author = serializers.HyperlinkedRelatedField(
-        read_only=True, source="author.id", view_name="user-detail-update-destroy-api"
+        read_only=True, view_name="user-detail-update-destroy-api"
     )
     # Example way to associate new created post with current user:
     # author = serializers.HiddenField(write_only=True, default=serializers.CurrentUserDefault())
@@ -267,7 +265,7 @@ class LikeCreateDestroySerializer(serializers.HyperlinkedModelSerializer):
     """
     url = serializers.HyperlinkedIdentityField(view_name="like-detail-api")
     user = serializers.HyperlinkedRelatedField(
-        read_only=True, source="user.id", view_name="user-detail-update-destroy-api"
+        read_only=True, view_name="user-detail-update-destroy-api"
     )
     post = serializers.PrimaryKeyRelatedField(
        queryset=Post.objects.all()
