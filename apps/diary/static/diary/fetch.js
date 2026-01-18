@@ -67,11 +67,11 @@ function connectWebSocket(forceReconnect = false) {
   socket.onmessage = (event) => {
     const { post_id, like_count } = JSON.parse(event.data);
 
-    // Only update if this post is on the current page
-    if (postIds.includes(post_id)) {
-      const element = document.getElementById(post_id);
-      const currentHeart = element.innerHTML.trim().split(" ")[0];
-      element.innerHTML = `${currentHeart} ${like_count}`;
+    // Only update if this post is on the current page and element exists
+    const element = document.getElementById(post_id);
+    if (element) {
+      const currentHeart = element.textContent.trim().split(" ")[0];
+      element.textContent = `${currentHeart} ${like_count}`;
     }
   };
 
@@ -93,13 +93,16 @@ async function handleLikeClick(event) {
   const [heart, count] = element.innerHTML.trim().split(" ");
   const isLiked = heart.charCodeAt(0) === 10084; // ❤ (filled heart)
 
+  // Store original state for potential rollback
+  const originalHTML = element.innerHTML;
+
   // Optimistic update: toggle heart and adjust count immediately
   const newHeart = isLiked ? "&#9825;" : "&#10084;"; // ♡ or ❤
   const newCount = isLiked ? Number(count) - 1 : Number(count) + 1;
   element.innerHTML = `${newHeart} ${newCount}`;
 
   try {
-    await fetch(element.href, {
+    const response = await fetch(element.href, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -107,10 +110,16 @@ async function handleLikeClick(event) {
       },
       body: JSON.stringify({ post: element.id }),
     });
-    // Server broadcasts update via WebSocket, which syncs all clients
+
+    // Rollback if server rejected the request
+    if (!response.ok) {
+      console.warn("Like request failed with status:", response.status);
+      element.innerHTML = originalHTML;
+    }
   } catch (error) {
-    // On error, WebSocket will eventually sync the correct state
+    // Network error - rollback
     console.warn("Like request failed:", error);
+    element.innerHTML = originalHTML;
   }
 }
 
