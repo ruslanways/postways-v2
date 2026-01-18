@@ -1,4 +1,5 @@
 from django.shortcuts import redirect, resolve_url
+from django.contrib import messages
 from django.urls import reverse_lazy
 from django.views.generic import ListView, DetailView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
@@ -120,13 +121,21 @@ class CustomPasswordResetConfirmView(PasswordResetConfirmView):
     form_class = CustomSetPasswordForm
 
 
-class AuthorListView(UserPassesTestMixin, ListView):
-    template_name = "diary/customuser_list.html"
+class StaffRequiredMixin(UserPassesTestMixin):
+    """Mixin that requires staff access and redirects to home with a message if denied."""
+
     permission_denied_message = "Access for staff only!"
-    raise_exception = False
 
     def test_func(self):
         return self.request.user.is_staff
+
+    def handle_no_permission(self):
+        messages.warning(self.request, self.permission_denied_message)
+        return redirect("home")
+
+
+class AuthorListView(StaffRequiredMixin, ListView):
+    template_name = "diary/customuser_list.html"
 
     def get_queryset(self):
         """
@@ -179,15 +188,10 @@ class AuthorDetailView(UserPassesTestMixin, DetailView, MultipleObjectMixin):
         return context
 
 
-class PostListView(UserPassesTestMixin, HomeView, ListView):
+class PostListView(StaffRequiredMixin, HomeView, ListView):
     template_name = "diary/post_list.html"
     queryset = Post.objects.annotate(Count("like")).select_related("author")
     # ordering = ['-updated', '-like__count'] inherit from parent class
-
-    permission_denied_message = "Access for staff only!"
-
-    def test_func(self):
-        return self.request.user.is_staff
 
 
 class PostCreateView(LoginRequiredMixin, CreateView):

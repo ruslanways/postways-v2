@@ -41,7 +41,8 @@ class UserLastRequestMiddleware:
 
         if should_update:
             # Use update() to handle case where user was deleted during request
-            type(user).objects.filter(pk=user.pk).update(last_request=now)
+            # Use _meta.model to get the actual model class (works with SimpleLazyObject)
+            user._meta.model.objects.filter(pk=user.pk).update(last_request=now)
 
 
 class UncaughtExceptionMiddleware:
