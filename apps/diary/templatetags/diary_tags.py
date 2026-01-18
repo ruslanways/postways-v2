@@ -8,7 +8,7 @@ register = template.Library()
 def like_or_unlike(author, post):
     return (
         "&#10084;"
-        if Like.objects.filter(author=author, post=post).exists()
+        if Like.objects.filter(user=author, post=post).exists()
         else "&#9825;"
     )
 

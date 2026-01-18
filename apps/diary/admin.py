@@ -5,15 +5,15 @@ from .models import CustomUser, Post, Like
 
 @admin.register(Post)
 class PostAdmin(admin.ModelAdmin):
-    list_display = ("title", "author", "created_at")
-    list_filter = ("created_at", "author")
+    list_display = ("title", "author", "created")
+    list_filter = ("created", "author")
     search_fields = ("title", "content")
 
 
 @admin.register(Like)
 class LikeAdmin(admin.ModelAdmin):
-    list_display = ("user", "post", "created_at")
-    list_filter = ("created_at",)
+    list_display = ("user", "post", "created")
+    list_filter = ("created",)
 
 
 @admin.register(CustomUser)

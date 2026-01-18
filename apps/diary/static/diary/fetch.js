@@ -1,87 +1,158 @@
-/*
-using Fetch-api to like posts
-by making POST-requests to Django LikeCreateDestroyAPIView
-*/
-// get csrftoken for POST-request with Fetch
-const csrftoken = getCookie("csrftoken");
-// Get all "like" <div>'s elements to operate with
-const likes = document.querySelectorAll(".like");
-// Add addEventListener to all .like element only if the user is authenticated
-if (document.getElementById("user") && likes.length) {
-  likes.forEach((like) => like.addEventListener("click", makeLike));
+/**
+ * Real-time likes system using Fetch API and WebSocket
+ *
+ * Features:
+ * - Optimistic UI updates when liking/unliking posts
+ * - Real-time like count sync via WebSocket for all users
+ * - Automatic reconnection on back/forward navigation (bfcache)
+ * - Fresh data fetch after navigation to prevent stale state
+ */
+
+// =============================================================================
+// UTILITIES
+// =============================================================================
+
+/**
+ * Extract a cookie value by name
+ */
+function getCookie(name) {
+  if (!document.cookie) return null;
+
+  const cookie = document.cookie
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith(name + "="));
+
+  return cookie ? decodeURIComponent(cookie.split("=")[1]) : null;
 }
 
-// Get post.id exists on a current page
-const posts_on_page = [];
-likes.forEach((like) => posts_on_page.push(like.id));
+// =============================================================================
+// INITIALIZATION
+// =============================================================================
 
-// Create a WebSocket for live update likes (all users see real-time updates)
-if (posts_on_page.length) {
-  const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const likeSocket = new WebSocket(
-    `${wsProtocol}//${window.location.host}/ws/socket-server/`
-  );
+const csrfToken = getCookie("csrftoken");
+const likeElements = document.querySelectorAll(".like");
+const postIds = Array.from(likeElements).map((el) => el.id);
+const isAuthenticated = Boolean(document.getElementById("user"));
 
-  likeSocket.onclose = function (e) {
-    console.warn("WebSocket closed unexpectedly");
-  };
+// Only attach click handlers for authenticated users
+if (isAuthenticated && likeElements.length) {
+  likeElements.forEach((el) => el.addEventListener("click", handleLikeClick));
+}
 
-  likeSocket.onmessage = function (e) {
-    let data = JSON.parse(e.data);
-    if (posts_on_page.includes(data.post_id)) {
-      let like = document.getElementById(data.post_id);
-      const old_heart = like.innerHTML.trim().split(" ")[0];
-      like.innerHTML = old_heart + " " + data.like_count;
+// =============================================================================
+// WEBSOCKET - Real-time like updates
+// =============================================================================
+
+let socket = null;
+
+/**
+ * Create WebSocket connection for real-time like updates
+ * All users (authenticated and anonymous) receive live updates
+ */
+function connectWebSocket(forceReconnect = false) {
+  if (!postIds.length) return;
+
+  // Skip if already connected (unless forcing reconnect)
+  if (socket && socket.readyState === WebSocket.OPEN && !forceReconnect) return;
+
+  // Close existing connection before creating new one
+  if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+    socket.close();
+  }
+
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  socket = new WebSocket(`${protocol}//${window.location.host}/ws/socket-server/`);
+
+  socket.onmessage = (event) => {
+    const { post_id, like_count } = JSON.parse(event.data);
+
+    // Only update if this post is on the current page
+    if (postIds.includes(post_id)) {
+      const element = document.getElementById(post_id);
+      const currentHeart = element.innerHTML.trim().split(" ")[0];
+      element.innerHTML = `${currentHeart} ${like_count}`;
     }
   };
+
+  socket.onclose = () => console.warn("WebSocket closed");
 }
-// Send a POST request to add or delete like
-// Update a color and number of heart
-async function makeLike(evt) {
-  // Prevent default browser following link behaviour
-  // We could use not <a>, but then it would not be in the form of link-hand
-  evt.preventDefault();
-  // Get current heart+number
-  let content = this.innerHTML.trim().split(" ");
-  // Change hear to opposite color and increment or decrement number
-  if (content[0].charCodeAt(0) === 10084) {
-    content[0] = "&#9825;";
-    --content[1];
-  } else {
-    content[0] = "&#10084;";
-    ++content[1];
-  }
-  this.innerHTML = `${content[0]} ${content[1]}`;
+
+// =============================================================================
+// LIKE FUNCTIONALITY
+// =============================================================================
+
+/**
+ * Handle like/unlike click with optimistic UI update
+ * Updates UI immediately, then sends request to server
+ */
+async function handleLikeClick(event) {
+  event.preventDefault();
+
+  const element = this;
+  const [heart, count] = element.innerHTML.trim().split(" ");
+  const isLiked = heart.charCodeAt(0) === 10084; // ❤ (filled heart)
+
+  // Optimistic update: toggle heart and adjust count immediately
+  const newHeart = isLiked ? "&#9825;" : "&#10084;"; // ♡ or ❤
+  const newCount = isLiked ? Number(count) - 1 : Number(count) + 1;
+  element.innerHTML = `${newHeart} ${newCount}`;
+
   try {
-    // 'this' reffers to as addEventListener object abs url
-    await fetch(this.href, {
+    await fetch(element.href, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json;charset=utf-8",
-        "X-CSRFToken": csrftoken,
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrfToken,
       },
-      body: JSON.stringify({ post: this.id }),
+      body: JSON.stringify({ post: element.id }),
     });
-  } catch (err) {
-    // If error happend while fetching - the error will show in console,
-    // but no like correction happend, because it automatically checks
-    // in WebSocket below
-    console.warn(err);
+    // Server broadcasts update via WebSocket, which syncs all clients
+  } catch (error) {
+    // On error, WebSocket will eventually sync the correct state
+    console.warn("Like request failed:", error);
   }
 }
-// Get cookie for any needs (e.g. csrftoken)
-function getCookie(name) {
-  let cookieValue = null;
-  if (document.cookie && document.cookie !== "") {
-    const cookies = document.cookie.split(";");
-    for (let i = 0; i < cookies.length; i++) {
-      const cookie = cookies[i].trim();
-      // Does this cookie string begin with the name we want?
-      if (cookie.substring(0, name.length + 1) === name + "=") {
-        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-        break;
+
+/**
+ * Fetch fresh like counts from server for all posts on page
+ * Used after back/forward navigation to prevent stale data
+ */
+async function refreshLikeCounts() {
+  const requests = postIds.map(async (postId) => {
+    try {
+      const response = await fetch(`/likes_count_on_post/${postId}/`);
+      if (response.ok) {
+        document.getElementById(postId).innerHTML = await response.text();
       }
+    } catch (error) {
+      console.warn(`Failed to refresh likes for post ${postId}:`, error);
+    }
+  });
+
+  await Promise.all(requests);
+}
+
+// =============================================================================
+// PAGE LIFECYCLE - Handle navigation and visibility changes
+// =============================================================================
+
+// Initial WebSocket connection
+connectWebSocket();
+
+// Reconnect and refresh when page is restored from bfcache (back/forward navigation)
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) {
+    connectWebSocket(true);
+    refreshLikeCounts();
+  }
+});
+
+// Reconnect when tab becomes visible again (after being hidden)
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      connectWebSocket();
     }
   }
-  return cookieValue;
-}
+});

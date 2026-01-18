@@ -66,6 +66,7 @@ ehthumbs.db
 Thumbs.db
 
 # Django
+logs/
 *.log
 *.pot
 db.sqlite3
