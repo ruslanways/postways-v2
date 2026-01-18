@@ -11,6 +11,9 @@ Usage:
     # Custom counts
     python manage.py seed_demo_data --users=20 --posts=100 --max-likes=30
 
+    # Include random images from picsum.photos
+    python manage.py seed_demo_data --with-images
+
     # Clear existing data before seeding (preserves staff/superusers)
     python manage.py seed_demo_data --clear
 
@@ -18,27 +21,31 @@ Usage:
     docker compose -f docker/docker-compose.yml exec web python manage.py seed_demo_data
 
 Arguments:
-    --users      Number of demo users to create (default: 10)
-    --posts      Number of posts to create (default: 50)
-    --max-likes  Maximum likes per post, randomly distributed (default: 20)
-    --clear      Delete demo data only (posts/likes by non-staff users, then the users)
+    --users       Number of demo users to create (default: 10)
+    --posts       Number of posts to create (default: 50)
+    --max-likes   Maximum likes per post, randomly distributed (default: 20)
+    --with-images Download random images from picsum.photos for each post
+    --clear       Delete demo data only (posts/likes by non-staff users, then the users)
 
 What gets created:
     - Users with unique usernames/emails (password: "demo12345"), joined 90-180 days ago
-    - Posts with varied titles (4-8 words) and content (1-6 paragraphs), no images
+    - Posts with varied titles (4-8 words) and content (1-6 paragraphs)
+    - Random images from picsum.photos (800x600) when --with-images is used
     - Post dates are always after their author's join date
     - Likes randomly distributed across posts from the created users
 
 Notes:
-    - Posts are created without images. Add featured images via admin if needed.
+    - Use --with-images to download random images (slower due to network requests).
     - The --clear flag only deletes data from non-staff/non-superuser accounts.
     - All operations run in a single database transaction (atomic).
 """
 
 import random
+import urllib.request
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
@@ -58,6 +65,11 @@ class Command(BaseCommand):
         parser.add_argument("--posts", type=int, default=50)
         parser.add_argument("--max-likes", type=int, default=20)
         parser.add_argument("--clear", action="store_true", help="Clear existing demo data first")
+        parser.add_argument(
+            "--with-images",
+            action="store_true",
+            help="Download random images from picsum.photos for each post",
+        )
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -97,8 +109,10 @@ class Command(BaseCommand):
             users.append(user)
 
         self.stdout.write("Creating posts...")
-        posts_data = []
-        for _ in range(posts_count):
+        with_images = options["with_images"]
+        posts = []
+
+        for i in range(posts_count):
             author = random.choice(users)
             # Post created between user's join date and now
             days_since_joined = (now - author.date_joined).days
@@ -107,25 +121,32 @@ class Command(BaseCommand):
                 hours=random.randint(0, 23),
                 minutes=random.randint(0, 59),
             )
-            posts_data.append((author, post_date))
 
-        posts = Post.objects.bulk_create([
-            Post(
+            post = Post(
                 author=author,
                 title=fake.sentence(nb_words=random.randint(4, 8)),
                 content="\n\n".join(fake.paragraphs(random.randint(1, 6))),
             )
-            for author, _ in posts_data
-        ])
+
+            if with_images:
+                image_data = self._download_random_image()
+                if image_data:
+                    filename = f"demo_{fake.uuid4()}.jpg"
+                    post.image.save(filename, ContentFile(image_data), save=False)
+                if (i + 1) % 10 == 0:
+                    self.stdout.write(f"  Created {i + 1}/{posts_count} posts with images...")
+
+            post.save()
+            posts.append((post, post_date))
 
         # Assign creation dates (post dates must be after author's join date)
-        for post, (_, post_date) in zip(posts, posts_data):
+        for post, post_date in posts:
             post.created = post_date
-        Post.objects.bulk_update(posts, ["created"])
+        Post.objects.bulk_update([p for p, _ in posts], ["created"])
 
         self.stdout.write("Creating likes...")
         likes_to_create = []
-        for post in posts:
+        for post, _ in posts:
             likers = random.sample(users, random.randint(0, min(len(users), max_likes)))
             for user in likers:
                 likes_to_create.append(Like(user=user, post=post))
@@ -133,3 +154,15 @@ class Command(BaseCommand):
         Like.objects.bulk_create(likes_to_create, ignore_conflicts=True)
 
         self.stdout.write(self.style.SUCCESS("Demo data created successfully"))
+
+    def _download_random_image(self):
+        """Download a random image from picsum.photos."""
+        try:
+            # Request a random 800x600 image
+            url = "https://picsum.photos/800/600"
+            request = urllib.request.Request(url, headers={"User-Agent": "PostwaysSeeder/1.0"})
+            with urllib.request.urlopen(request, timeout=10) as response:
+                return response.read()
+        except Exception as e:
+            self.stderr.write(f"Failed to download image: {e}")
+            return None
