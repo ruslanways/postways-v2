@@ -82,6 +82,9 @@ celerybeat-schedule
 celerybeat.pid
 *.pid
 
+# Runtime data
+var/
+
 # Redis
 dump.rdb
 

@@ -8,6 +8,7 @@ app = Celery("postways_celery")
 app.config_from_object("django.conf:settings", namespace="CELERY")
 app.autodiscover_tasks()
 
+app.conf.beat_schedule_filename = 'var/celerybeat-schedule'
 app.conf.beat_schedule = {
     'week-report': {
         'task': 'apps.diary.tasks.send_week_report',

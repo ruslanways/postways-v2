@@ -80,7 +80,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: celery -A config beat -l info
+    # mkdir needed because bind mount overwrites Dockerfile's mkdir
+    command: sh -c "mkdir -p /app/var && celery -A config beat -l info"
     restart: unless-stopped
 
 volumes:
