@@ -53,19 +53,21 @@
               </ul>
             </li>
           </ul>
-          <form class="d-flex" role="search">
+          <div class="d-flex">
             {% if request.user.is_authenticated %}
             <button type="button" id="user" class="btn btn-sm btn-outline-secondary {% if view.template_name == 'diary/customuser_detail.html' %}active{% endif %}"
               onclick="location.href='{% url 'author-detail' user.pk %}';">{{user.username}}</button>
-            <button type="button" class="btn btn-sm btn-outline-secondary"
-              onclick="location.href='{% url 'logout' %}';">Logout</button>
+            <form method="post" action="{% url 'logout' %}" style="display: inline;">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-secondary">Logout</button>
+            </form>
             {% else %}
             <button type="button" class="btn btn-sm btn-outline-secondary {% if view.template_name == 'registration/signup.html' %}active{% endif %}"
               onclick="location.href='{% url 'signup' %}';">Signup</button>
             <button type="button" class="btn btn-sm btn-outline-secondary {% if view.template_name == 'registration/login.html' %}active{% endif %}"
               onclick="location.href='{% url 'login' %}';">Login</button>
             {% endif %}
-          </form>
+          </div>
         </div>
       </div>
     </nav>
