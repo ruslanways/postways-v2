@@ -4,7 +4,7 @@ import re
 from unittest import skip
 
 from .test_fixture import DiaryAPITestCase
-from diary.models import CustomUser
+from apps.diary.models import CustomUser
 from rest_framework import status
 from rest_framework.reverse import reverse
 from django.core import mail

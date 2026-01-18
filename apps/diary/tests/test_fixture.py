@@ -1,5 +1,5 @@
 
-from diary.models import CustomUser, Post, Like
+from apps.diary.models import CustomUser, Post, Like
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 

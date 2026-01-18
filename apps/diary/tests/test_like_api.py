@@ -4,11 +4,11 @@ import re
 from unittest import skip
 
 from .test_fixture import DiaryAPITestCase
-from diary.serializers import (
+from apps.diary.serializers import (
     LikeSerializer,
     LikeDetailSerializer,
 )
-from diary.models import Like
+from apps.diary.models import Like
 from rest_framework import status
 from rest_framework.reverse import reverse
 from django.db.models import Count

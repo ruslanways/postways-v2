@@ -40,8 +40,8 @@ class UserLastRequestMiddleware:
             should_update = elapsed > self.UPDATE_INTERVAL_SECONDS
 
         if should_update:
-            user.last_request = now
-            user.save(update_fields=["last_request"])
+            # Use update() to handle case where user was deleted during request
+            type(user).objects.filter(pk=user.pk).update(last_request=now)
 
 
 class UncaughtExceptionMiddleware:

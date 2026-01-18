@@ -4,11 +4,11 @@ import re
 from unittest import skip
 
 from .test_fixture import DiaryAPITestCase
-from diary.serializers import (
+from apps.diary.serializers import (
     PostSerializer,
     PostDetailSerializer,
 )
-from diary.models import Post
+from apps.diary.models import Post
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.settings import api_settings
