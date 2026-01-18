@@ -30,7 +30,7 @@ Arguments:
 What gets created:
     - Users with unique usernames/emails (password: "demo12345"), joined 90-180 days ago
     - Posts with varied titles (4-8 words) and content (1-6 paragraphs)
-    - Random images from picsum.photos (800x600) when --with-images is used
+    - Random images from picsum.photos with varied dimensions when --with-images is used
     - Post dates are always after their author's join date
     - Likes randomly distributed across posts from the created users
 
@@ -139,10 +139,11 @@ class Command(BaseCommand):
             post.save()
             posts.append((post, post_date))
 
-        # Assign creation dates (post dates must be after author's join date)
+        # Assign creation/updated dates (post dates must be after author's join date)
         for post, post_date in posts:
             post.created = post_date
-        Post.objects.bulk_update([p for p, _ in posts], ["created"])
+            post.updated = post_date
+        Post.objects.bulk_update([p for p, _ in posts], ["created", "updated"])
 
         self.stdout.write("Creating likes...")
         likes_to_create = []
@@ -156,10 +157,22 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("Demo data created successfully"))
 
     def _download_random_image(self):
-        """Download a random image from picsum.photos."""
+        """Download a random image from picsum.photos with varied dimensions."""
+        # Various aspect ratios and sizes for visual variety
+        dimensions = [
+            (800, 600),   # 4:3 landscape
+            (600, 800),   # 3:4 portrait
+            (1000, 600),  # wide landscape
+            (600, 400),   # small landscape
+            (700, 700),   # square
+            (900, 500),   # panoramic
+            (500, 750),   # tall portrait
+            (1200, 900),  # large landscape
+            (3000, 2000), # iPhone-like large
+        ]
+        width, height = random.choice(dimensions)
         try:
-            # Request a random 800x600 image
-            url = "https://picsum.photos/800/600"
+            url = f"https://picsum.photos/{width}/{height}"
             request = urllib.request.Request(url, headers={"User-Agent": "PostwaysSeeder/1.0"})
             with urllib.request.urlopen(request, timeout=10) as response:
                 return response.read()
