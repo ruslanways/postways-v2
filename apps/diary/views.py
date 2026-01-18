@@ -1,4 +1,4 @@
-from django.shortcuts import get_object_or_404, redirect, resolve_url
+from django.shortcuts import redirect, resolve_url
 from django.urls import reverse_lazy
 from django.views.generic import ListView, DetailView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
@@ -21,7 +21,7 @@ from .forms import (
     UpdatePostForm,
 )
 from django.conf import settings
-from django.http import HttpResponse
+from django.http import JsonResponse
 from rest_framework import generics, status
 from .serializers import (
     LikeCreateDestroySerializer,
@@ -380,21 +380,40 @@ class LikeCreateDestroyAPIView(generics.CreateAPIView):
         return response
 
 
-def getLikes(request, post_id):
+def get_likes_batch(request):
     """
-    View to help update likes for updateLike function in fetch.js
+    Batch endpoint to get like counts for multiple posts in a single request.
+    URL: GET /likes_counts/?ids=1,2,3
+    Returns JSON: {"1": {"count": 5, "liked": true}, "2": {"count": 3, "liked": false}}
     """
-    post = get_object_or_404(Post, pk=post_id)
-    like_count = post.like_set.count()
+    ids_param = request.GET.get("ids", "")
+    if not ids_param:
+        return JsonResponse({})
 
-    if (
-        request.user.is_authenticated
-        and post.like_set.filter(user=request.user).exists()
-    ):
-        heart = "&#10084;"
-    else:
-        heart = "&#9825;"
-    return HttpResponse(f"{heart} {like_count}")
+    try:
+        post_ids = [int(id.strip()) for id in ids_param.split(",") if id.strip()]
+    except ValueError:
+        return JsonResponse({"error": "Invalid post IDs"}, status=400)
+
+    if not post_ids:
+        return JsonResponse({})
+
+    posts = Post.objects.filter(id__in=post_ids).annotate(like_count=Count("like"))
+
+    user_liked_ids = set()
+    if request.user.is_authenticated:
+        user_liked_ids = set(
+            Like.objects.filter(user=request.user, post_id__in=post_ids).values_list(
+                "post_id", flat=True
+            )
+        )
+
+    result = {
+        str(post.id): {"count": post.like_count, "liked": post.id in user_liked_ids}
+        for post in posts
+    }
+
+    return JsonResponse(result)
 
 
 class MyTokenRefreshView(TokenRefreshView):

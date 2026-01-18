@@ -31,7 +31,7 @@ from .views import (
     LikeAPIView,
     LikeCreateDestroyAPIView,
     LikeDetailAPIView,
-    getLikes,
+    get_likes_batch,
 
 )
 from django.contrib.auth.views import LogoutView
@@ -77,5 +77,5 @@ urlpatterns = [
     path("api/v1/likes/", LikeAPIView.as_view(), name="like-list-api"),
     path("api/v1/likes/<int:pk>/", LikeDetailAPIView.as_view(), name="like-detail-api"),
     path("api/v1/likes/add/", LikeCreateDestroyAPIView.as_view(), name="like-create-destroy-post-api"),
-    path("likes_count_on_post/<int:post_id>/", getLikes, name="like-count-on-post"),
+    path("likes_counts/", get_likes_batch, name="likes-counts-batch"),
 ]

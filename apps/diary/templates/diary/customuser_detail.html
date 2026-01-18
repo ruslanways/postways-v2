@@ -29,7 +29,7 @@
     </a>
     <br>
     <a href="{% url 'like-create-destroy-post-api' %}" id="{{ post.id }}" class="like">
-        {% autoescape off %}{% like_or_unlike user post %}{% endautoescape %} {{ post.like_set.count }}
+        <span class="heart">{% autoescape off %}{% like_or_unlike user post %}{% endautoescape %}</span> <span class="count">{{ post.like_set.count }}</span>
     </a>
 </p>
 </div>

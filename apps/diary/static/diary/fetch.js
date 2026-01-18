@@ -68,10 +68,9 @@ function connectWebSocket(forceReconnect = false) {
     const { post_id, like_count } = JSON.parse(event.data);
 
     // Only update if this post is on the current page and element exists
-    const element = document.getElementById(post_id);
-    if (element) {
-      const currentHeart = element.textContent.trim().split(" ")[0];
-      element.textContent = `${currentHeart} ${like_count}`;
+    const countEl = document.getElementById(post_id)?.querySelector(".count");
+    if (countEl) {
+      countEl.textContent = like_count;
     }
   };
 
@@ -90,16 +89,18 @@ async function handleLikeClick(event) {
   event.preventDefault();
 
   const element = this;
-  const [heart, count] = element.innerHTML.trim().split(" ");
-  const isLiked = heart.charCodeAt(0) === 10084; // ❤ (filled heart)
+  const heartEl = element.querySelector(".heart");
+  const countEl = element.querySelector(".count");
+
+  const isLiked = heartEl.textContent.charCodeAt(0) === 10084; // ❤ (filled heart)
 
   // Store original state for potential rollback
-  const originalHTML = element.innerHTML;
+  const originalHeart = heartEl.textContent;
+  const originalCount = countEl.textContent;
 
   // Optimistic update: toggle heart and adjust count immediately
-  const newHeart = isLiked ? "&#9825;" : "&#10084;"; // ♡ or ❤
-  const newCount = isLiked ? Number(count) - 1 : Number(count) + 1;
-  element.innerHTML = `${newHeart} ${newCount}`;
+  heartEl.textContent = isLiked ? "♡" : "❤";
+  countEl.textContent = isLiked ? Number(originalCount) - 1 : Number(originalCount) + 1;
 
   try {
     const response = await fetch(element.href, {
@@ -114,32 +115,51 @@ async function handleLikeClick(event) {
     // Rollback if server rejected the request
     if (!response.ok) {
       console.warn("Like request failed with status:", response.status);
-      element.innerHTML = originalHTML;
+      heartEl.textContent = originalHeart;
+      countEl.textContent = originalCount;
     }
   } catch (error) {
     // Network error - rollback
     console.warn("Like request failed:", error);
-    element.innerHTML = originalHTML;
+    heartEl.textContent = originalHeart;
+    countEl.textContent = originalCount;
   }
 }
 
 /**
  * Fetch fresh like counts from server for all posts on page
+ * Uses batch endpoint to get all counts in a single request
  * Used after back/forward navigation to prevent stale data
  */
 async function refreshLikeCounts() {
-  const requests = postIds.map(async (postId) => {
-    try {
-      const response = await fetch(`/likes_count_on_post/${postId}/`);
-      if (response.ok) {
-        document.getElementById(postId).innerHTML = await response.text();
-      }
-    } catch (error) {
-      console.warn(`Failed to refresh likes for post ${postId}:`, error);
-    }
-  });
+  if (!postIds.length) return;
 
-  await Promise.all(requests);
+  try {
+    const response = await fetch(`/likes_counts/?ids=${postIds.join(",")}`);
+    if (!response.ok) {
+      console.warn("Failed to refresh likes:", response.status);
+      return;
+    }
+
+    const data = await response.json();
+
+    for (const [postId, info] of Object.entries(data)) {
+      const element = document.getElementById(postId);
+      if (!element) continue;
+
+      const heartEl = element.querySelector(".heart");
+      const countEl = element.querySelector(".count");
+
+      if (heartEl) {
+        heartEl.textContent = info.liked ? "❤" : "♡";
+      }
+      if (countEl) {
+        countEl.textContent = info.count;
+      }
+    }
+  } catch (error) {
+    console.warn("Failed to refresh likes:", error);
+  }
 }
 
 // =============================================================================

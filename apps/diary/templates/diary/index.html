@@ -43,11 +43,11 @@
             </a>
             <br>
             {% if user.is_authenticated and post in liked_by_user %}
-            <a href="{% url 'like-create-destroy-post-api' %}" id="{{ post.id }}" class="like">&#10084; {{ post.like__count }}</a>
+            <a href="{% url 'like-create-destroy-post-api' %}" id="{{ post.id }}" class="like"><span class="heart">&#10084;</span> <span class="count">{{ post.like__count }}</span></a>
             {% elif user.is_authenticated %}
-            <a href="{% url 'like-create-destroy-post-api' %}" id="{{ post.id }}" class="like">&#9825; {{ post.like__count }}</a>
+            <a href="{% url 'like-create-destroy-post-api' %}" id="{{ post.id }}" class="like"><span class="heart">&#9825;</span> <span class="count">{{ post.like__count }}</span></a>
             {% else %}
-            <a href="{% url 'login' %}" id="{{ post.id }}" class="like">&#9825; {{ post.like__count }}</a>
+            <a href="{% url 'login' %}" id="{{ post.id }}" class="like"><span class="heart">&#9825;</span> <span class="count">{{ post.like__count }}</span></a>
             {% endif %}
         </p>
     </div>

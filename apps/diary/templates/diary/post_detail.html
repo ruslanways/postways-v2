@@ -22,11 +22,11 @@
 
 <div>
     {% if user.is_authenticated and object in liked_by_user %}
-    <a a href="{% url 'like-create-destroy-post-api' %}" id="{{ object.id }}" class="like">&#10084; {{ object.like__count }}</a>
+    <a href="{% url 'like-create-destroy-post-api' %}" id="{{ object.id }}" class="like"><span class="heart">&#10084;</span> <span class="count">{{ object.like__count }}</span></a>
     {% elif user.is_authenticated %}
-    <a href="{% url 'like-create-destroy-post-api' %}" id="{{ object.id }}" class="like">&#9825; {{ object.like__count }}</a>
+    <a href="{% url 'like-create-destroy-post-api' %}" id="{{ object.id }}" class="like"><span class="heart">&#9825;</span> <span class="count">{{ object.like__count }}</span></a>
     {% else %}
-    <a href="{% url 'login' %}" id="{{ object.id }}" class="like">&#9825; {{ object.like__count }}</a>
+    <a href="{% url 'login' %}" id="{{ object.id }}" class="like"><span class="heart">&#9825;</span> <span class="count">{{ object.like__count }}</span></a>
     {% endif %}
     &nbsp;&nbsp;
     <p class="author" style="display: inline-block;"><a href="{% url 'author-detail' post.author.pk %}">{{ object.author.username }}</a>
