@@ -4,9 +4,6 @@ Django models for the diary application.
 This module contains the data models for user authentication, blog posts,
 and user interactions (likes).
 """
-from pathlib import Path
-
-from PIL import Image, ImageOps
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
@@ -105,54 +102,25 @@ class Post(models.Model):
 
     def save(self, *args, **kwargs):
         """
-        Override save to handle image processing.
-        
-        When an image is uploaded:
-        1. Resize the main image to a maximum of 2000x2000 pixels
-        2. Generate a 300x300 thumbnail
-        3. Save both images and update the model fields
+        Override save to trigger async image processing.
+
+        When a new image is uploaded, saves the model and triggers
+        a Celery task to resize the image and generate a thumbnail.
         """
-        # Save the model first to ensure we have an image path
+        # Track if this is a new image upload
+        is_new_image = False
+        if self.pk:
+            old_image = Post.objects.filter(pk=self.pk).values_list('image', flat=True).first()
+            is_new_image = self.image and self.image.name != old_image
+        elif self.image:
+            is_new_image = True
+
         super().save(*args, **kwargs)
 
-        # Process image if one was uploaded
-        if self.image:
-            # Open and process the main image
-            with Image.open(self.image.path) as img:
-                img_format = img.format
-                max_size = (2000, 2000)
-
-                # Resize main image while maintaining aspect ratio
-                img_copy = img.copy()
-                img_copy.thumbnail(max_size, Image.Resampling.LANCZOS)
-                img_copy.save(self.image.path, format=img_format)
-
-                # Generate thumbnail: 300x300 cropped to fit
-                thumbnail_size = (300, 300)
-                thumb_img = ImageOps.fit(
-                    img_copy,
-                    thumbnail_size,
-                    method=Image.Resampling.LANCZOS,
-                    centering=(0.5, 0.5),
-                )
-
-                # Ensure thumbnail directory exists
-                thumbnail_dir = Path(settings.MEDIA_ROOT) / "diary/images/thumbnails"
-                thumbnail_dir.mkdir(parents=True, exist_ok=True)
-
-                # Generate thumbnail filename with 'thumb_' prefix
-                original_filename = Path(self.image.name).name
-                thumbnail_path = thumbnail_dir / f"thumb_{original_filename}"
-
-                # Save thumbnail image
-                thumb_img.save(thumbnail_path, format=img_format)
-
-                # Update thumbnail field with relative path
-                thumbnail_rel_path = thumbnail_path.relative_to(settings.MEDIA_ROOT)
-                self.thumbnail.name = str(thumbnail_rel_path)
-
-                # Save only the thumbnail field to avoid recursion
-                super().save(update_fields=["thumbnail"], *args, **kwargs)
+        # Trigger async processing for new images
+        if is_new_image:
+            from .tasks import process_post_image
+            process_post_image.delay(self.pk)
 
     class Meta:
         """Meta options for Post model."""

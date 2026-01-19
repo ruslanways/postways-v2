@@ -55,7 +55,7 @@
     {% if post.image %}
     <div>
         <a href="{% url 'post-detail' post.pk %}">
-            <img src="{{ post.thumbnail.url }}" alt="" class="rounded float-left post-img">
+            <img src="{% if post.thumbnail %}{{ post.thumbnail.url }}{% else %}{{ post.image.url }}{% endif %}" alt="" class="rounded float-left post-img">
         </a>
     </div>
     {% endif %}
