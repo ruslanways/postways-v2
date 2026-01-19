@@ -23,7 +23,7 @@ class LikeConsumer(AsyncWebsocketConsumer):
         # Don't send to the user who triggered the like (they update optimistically)
         # Anonymous users (id=None) always receive updates
         current_user_id = getattr(self.scope["user"], "id", None)
-        if current_user_id != user_id:
+        if current_user_id is None or current_user_id != user_id:
             await self.send(
                 text_data=json.dumps({"post_id": post_id, "like_count": like_count})
             )

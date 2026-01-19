@@ -74,8 +74,13 @@ urlpatterns = [
     path("api/v1/posts/", PostAPIView.as_view(), name="post-list-create-api"),
     path("api/v1/posts/<int:pk>/", PostDetailAPIView.as_view(), name="post-detail-api"),
 
+    # Likes API endpoints:
+    # - Analytics: likes grouped by date with filtering (API clients only)
     path("api/v1/likes/", LikeAPIView.as_view(), name="like-list-api"),
+    # - Get single like details by ID (API clients only)
     path("api/v1/likes/<int:pk>/", LikeDetailAPIView.as_view(), name="like-detail-api"),
+    # - Toggle like on/off for a post (used by frontend fetch.js)
     path("api/v1/likes/add/", LikeCreateDestroyAPIView.as_view(), name="like-create-destroy-post-api"),
+    # - Batch fetch like counts for multiple posts (used by frontend after back/forward navigation)
     path("likes_counts/", get_likes_batch, name="likes-counts-batch"),
 ]

@@ -258,24 +258,37 @@ class LikeDetailSerializer(serializers.HyperlinkedModelSerializer):
 
 class LikeCreateDestroySerializer(serializers.HyperlinkedModelSerializer):
     """
-    Here I've used PrimaryKeyRelatedField for post field due to problem:
-    HyperlinkedRelatedField waits a URL, not pk(id). 
-    But in PrimaryKeyRelatedField case we get not URL-style value,
-    so we need to override post field representation with .to_representation
+    Serializer for toggling likes on posts.
+
+    Input: {"post": <post_id>}
+    Output (on create): Full like object with URLs
+
+    Note: Accepts post ID for input but returns post URL in output
+    for consistency with HyperlinkedModelSerializer pattern.
     """
+
     url = serializers.HyperlinkedIdentityField(view_name="like-detail-api")
     user = serializers.HyperlinkedRelatedField(
         read_only=True, view_name="user-detail-update-destroy-api"
     )
-    post = serializers.PrimaryKeyRelatedField(
-       queryset=Post.objects.all()
-    )
+    post = serializers.PrimaryKeyRelatedField(queryset=Post.objects.all())
+
     class Meta:
         model = Like
-        fields = "url", "id", "created", "user", "post"
+        fields = ("url", "id", "created", "user", "post")
+
+    def validate_post(self, value):
+        """Ensure users can only like published posts."""
+        if not value.published:
+            raise serializers.ValidationError("Cannot like an unpublished post.")
+        return value
 
     def to_representation(self, instance):
-        """Convert `post` from id to url."""
+        """Convert post from ID to URL in output."""
         ret = super().to_representation(instance)
-        ret['post'] = reverse("post-detail-api", kwargs={"pk": ret['post']}, request=self.context["request"])
+        ret["post"] = reverse(
+            "post-detail-api",
+            kwargs={"pk": instance.post_id},
+            request=self.context["request"],
+        )
         return ret

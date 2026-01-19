@@ -1,3 +1,5 @@
+import logging
+
 from django.shortcuts import redirect, resolve_url
 from django.contrib import messages
 from django.urls import reverse_lazy
@@ -12,6 +14,7 @@ from django.contrib.auth.views import (
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth import login
 from .models import Post, CustomUser, Like
+from django.db import IntegrityError, transaction
 from django.db.models import Count
 from .forms import (
     AddPostForm,
@@ -56,6 +59,8 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from .tasks import send_token_recovery_email
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+
+logger = logging.getLogger(__name__)
 
 
 class HomeView(ListView):
@@ -339,7 +344,13 @@ class LikeDetailAPIView(generics.RetrieveAPIView):
 
 class LikeCreateDestroyAPIView(generics.CreateAPIView):
     """
-    Create/Destroy Like with POST request.
+    Toggle like on a post.
+
+    POST with {"post": <id>}:
+    - If user hasn't liked the post → creates like → 201
+    - If user already liked the post → removes like → 204
+
+    Uses select_for_update() for atomicity and broadcasts updates via WebSocket.
     """
 
     permission_classes = (permissions.IsAuthenticated,)
@@ -347,41 +358,56 @@ class LikeCreateDestroyAPIView(generics.CreateAPIView):
     serializer_class = LikeCreateDestroySerializer
 
     def create(self, request, *args, **kwargs):
-        """
-        Override .create:
-        1) to add self.request.user to serializer user field,
-        2) to implement Destroying Like in case of duplicate Like exist
-        """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         post = serializer.validated_data["post"]
-        user = self.request.user
-        existing_like = self.queryset.filter(post=post, user=user).first()
+        user = request.user
 
-        if existing_like:
-            existing_like.delete()
-            response = Response(status=status.HTTP_204_NO_CONTENT)
-        else:
-            serializer.save(user=user)
-            headers = self.get_success_headers(serializer.data)
-            response = Response(
-                serializer.data, status=status.HTTP_201_CREATED, headers=headers
+        with transaction.atomic():
+            # Lock existing like row if present to prevent race conditions
+            existing_like = (
+                self.get_queryset()
+                .select_for_update()
+                .filter(post=post, user=user)
+                .first()
             )
 
-        # Broadcast like update to all connected WebSocket clients
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            "likes",
-            {
-                "type": "like.message",
-                "post_id": str(post.id),
-                "like_count": str(post.like_set.count()),
-                "user_id": user.id,
-            },
-        )
+            if existing_like:
+                existing_like.delete()
+                response = Response(status=status.HTTP_204_NO_CONTENT)
+            else:
+                try:
+                    serializer.save(user=user)
+                    headers = self.get_success_headers(serializer.data)
+                    response = Response(
+                        serializer.data, status=status.HTTP_201_CREATED, headers=headers
+                    )
+                except IntegrityError:
+                    # Race condition: another request created the like concurrently
+                    # Treat as toggle: delete the just-created like
+                    self.get_queryset().filter(post=post, user=user).delete()
+                    response = Response(status=status.HTTP_204_NO_CONTENT)
+
+        self._broadcast_like_update(post, user)
 
         return response
+
+    def _broadcast_like_update(self, post, user):
+        """Broadcast like count update via WebSocket."""
+        try:
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                "likes",
+                {
+                    "type": "like.message",
+                    "post_id": str(post.id),
+                    "like_count": str(post.like_set.count()),
+                    "user_id": user.id,
+                },
+            )
+        except Exception as e:
+            logger.warning("Failed to broadcast like update: %s", e)
 
 
 def get_likes_batch(request):
