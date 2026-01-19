@@ -160,6 +160,132 @@ All API endpoints are under `/api/v1/` and use JWT authentication (except regist
 
 *Unpublished posts require owner/admin access
 
+## Authentication Overview
+
+The project uses **dual authentication** - session-based for HTML views and JWT for the REST API.
+
+### 1. User Model
+
+**Custom User Model** (`apps/diary/models.py`):
+- Extends Django's `AbstractUser`
+- Uses `AUTH_USER_MODEL = "diary.CustomUser"` in settings
+- Adds `last_request` timestamp tracking
+- Email is unique and required
+
+### 2. HTML Views (Session-Based Authentication)
+
+**Configuration** (`config/settings.py`):
+```python
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "home"  # Note: Login view overrides this to redirect to profile
+LOGOUT_REDIRECT_URL = "home"
+```
+
+**Authentication Flow**:
+- **Sign Up**: `/signup/` → Creates user → Auto-logs in → Redirects to profile
+- **Login**: `/login/` → Session created → Redirects to profile (via `get_default_redirect_url()` override)
+- **Logout**: `/logout/` → Session destroyed → Redirects to home
+- **Password Reset**: Standard Django password reset flow
+
+**Views** (`apps/diary/views/html.py`):
+- `SignUp` - User registration with auto-login
+- `Login` - Session-based login (overrides redirect to profile page)
+- `PasswordReset` - Password reset request
+- Uses Django's `LoginRequiredMixin` and `UserPassesTestMixin` for access control
+
+**Middleware**:
+- `AuthenticationMiddleware` - Attaches `request.user` to all requests
+- `SessionMiddleware` - Manages session cookies
+
+### 3. API Views (JWT Authentication)
+
+**Configuration** (`config/settings.py`):
+```python
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "rest_framework.authentication.SessionAuthentication",  # Fallback for browser-based API access
+    ),
+}
+
+SIMPLE_JWT = {
+    "ROTATE_REFRESH_TOKENS": True,      # New refresh token on each refresh
+    "BLACKLIST_AFTER_ROTATION": True,   # Old tokens blacklisted
+    "AUTH_HEADER_TYPES": ("JWT",),      # Authorization: JWT <token>
+}
+```
+
+**JWT Endpoints** (`apps/diary/urls.py`):
+- `POST /api/v1/auth/login/` - Standard JWT login (returns both tokens)
+- `POST /api/v1/auth/mylogin/` - Custom login (access token in body, refresh token in HTTP-only cookie)
+- `POST /api/v1/auth/token/refresh/` - Refresh access token (with rotation)
+- `POST /api/v1/auth/token/verify/` - Verify token validity
+- `POST /api/v1/auth/token/recovery/` - Password recovery via email
+
+**Token Management**:
+1. **Token Rotation**: New refresh token issued on each refresh; old one blacklisted
+2. **Blacklisting**: Uses `rest_framework_simplejwt.token_blacklist` to invalidate tokens
+3. **Custom Recovery**: `TokenRecoveryAPIView` blacklists all user tokens, generates new pair, emails access token
+
+**Custom Login View** (`MyTokenObtainPairView`):
+- Returns access token in response body (for JavaScript storage)
+- Sets refresh token as HTTP-only cookie (prevents XSS theft)
+- Cookie is `SameSite=Strict` and `Secure` in production
+
+### 4. Custom Permissions
+
+**Permission Classes** (`apps/diary/permissions.py`):
+
+| Permission | Access Rules | Used For |
+|------------|--------------|----------|
+| `OwnerOrAdmin` | Object owner or staff only | User detail/update/delete |
+| `OwnerOrAdminOrReadOnly` | Read: everyone<br>Write: owner or staff | Post detail/update/delete |
+| `ReadForAdminCreateForAnonymous` | POST: anonymous only<br>Other: staff only | User registration endpoint |
+
+### 5. Authentication Flow Examples
+
+**HTML View Flow**:
+```
+1. User visits protected page (e.g., /posts/add/)
+2. LoginRequiredMixin checks request.user.is_authenticated
+3. If not authenticated → redirects to /login/
+4. User logs in → session created → redirects to profile
+5. Subsequent requests include session cookie → authenticated
+```
+
+**API Flow**:
+```
+1. Client sends: POST /api/v1/auth/login/ with credentials
+2. Server validates → returns JWT tokens
+3. Client includes: Authorization: JWT <access_token> in headers
+4. JWTAuthentication extracts token → validates → sets request.user
+5. Permission classes check access → allow/deny request
+```
+
+**Token Refresh Flow**:
+```
+1. Access token expires (typically 5 minutes)
+2. Client sends: POST /api/v1/auth/token/refresh/ with refresh token
+3. Server validates refresh token → generates NEW access + refresh tokens
+4. Old refresh token is blacklisted
+5. Client uses new tokens for subsequent requests
+```
+
+### 6. Security Features
+
+1. **CSRF Protection**: Enabled for session-based views
+2. **Token Blacklisting**: Prevents reuse of revoked tokens
+3. **Token Rotation**: Limits impact of token theft
+4. **HTTP-only Cookies**: Refresh token stored securely (custom login)
+5. **Password Validators**: Django's built-in validators enforced
+6. **Custom Recovery**: Secure token recovery via email
+
+### 7. WebSocket Authentication
+
+WebSocket connections use Django Channels' `AuthMiddlewareStack` (`config/asgi.py`):
+- Authenticates WebSocket connections using session or JWT
+- Allows real-time like updates to authenticated users
+
 ## Tech Stack
 
 - **Django 5.2** with Django REST Framework
