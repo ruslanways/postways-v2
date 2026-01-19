@@ -41,6 +41,10 @@ uv sync
 ### Project Structure
 - `config/` - Django settings, URLs, ASGI/WSGI, Celery config
 - `apps/diary/` - Main application with models, views, API, WebSocket consumers
+  - `views/` - Views package (separated for clean code organization)
+    - `html.py` - Traditional Django CBVs with session auth (HomeView, SignUp, PostCreateView, etc.)
+    - `api.py` - DRF views with JWT auth (UserListAPIView, PostAPIView, LikeCreateDestroyAPIView, etc.)
+    - `__init__.py` - Re-exports all views for backward-compatible imports
 - `docker/` - Dockerfile and docker-compose.yml
 
 ### Key Components
@@ -55,7 +59,7 @@ uv sync
 - JWT (SimpleJWT) for API with token rotation and blacklisting
 - Custom token recovery via email
 
-**API** (`apps/diary/views.py`, lines 255+):
+**API** (`apps/diary/views/api.py`):
 - REST endpoints under `/api/v1/`
 - Custom permissions: `OwnerOrAdmin`, `OwnerOrAdminOrReadOnly`, `ReadForAdminCreateForAnonymous`
 
@@ -71,7 +75,7 @@ The application uses Django Channels to broadcast like count updates in real-tim
 | `apps/diary/routing.py` | Defines the WebSocket URL pattern (`ws/socket-server/`) |
 | `apps/diary/consumers.py` | The `LikeConsumer` class that handles WebSocket connections |
 | `apps/diary/static/diary/fetch.js` | Frontend JavaScript that connects to WebSocket and handles likes |
-| `apps/diary/views.py` | `LikeCreateDestroyAPIView` that processes likes and triggers broadcasts |
+| `apps/diary/views/api.py` | `LikeCreateDestroyAPIView` that processes likes and triggers broadcasts |
 | `config/settings.py` | `CHANNEL_LAYERS` configuration using Redis as the message broker |
 
 #### How It All Works Together (Step by Step)
@@ -303,7 +307,7 @@ async function refreshLikeCounts() { ... }
 **Why it's needed:** When you navigate away and use the browser back button, the page might be restored from cache with stale like counts. This function fetches the current counts and updates the UI.
 
 **How it works:**
-1. Sends single request with all post IDs: `GET /likes_counts/?ids=1,2,3`
+1. Sends single request with all post IDs: `GET /api/v1/likes/batch/?ids=1,2,3`
 2. Server returns counts and liked status for each post
 3. Updates both the heart symbol and count for each post
 
@@ -385,7 +389,7 @@ CELERY_RESULT_BACKEND = f"redis://{REDIS_HOST}:{REDIS_PORT}/1"
 
 #### Task Invocation
 
-**On-demand task** - called in `apps/diary/views.py:502`:
+**On-demand task** - called in `apps/diary/views/api.py` (`TokenRecoveryAPIView`):
 ```python
 send_token_recovery_email.delay(link_to_change_user, str(refresh.access_token), user.email)
 ```

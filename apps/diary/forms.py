@@ -1,101 +1,176 @@
+"""
+Django forms for the diary application.
+
+This module contains form classes for user authentication, registration,
+password management, and blog post creation/editing.
+"""
 from django import forms
-from django.contrib.auth.forms import UserCreationForm, UserChangeForm, AuthenticationForm, UsernameField, PasswordResetForm, SetPasswordForm
 from django.contrib.auth import password_validation
+from django.contrib.auth.forms import (
+    AuthenticationForm,
+    PasswordResetForm,
+    SetPasswordForm,
+    UserChangeForm,
+    UserCreationForm,
+    UsernameField,
+)
 from django.utils.translation import gettext_lazy as _
+
 from .models import CustomUser, Post
 
-class CustomUserCreationForm(UserCreationForm):
+
+class BootstrapFormMixin:
+    """
+    Mixin that adds Bootstrap form-control class to form widgets.
+
+    Automatically applies 'form-control' class to text-like input widgets
+    (TextInput, EmailInput, PasswordInput, Textarea, FileInput).
+    Checkbox widgets are excluded as they use different Bootstrap classes.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        form_control_widgets = (
+            forms.TextInput,
+            forms.EmailInput,
+            forms.PasswordInput,
+            forms.Textarea,
+            forms.FileInput,
+        )
+        for field in self.fields.values():
+            if isinstance(field.widget, form_control_widgets):
+                existing_class = field.widget.attrs.get("class", "")
+                if "form-control" not in existing_class:
+                    field.widget.attrs["class"] = (
+                        f"{existing_class} form-control".strip()
+                    )
+
+
+class CustomUserCreationForm(BootstrapFormMixin, UserCreationForm):
+    """
+    Form for creating new users with email and terms acceptance.
+
+    Extends Django's UserCreationForm with Bootstrap styling,
+    email field, and terms acceptance checkbox.
+    """
 
     password1 = forms.CharField(
-        label="Password",
+        label=_("Password"),
         strip=False,
-        widget=forms.PasswordInput(attrs={"autocomplete": "new-password", 'class': "form-control"}),
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+        help_text=password_validation.password_validators_help_text_html(),
     )
     password2 = forms.CharField(
-        label="Password confirmation",
-        widget=forms.PasswordInput(attrs={"autocomplete": "new-password", 'class': "form-control"}),
+        label=_("Password confirmation"),
         strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
     )
     email = forms.EmailField(
-        label="Email",
+        label=_("Email"),
         max_length=254,
-        widget=forms.EmailInput(attrs={"autocomplete": "email", 'class': "form-control"}),
+        widget=forms.EmailInput(attrs={"autocomplete": "email"}),
     )
-
-    agree = forms.BooleanField(
-        label='Agree',
-        required=True,
-        disabled=False,
-        widget=forms.widgets.CheckboxInput(attrs={'class': 'checkbox-inline'}),
-        help_text="I allow to use Cookies on that web-site",
-        error_messages={'required': 'Please check the box'},
+    accept_terms = forms.BooleanField(
+        label=_("Accept Terms"),
+        widget=forms.CheckboxInput(attrs={"class": "checkbox-inline"}),
+        help_text=_("I accept the terms of service and privacy policy"),
+        error_messages={"required": _("You must accept the terms to continue")},
     )
 
     class Meta(UserCreationForm.Meta):
         model = CustomUser
-        fields = ('username', 'email', 'agree')
-        widgets = {
-            'username': forms.TextInput(attrs={'class':'form-control'}),
-        }
+        fields = ("username", "email", "accept_terms")
 
 
-class CustomAuthenticationForm(AuthenticationForm):
+class CustomAuthenticationForm(BootstrapFormMixin, AuthenticationForm):
+    """
+    Authentication form with Bootstrap styling.
 
-    username = UsernameField(widget=forms.TextInput(attrs={"autofocus": True, 'class':'form-control'}))
+    Used for user login with username and password fields.
+    """
+
+    username = UsernameField(
+        widget=forms.TextInput(attrs={"autofocus": True})
+    )
     password = forms.CharField(
         label=_("Password"),
         strip=False,
-        widget=forms.PasswordInput(attrs={"autocomplete": "current-password", 'class':'form-control'}),
+        widget=forms.PasswordInput(attrs={"autocomplete": "current-password"}),
     )
 
-class CustomPasswordResetForm(PasswordResetForm):
+
+class CustomPasswordResetForm(BootstrapFormMixin, PasswordResetForm):
+    """
+    Password reset form with Bootstrap styling.
+
+    Used to request a password reset email.
+    """
+
     email = forms.EmailField(
         label=_("Email"),
         max_length=254,
-        widget=forms.EmailInput(attrs={"autocomplete": "email", 'class':'form-control'}),
+        widget=forms.EmailInput(attrs={"autocomplete": "email"}),
     )
 
 
-class CustomSetPasswordForm(SetPasswordForm):
+class CustomSetPasswordForm(BootstrapFormMixin, SetPasswordForm):
+    """
+    Set password form with Bootstrap styling.
+
+    Used when setting a new password after reset.
+    """
 
     new_password1 = forms.CharField(
         label=_("New password"),
-        widget=forms.PasswordInput(attrs={"autocomplete": "new-password", 'class':'form-control'}),
         strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
         help_text=password_validation.password_validators_help_text_html(),
     )
     new_password2 = forms.CharField(
         label=_("New password confirmation"),
         strip=False,
-        widget=forms.PasswordInput(attrs={"autocomplete": "new-password", 'class':'form-control'}),
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
     )
 
 
-class CustomUserChangeForm(UserChangeForm):
+class CustomUserChangeForm(BootstrapFormMixin, UserChangeForm):
+    """
+    User profile change form with Bootstrap styling.
+
+    Used for updating user profile information.
+    """
 
     class Meta:
         model = CustomUser
-        fields = ('username', 'email')
+        fields = ("username", "email")
 
 
-class AddPostForm(forms.ModelForm):
+class AddPostForm(BootstrapFormMixin, forms.ModelForm):
+    """
+    Form for creating new blog posts.
+
+    Includes fields for title, content, image upload, and publish status.
+    """
+
     class Meta:
         model = Post
-        fields = 'title', 'content', 'image', 'published'
+        fields = ("title", "content", "image", "published")
         widgets = {
-            'title': forms.TextInput(attrs={'class':'form-control'}),
-            'content': forms.Textarea(attrs={'class':'form-control'}),
-            'image': forms.FileInput(attrs={'class':'form-control'}),
-            'published': forms.CheckboxInput(attrs={'class':'form-check-input'}),
+            "published": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
         labels = {
-            'published': 'Publish'
+            "published": _("Publish"),
         }
 
 
 class UpdatePostForm(AddPostForm):
+    """
+    Form for updating existing blog posts.
+
+    Extends AddPostForm with additional help text for the image field.
+    """
 
     class Meta(AddPostForm.Meta):
         help_texts = {
-            'image': _("If you don't wish to change the image, just leave it unattached here."),
+            "image": _("Leave empty to keep the current image."),
         }

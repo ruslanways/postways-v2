@@ -3,8 +3,6 @@
 {% block title %} author#{{object.pk}} {{ object.username }} {% endblock %}
 
 {% block content %}
-
-{% load diary_tags %}
  
 <h2>
     {% if user.is_staff %}
@@ -28,9 +26,13 @@
     <span class="short-post">{{ post.content|truncatechars:100 }}</span>
     </a>
     <br>
-    <a href="{% url 'like-create-destroy-post-api' %}" id="{{ post.id }}" class="like">
-        <span class="heart">{% autoescape off %}{% like_or_unlike user post %}{% endautoescape %}</span> <span class="count">{{ post.like_set.count }}</span>
-    </a>
+    {% if user.is_authenticated and post.id in liked_by_user %}
+    <a href="{% url 'like-toggle-api' %}" id="{{ post.id }}" class="like"><span class="heart">&#10084;</span> <span class="count">{{ post.like__count }}</span></a>
+    {% elif user.is_authenticated %}
+    <a href="{% url 'like-toggle-api' %}" id="{{ post.id }}" class="like"><span class="heart">&#9825;</span> <span class="count">{{ post.like__count }}</span></a>
+    {% else %}
+    <a href="{% url 'login' %}" id="{{ post.id }}" class="like"><span class="heart">&#9825;</span> <span class="count">{{ post.like__count }}</span></a>
+    {% endif %}
 </p>
 </div>
 

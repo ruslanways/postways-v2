@@ -36,12 +36,11 @@
     <div class="form-text">{{form.password2.errors}}</div>
 
     <div class="mb-3">
-        By continue to register on this site you consent to use of cookies.
-        <br>
-        <label for="{{ form.agree.id_for_label }}" class="form-label">{{form.agree.label}}:</label> 
-        {{ form.agree }}
+        <label for="{{ form.accept_terms.id_for_label }}" class="form-label">
+            {{ form.accept_terms }} {{ form.accept_terms.help_text }}
+        </label>
     </div>
-    <div class="form-text">{{form.agree.errors}}</div>
+    <div class="form-text">{{ form.accept_terms.errors }}</div>
 
     <button type="submit" class="btn btn-primary">submit</button>
 </form>

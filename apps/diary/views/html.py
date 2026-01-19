@@ -1,0 +1,331 @@
+"""
+HTML views for the diary application.
+
+This module contains traditional Django class-based views for HTML rendering
+with session-based authentication.
+
+Views:
+    - HomeView, HomeViewLikeOrdered: Public post listing with pagination
+    - SignUp, Login, PasswordReset: Authentication views
+    - AuthorListView, AuthorDetailView: User management (staff only)
+    - PostCreateView, PostDetailView, PostUpdateView, PostDeleteView: Post CRUD
+"""
+
+from django.shortcuts import redirect, resolve_url
+from django.contrib import messages
+from django.urls import reverse_lazy
+from django.views.generic import ListView, DetailView
+from django.views.generic.edit import CreateView, UpdateView, DeleteView
+from django.views.generic.list import MultipleObjectMixin
+from django.contrib.auth.views import (
+    LoginView,
+    PasswordResetView,
+    PasswordResetConfirmView,
+)
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.contrib.auth import login
+from django.db.models import Count
+
+from ..models import Post, CustomUser, Like
+from ..forms import (
+    AddPostForm,
+    CustomPasswordResetForm,
+    CustomUserCreationForm,
+    CustomAuthenticationForm,
+    CustomSetPasswordForm,
+    UpdatePostForm,
+)
+
+
+class HomeView(ListView):
+    """
+    Public homepage displaying published posts.
+
+    Posts are ordered by most recently updated, with like counts annotated.
+    Authenticated users see which posts they've liked.
+    """
+
+    paginate_by = 5
+    template_name = "diary/index.html"
+    queryset = (
+        Post.objects.annotate(Count("like"))
+        .select_related("author")
+        .filter(published=True)
+    )
+    ordering = ["-updated", "-like__count"]
+
+    def get_context_data(self, **kwargs):
+        """
+        Add ordering indicator and liked posts set to context.
+
+        Context additions:
+            ordering: Current sort mode ("fresh" for this view)
+            liked_by_user: Set of post IDs the user has liked (authenticated only)
+        """
+        context = super().get_context_data(**kwargs)
+        context["ordering"] = "fresh"
+        if self.request.user.is_authenticated:
+            page_post_ids = [post.id for post in context["object_list"]]
+            context["liked_by_user"] = set(
+                Like.objects.filter(
+                    user=self.request.user, post_id__in=page_post_ids
+                ).values_list("post_id", flat=True)
+            )
+        return context
+
+
+class HomeViewLikeOrdered(HomeView):
+    """
+    Alternative homepage with posts ordered by most liked.
+
+    Inherits from HomeView but changes the ordering to prioritize
+    posts with the highest like counts, then by most recently updated.
+    """
+
+    ordering = ["-like__count", "-updated"]
+
+    def get_context_data(self, **kwargs):
+        """Set ordering indicator to 'liked' for template toggle link."""
+        context = super().get_context_data(**kwargs)
+        context["ordering"] = "liked"
+        return context
+
+
+class SignUp(CreateView):
+    """
+    User registration view.
+
+    After successful signup, automatically logs in the user
+    and redirects to their profile page.
+    """
+
+    form_class = CustomUserCreationForm
+    template_name = "registration/signup.html"
+
+    def form_valid(self, form):
+        """Save user, log them in, and redirect to their profile."""
+        self.object = form.save()
+        login(self.request, self.object)
+        return redirect("author-detail", self.object.pk)
+
+
+class Login(LoginView):
+    """User login view. Redirects to user's profile on success."""
+
+    template_name = "registration/login.html"
+    form_class = CustomAuthenticationForm
+
+    def get_default_redirect_url(self):
+        """Redirect to user's profile page after login."""
+        return resolve_url("author-detail", self.request.user.pk)
+
+
+class PasswordReset(PasswordResetView):
+    """Password reset request view. Sends reset email to user."""
+
+    form_class = CustomPasswordResetForm
+
+
+class CustomPasswordResetConfirmView(PasswordResetConfirmView):
+    """Password reset confirmation view. Allows user to set new password."""
+
+    form_class = CustomSetPasswordForm
+
+
+class StaffRequiredMixin(UserPassesTestMixin):
+    """
+    Mixin that requires staff (is_staff=True) access.
+
+    Unlike the default UserPassesTestMixin behavior (403 response),
+    this mixin redirects unauthorized users to the homepage with
+    a warning message. This provides better UX for non-staff users.
+    """
+
+    permission_denied_message = "Access for staff only!"
+
+    def test_func(self):
+        """Return True if user is a staff member."""
+        return self.request.user.is_staff
+
+    def handle_no_permission(self):
+        """Redirect to home with a warning message instead of raising 403."""
+        messages.warning(self.request, self.permission_denied_message)
+        return redirect("home")
+
+
+class AuthorListView(StaffRequiredMixin, ListView):
+    """
+    Staff-only view listing all users with statistics.
+
+    Displays user counts for posts, likes given, and likes received.
+    Supports sortable columns with toggle between ascending/descending order.
+    Sort preference is stored in session.
+    """
+
+    template_name = "diary/customuser_list.html"
+
+    def get_queryset(self):
+        """
+        Implement user-ordering using session to store per-user sort preference.
+        Toggle between ascending/descending when clicking the same field.
+        """
+        sortfield = self.kwargs.get("sortfield")
+        session_key = "author_list_ordering"
+
+        if sortfield:
+            current_ordering = self.request.session.get(session_key, "id")
+            if "-" + sortfield == current_ordering:
+                ordering = sortfield
+            else:
+                ordering = "-" + sortfield
+            self.request.session[session_key] = ordering
+        else:
+            ordering = self.request.session.get(session_key, "id")
+
+        return CustomUser.objects.annotate(
+            Count("post", distinct=True),
+            Count("like", distinct=True),
+            Count("post__like", distinct=True),
+        ).order_by(ordering)
+
+    def get_context_data(self, **kwargs):
+        """
+        Add site-wide statistics to context.
+
+        Context additions:
+            posts: Total post count across all users
+            likes: Total like count across all posts
+        """
+        context = super().get_context_data(**kwargs)
+        context["posts"] = Post.objects.count()
+        context["likes"] = Like.objects.count()
+        return context
+
+
+class AuthorDetailView(UserPassesTestMixin, DetailView, MultipleObjectMixin):
+    """
+    User profile page showing user details and their posts.
+
+    Access restricted to staff members or the profile owner.
+    Displays paginated list of user's posts with like counts.
+    """
+
+    template_name = "diary/customuser_detail.html"
+    model = CustomUser
+    paginate_by = 5
+    permission_denied_message = "Access for staff or profile owner only!"
+
+    def test_func(self):
+        """Allow access only to staff or the profile owner."""
+        return self.request.user.is_staff or self.request.user.id == self.kwargs["pk"]
+
+    def get_context_data(self, **kwargs):
+        """
+        Add paginated post list and liked posts set to context.
+        
+        Context additions:
+            object_list: Paginated list of user's posts with like counts
+            liked_by_user: Set of post IDs the user has liked (authenticated only)
+        """
+        object_list = (
+            self.object.post_set.all()
+            .annotate(Count("like"))
+            .order_by("-updated", "-like__count")
+        )
+        context = super().get_context_data(object_list=object_list, **kwargs)
+        if self.request.user.is_authenticated:
+            # Get post IDs from the paginated object list
+            page_post_ids = [post.id for post in context["object_list"]]
+            context["liked_by_user"] = set(
+                Like.objects.filter(
+                    user=self.request.user, post_id__in=page_post_ids
+                ).values_list("post_id", flat=True)
+            )
+        return context
+
+
+class PostListView(StaffRequiredMixin, HomeView, ListView):
+    """
+    Staff-only view listing all posts (including unpublished).
+
+    Unlike the public HomeView, this view shows all posts regardless
+    of published status, allowing staff to moderate or review drafts.
+    """
+
+    template_name = "diary/post_list.html"
+    queryset = Post.objects.annotate(Count("like")).select_related("author")
+
+
+class PostCreateView(LoginRequiredMixin, CreateView):
+    """Create a new post. Requires authentication."""
+
+    form_class = AddPostForm
+    template_name = "diary/add-post.html"
+    success_url = reverse_lazy("home")
+
+    def form_valid(self, form):
+        """Set the post author to the current user before saving."""
+        form.instance.author = self.request.user
+        return super().form_valid(form)
+
+
+class PostDetailView(DetailView):
+    """Public view for a single post with like count and status."""
+
+    template_name = "diary/post_detail.html"
+    queryset = Post.objects.annotate(Count("like")).select_related("author")
+
+    def get_context_data(self, **kwargs):
+        """Add liked_by_user set for authenticated users."""
+        context = super().get_context_data(**kwargs)
+        if self.request.user.is_authenticated:
+            context["liked_by_user"] = {self.object.id} if Like.objects.filter(
+                user=self.request.user, post=self.object
+            ).exists() else set()
+        return context
+
+
+class PostOwnerOrStaffMixin(UserPassesTestMixin):
+    """
+    Mixin for views that require post owner or staff access.
+
+    Used by PostUpdateView and PostDeleteView to ensure only the
+    post author or a staff member can modify/delete a post.
+    """
+
+    permission_denied_message = "Access for staff or profile owner!"
+
+    def test_func(self):
+        """Return True if user is staff or owns the post."""
+        return (
+            self.request.user.is_staff
+            or self.request.user.pk == self.get_object().author_id
+        )
+
+
+class PostUpdateView(PostOwnerOrStaffMixin, UpdateView):
+    """
+    Edit a post. Only the post owner or staff can access.
+
+    Redirects to post detail page on success (via model's get_absolute_url).
+    """
+
+    model = Post
+    form_class = UpdatePostForm
+    template_name = "diary/post-update.html"
+
+
+class PostDeleteView(PostOwnerOrStaffMixin, DeleteView):
+    """
+    Delete a post with confirmation page.
+
+    Only the post owner or staff can access. Redirects to the
+    author's profile page after successful deletion.
+    """
+
+    model = Post
+    template_name = "diary/post-delete.html"
+
+    def get_success_url(self):
+        """Redirect to the author's profile after deletion."""
+        return reverse_lazy("author-detail", kwargs={"pk": self.object.author_id})

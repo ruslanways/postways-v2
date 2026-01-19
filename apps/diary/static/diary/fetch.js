@@ -135,7 +135,7 @@ async function refreshLikeCounts() {
   if (!postIds.length) return;
 
   try {
-    const response = await fetch(`/likes_counts/?ids=${postIds.join(",")}`);
+    const response = await fetch(`/api/v1/likes/batch/?ids=${postIds.join(",")}`);
     if (!response.ok) {
       console.warn("Failed to refresh likes:", response.status);
       return;

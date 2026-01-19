@@ -53,7 +53,7 @@ class PostAPITestCase(DiaryAPITestCase):
 
         # Unauthorized
         response1 = self.client.post(
-            reverse("like-create-destroy-post-api"),
+            reverse("like-toggle-api"),
             {"post": self.test_post_11.id},
         )
 
@@ -62,7 +62,7 @@ class PostAPITestCase(DiaryAPITestCase):
 
         # Authorized by unliked user = CREATE the like
         response2 = self.client.post(
-            reverse("like-create-destroy-post-api"),
+            reverse("like-toggle-api"),
             {"post": self.test_post_11.id},
             HTTP_AUTHORIZATION=f"JWT {self.access_token_user1}",
         )
@@ -72,7 +72,7 @@ class PostAPITestCase(DiaryAPITestCase):
 
         # Authorized by liked user = DELETE the like
         response3 = self.client.post(
-            reverse("like-create-destroy-post-api"),
+            reverse("like-toggle-api"),
             {"post": self.test_post_11.id},
             HTTP_AUTHORIZATION=f"JWT {self.access_token_user1}",
         )
@@ -82,7 +82,7 @@ class PostAPITestCase(DiaryAPITestCase):
 
         # Post doesn't exist
         response3 = self.client.post(
-            reverse("like-create-destroy-post-api"),
+            reverse("like-toggle-api"),
             {"post": 3948},
             HTTP_AUTHORIZATION=f"JWT {self.access_token_user1}",
         )
