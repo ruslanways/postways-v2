@@ -84,6 +84,13 @@ All API endpoints are under `/api/v1/` and use JWT authentication (except regist
 
 **`GET /api/v1/posts/`**
 - List published posts with like counts
+- Supports filtering:
+  - `?author=<user_id>` - Filter by author ID
+  - `?created__gte=2024-01-01` - Posts created on or after date
+  - `?created__lte=2024-12-31` - Posts created on or before date
+  - `?created__date__range=2024-01-01,2024-12-31` - Posts created within date range
+  - `?updated__gte=2024-01-01` - Posts updated on or after date
+  - `?updated__lte=2024-12-31` - Posts updated on or before date
 - Supports ordering: `?ordering=id`, `?ordering=updated`, `?ordering=created`
 - No authentication required (read-only)
 
@@ -211,7 +218,7 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": True,      # New refresh token on each refresh
     "BLACKLIST_AFTER_ROTATION": True,   # Old tokens blacklisted
-    "AUTH_HEADER_TYPES": ("JWT",),      # Authorization: JWT <token>
+    # AUTH_HEADER_TYPES defaults to ("Bearer",) - using default
 }
 ```
 
@@ -257,7 +264,7 @@ SIMPLE_JWT = {
 ```
 1. Client sends: POST /api/v1/auth/login/ with credentials
 2. Server validates → returns JWT tokens
-3. Client includes: Authorization: JWT <access_token> in headers
+3. Client includes: Authorization: Bearer <access_token> in headers
 4. JWTAuthentication extracts token → validates → sets request.user
 5. Permission classes check access → allow/deny request
 ```

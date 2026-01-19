@@ -2,10 +2,10 @@
 Serializers for the diary application REST API.
 
 This module contains serializers for:
+    - Authentication & Tokens (JWT refresh, password recovery)
     - User management (registration, profile updates, profile details)
     - Post CRUD operations (list, detail views)
     - Like tracking and analytics (create/destroy, detail views, analytics)
-    - JWT token refresh with proper blacklist tracking
 
 All serializers follow DRF conventions and use HyperlinkedModelSerializer
 for RESTful URL-based relationships where appropriate.
@@ -21,69 +21,9 @@ from rest_framework_simplejwt.utils import datetime_from_epoch
 from rest_framework.reverse import reverse
 
 
-class MyTokenRefreshSerializer(TokenRefreshSerializer):
-    """
-    Custom token refresh serializer with OutstandingToken tracking.
-
-    The default SimpleJWT TokenRefreshSerializer doesn't add rotated refresh tokens
-    to the OutstandingToken table, which breaks blacklist functionality. This
-    serializer fixes that by creating an OutstandingToken record for each new
-    refresh token issued during rotation.
-    """
-
-    def validate(self, attrs):
-        """
-        Validate and rotate tokens, tracking new refresh token in OutstandingToken.
-
-        Args:
-            attrs: Dictionary containing the refresh token string
-
-        Returns:
-            dict: Contains 'access' token and optionally 'refresh' token if rotation is enabled
-
-        Process:
-            1. Validates the provided refresh token
-            2. Generates new access token
-            3. If rotation is enabled:
-               - Blacklists old refresh token (if blacklist app is installed)
-               - Generates new refresh token with updated JTI, exp, and iat claims
-               - Creates OutstandingToken record for proper blacklist tracking
-        """
-        refresh = self.token_class(attrs["refresh"])
-
-        data = {"access": str(refresh.access_token)}
-
-        if api_settings.ROTATE_REFRESH_TOKENS:
-            if api_settings.BLACKLIST_AFTER_ROTATION:
-                try:
-                    # Attempt to blacklist the given refresh token
-                    refresh.blacklist()
-                except AttributeError:
-                    # If blacklist app not installed, `blacklist` method will
-                    # not be present
-                    pass
-
-            refresh.set_jti()
-            refresh.set_exp()
-            refresh.set_iat()
-
-            data["refresh"] = str(refresh)
-
-            # Create OutstandingToken record for the new refresh token
-            # This ensures proper blacklist tracking when token rotation is enabled
-            user = CustomUser.objects.get(id=refresh["user_id"])
-            jti = refresh[api_settings.JTI_CLAIM]
-            exp = refresh["exp"]
-            OutstandingToken.objects.create(
-                user=user,
-                jti=jti,
-                token=str(refresh),
-                created_at=refresh.current_time,
-                expires_at=datetime_from_epoch(exp),
-            )
-
-        return data
-
+# ============================================================================
+# User Serializers
+# ============================================================================
 
 class UserSerializer(serializers.HyperlinkedModelSerializer):
     """
@@ -295,19 +235,9 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
         return instance
 
 
-class TokenRecoverySerializer(serializers.Serializer):
-    """
-    Serializer for password recovery token request.
-
-    Used for POST /api/v1/auth/token/recovery/ to request a password reset token.
-    Accepts an email address and triggers an email with a recovery link.
-
-    Fields:
-        - email: User's email address (required, max 200 characters)
-    """
-
-    email = serializers.EmailField(max_length=200)
-
+# ============================================================================
+# Post Serializers
+# ============================================================================
 
 class PostSerializer(serializers.HyperlinkedModelSerializer):
     """
@@ -409,6 +339,10 @@ class PostDetailSerializer(serializers.HyperlinkedModelSerializer):
             "content": {"required": False},
         }
 
+
+# ============================================================================
+# Like Serializers
+# ============================================================================
 
 class LikeSerializer(serializers.Serializer):
     """
@@ -512,3 +446,85 @@ class LikeCreateDestroySerializer(serializers.HyperlinkedModelSerializer):
             request=self.context["request"],
         )
         return ret
+
+
+# ============================================================================
+# Authentication & Token Serializers
+# ============================================================================
+
+class MyTokenRefreshSerializer(TokenRefreshSerializer):
+    """
+    Custom token refresh serializer with OutstandingToken tracking.
+
+    The default SimpleJWT TokenRefreshSerializer doesn't add rotated refresh tokens
+    to the OutstandingToken table, which breaks blacklist functionality. This
+    serializer fixes that by creating an OutstandingToken record for each new
+    refresh token issued during rotation.
+    """
+
+    def validate(self, attrs):
+        """
+        Validate and rotate tokens, tracking new refresh token in OutstandingToken.
+
+        Args:
+            attrs: Dictionary containing the refresh token string
+
+        Returns:
+            dict: Contains 'access' token and optionally 'refresh' token if rotation is enabled
+
+        Process:
+            1. Validates the provided refresh token
+            2. Generates new access token
+            3. If rotation is enabled:
+               - Blacklists old refresh token (if blacklist app is installed)
+               - Generates new refresh token with updated JTI, exp, and iat claims
+               - Creates OutstandingToken record for proper blacklist tracking
+        """
+        refresh = self.token_class(attrs["refresh"])
+
+        data = {"access": str(refresh.access_token)}
+
+        if api_settings.ROTATE_REFRESH_TOKENS:
+            if api_settings.BLACKLIST_AFTER_ROTATION:
+                try:
+                    # Attempt to blacklist the given refresh token
+                    refresh.blacklist()
+                except AttributeError:
+                    # If blacklist app not installed, `blacklist` method will
+                    # not be present
+                    pass
+
+            refresh.set_jti()
+            refresh.set_exp()
+            refresh.set_iat()
+
+            data["refresh"] = str(refresh)
+
+            # Create OutstandingToken record for the new refresh token
+            # This ensures proper blacklist tracking when token rotation is enabled
+            user = CustomUser.objects.get(id=refresh["user_id"])
+            jti = refresh[api_settings.JTI_CLAIM]
+            exp = refresh["exp"]
+            OutstandingToken.objects.create(
+                user=user,
+                jti=jti,
+                token=str(refresh),
+                created_at=refresh.current_time,
+                expires_at=datetime_from_epoch(exp),
+            )
+
+        return data
+
+
+class TokenRecoverySerializer(serializers.Serializer):
+    """
+    Serializer for password recovery token request.
+
+    Used for POST /api/v1/auth/token/recovery/ to request a password reset token.
+    Accepts an email address and triggers an email with a recovery link.
+
+    Fields:
+        - email: User's email address (required, max 200 characters)
+    """
+
+    email = serializers.EmailField(max_length=200)

@@ -40,7 +40,7 @@ class PostAPITestCase(DiaryAPITestCase):
 
         # We just need to include Authorization header with our post-request below.
         # We also can use .credentials to set Authorization header with all requests:
-        # self.client.credentials(HTTP_AUTHORIZATION=f"JWT {access_token}")
+        # self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
         # but we need 1 request to be Unauthorized, so we won't do it for now.
         # Or we can use standard Django session authorization backend:
         # self.client.login(username="TestUser1", password="fokker123")
@@ -52,7 +52,7 @@ class PostAPITestCase(DiaryAPITestCase):
         )
 
         # Use credentials to set Authorization header with all further requests:
-        self.client.credentials(HTTP_AUTHORIZATION=f"JWT {self.access_token_user1}")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}")
 
         # Bad request. Lack of "title".
         response2 = self.client.post(
@@ -141,7 +141,7 @@ class PostAPITestCase(DiaryAPITestCase):
         # published=False, but read by Owner
         response3 = self.client.get(
             reverse("post-detail-api", args=[self.test_post_12.id]),
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_user3}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user3}",
         )
 
         serializer1 = PostDetailSerializer(
@@ -199,7 +199,7 @@ class PostAPITestCase(DiaryAPITestCase):
                 "title": "TestPost1 UPDATED by put",
                 "content": "Some UPDATED test 1 content",
             },
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_user1}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
         )
         serializer_after_update2 = PostDetailSerializer(
             Post.objects.get(id=self.test_post_1.id),
@@ -217,7 +217,7 @@ class PostAPITestCase(DiaryAPITestCase):
                 "title": "TestPost1 UPDATED by put",
                 "content": "Some UPDATED test 1 content",
             },
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_admin}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_admin}",
         )
         serializer_after_update3 = PostDetailSerializer(
             Post.objects.get(id=self.test_post_1.id),
@@ -235,7 +235,7 @@ class PostAPITestCase(DiaryAPITestCase):
                 "title": "TestPost1 UPDATED by put",
                 "contAnt": "Some UPDATED test 1 content",
             },
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_user1}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
         )
         serializer_after_update4 = PostDetailSerializer(
             Post.objects.get(id=self.test_post_1.id),
@@ -271,7 +271,7 @@ class PostAPITestCase(DiaryAPITestCase):
                 "title": "TestPost1 UPDATED by patch 2",
                 "content": "Some UPDATED with patch 2 test 1 content",
             },
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_user1}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
         )
         serializer_after_update6 = PostDetailSerializer(
             Post.objects.get(id=self.test_post_1.id),
@@ -289,7 +289,7 @@ class PostAPITestCase(DiaryAPITestCase):
                 "title": "TestPost1 UPDATED by patch 3",
                 "content": "Some UPDATED with patch 3 test 1 content",
             },
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_admin}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_admin}",
         )
         serializer_after_update7 = PostDetailSerializer(
             Post.objects.get(id=self.test_post_1.id),
@@ -307,7 +307,7 @@ class PostAPITestCase(DiaryAPITestCase):
                 "title": "TestPost1 UPDATED by patch 4",
                 "contAnt": "Some UPDATED with patch 4 test 1 content",
             },
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_user1}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
         )
         serializer_after_update8 = PostDetailSerializer(
             Post.objects.get(id=self.test_post_1.id),
@@ -331,7 +331,7 @@ class PostAPITestCase(DiaryAPITestCase):
         # Authorized by owner
         response2 = self.client.delete(
             reverse("post-detail-api", args=[self.test_post_1.id]),
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_user1}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
         )
         self.assertEqual(response2.status_code, status.HTTP_204_NO_CONTENT)
         self.assertRaises(Post.DoesNotExist, Post.objects.get, title="TestPost1")
@@ -339,7 +339,7 @@ class PostAPITestCase(DiaryAPITestCase):
         # Authorized by admin
         response2 = self.client.delete(
             reverse("post-detail-api", args=[self.test_post_2.id]),
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_admin}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_admin}",
         )
         self.assertEqual(response2.status_code, status.HTTP_204_NO_CONTENT)
         self.assertRaises(Post.DoesNotExist, Post.objects.get, title="TestPost2")

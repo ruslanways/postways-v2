@@ -106,11 +106,17 @@ class PostAPIView(generics.ListCreateAPIView):
     List published posts or create a new post.
 
     GET: List published posts with like counts. Supports ordering by id/updated/created.
+    Supports filtering by author, created date, and updated date.
     POST: Create new post (authenticated users only). Author set automatically.
     """
 
     serializer_class = PostSerializer
     filter_backends = DjangoFilterBackend, OrderingFilter
+    filterset_fields = {
+        "author": ["exact"],
+        "created": ["gte", "lte", "date__range"],
+        "updated": ["gte", "lte"],
+    }
     ordering_fields = "id", "updated", "created"
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 

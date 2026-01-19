@@ -235,7 +235,7 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
-    "AUTH_HEADER_TYPES": ("JWT",),
+    # AUTH_HEADER_TYPES defaults to ("Bearer",) - using default
 }
 
 

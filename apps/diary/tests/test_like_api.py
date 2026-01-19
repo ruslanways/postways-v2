@@ -64,7 +64,7 @@ class PostAPITestCase(DiaryAPITestCase):
         response2 = self.client.post(
             reverse("like-toggle-api"),
             {"post": self.test_post_11.id},
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_user1}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
         )
 
         self.assertEqual(response2.status_code, status.HTTP_201_CREATED)
@@ -74,7 +74,7 @@ class PostAPITestCase(DiaryAPITestCase):
         response3 = self.client.post(
             reverse("like-toggle-api"),
             {"post": self.test_post_11.id},
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_user1}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
         )
 
         self.assertEqual(response3.status_code, status.HTTP_204_NO_CONTENT)
@@ -84,7 +84,7 @@ class PostAPITestCase(DiaryAPITestCase):
         response3 = self.client.post(
             reverse("like-toggle-api"),
             {"post": 3948},
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_user1}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
         )
 
         self.assertEqual(response3.status_code, status.HTTP_400_BAD_REQUEST)

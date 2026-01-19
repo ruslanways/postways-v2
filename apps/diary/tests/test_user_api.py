@@ -25,14 +25,14 @@ class PostAPITestCase(DiaryAPITestCase):
         # Authorized as non-staff user
         response2 = self.client.get(
             reverse("user-list-create-api"),
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_user1}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
         )
         self.assertEqual(response2.status_code, status.HTTP_403_FORBIDDEN)
 
         # Authorized as admin
         response3 = self.client.get(
             reverse("user-list-create-api"),
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_admin}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_admin}",
         )
         self.assertEqual(response3.status_code, status.HTTP_200_OK)
         # Verify we got paginated results with all users
@@ -53,7 +53,7 @@ class PostAPITestCase(DiaryAPITestCase):
                 "password": "ribark8903",
                 "password2": "ribark8903",
             },
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_user1}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
         )
         self.assertEqual(response1.status_code, status.HTTP_403_FORBIDDEN)
         self.assertRaises(
@@ -182,7 +182,7 @@ class PostAPITestCase(DiaryAPITestCase):
         # Authorized by owner
         response = self.client.get(
             reverse("user-detail-update-destroy-api", args=[self.test_user_1.id]),
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_user1}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
         )
         serializer = UserDetailSerializer(
             self.test_user_1,
@@ -194,7 +194,7 @@ class PostAPITestCase(DiaryAPITestCase):
         # Authorized by admin
         response = self.client.get(
             reverse("user-detail-update-destroy-api", args=[self.test_user_1.id]),
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_admin}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_admin}",
         )
         serializer = UserDetailSerializer(
             self.test_user_1,
@@ -206,7 +206,7 @@ class PostAPITestCase(DiaryAPITestCase):
         # Authorized by non-owner (and non-admin)
         response = self.client.get(
             reverse("user-detail-update-destroy-api", args=[self.test_user_1.id]),
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_user2}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user2}",
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -252,7 +252,7 @@ class PostAPITestCase(DiaryAPITestCase):
                 "username": "TestUser1PUTed",
                 "email": "newemail@ukr.net",
             },
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_user1}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
         )
         serializer_after_update2 = UserDetailSerializer(
             CustomUser.objects.get(id=self.test_user_1.id),
@@ -272,7 +272,7 @@ class PostAPITestCase(DiaryAPITestCase):
                 "username": "TestUser1PUTedbyAdmin",
                 "email": "newemailadm@ukr.net",
             },
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_admin}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_admin}",
         )
         serializer_after_update3 = UserDetailSerializer(
             CustomUser.objects.get(id=self.test_user_1.id),
@@ -292,7 +292,7 @@ class PostAPITestCase(DiaryAPITestCase):
         response = self.client.patch(
             reverse("user-detail-update-destroy-api", args=[self.test_user_1.id]),
             {"username": "TestUser1PATCHed", "email": "asdnaa1223"},
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_user1}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
         )
         serializer_after_update4 = UserDetailSerializer(
             CustomUser.objects.get(id=self.test_user_1.id),
@@ -309,7 +309,7 @@ class PostAPITestCase(DiaryAPITestCase):
                 "email": "asdnaa1223@gmail.com",
                 "sex": "Female",
             },
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_user1}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
         )
         serializer_after_update5 = UserDetailSerializer(
             CustomUser.objects.get(id=self.test_user_1.id),
@@ -327,7 +327,7 @@ class PostAPITestCase(DiaryAPITestCase):
         response = self.client.patch(
             reverse("user-detail-update-destroy-api", args=[self.test_user_1.id]),
             {"password": "fokker1234"},
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_user1}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
         )
         # Please recall that self.test_user_1.password reffered to the virgin user on the test start
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -347,7 +347,7 @@ class PostAPITestCase(DiaryAPITestCase):
         # Authorized by owner
         response = self.client.delete(
             reverse("user-detail-update-destroy-api", args=[self.test_user_2.id]),
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_user2}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user2}",
         )
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertRaises(
@@ -357,7 +357,7 @@ class PostAPITestCase(DiaryAPITestCase):
         # Authorized by admin
         response = self.client.delete(
             reverse("user-detail-update-destroy-api", args=[self.test_user_3.id]),
-            HTTP_AUTHORIZATION=f"JWT {self.access_token_admin}",
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_admin}",
         )
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertRaises(
