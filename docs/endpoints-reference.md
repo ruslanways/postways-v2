@@ -539,6 +539,25 @@ HTML endpoints use session-based authentication. Users must be logged in via `/l
   - Success: Redirects to `/password_reset/complete/`
   - Failure: Returns form with validation errors
 
+#### `GET /password_change/`
+- **Authentication**: Required (session)
+- **Purpose**: Display password change form
+- **Response**: HTML password change form
+
+#### `POST /password_change/`
+- **Authentication**: Required (session)
+- **Purpose**: Change password for logged-in user
+- **Request Body** (form data):
+  ```
+  old_password: string
+  new_password1: string
+  new_password2: string
+  ```
+- **Response**: 
+  - Success: Redirects to `/password_change/done/`
+  - Failure: Returns form with validation errors
+- **Security**: All JWT tokens are blacklisted after successful change (consistent with API behavior)
+
 ---
 
 ### Authors
@@ -718,6 +737,7 @@ HTML endpoints use session-based authentication. Users must be logged in via `/l
 | `/logout/` | GET/POST | Yes | Logout |
 | `/password_reset/` | GET/POST | No | Password reset request |
 | `/reset/<uidb64>/<token>/` | GET/POST | No | Password reset confirm |
+| `/password_change/` | GET/POST | Yes | Change password (blacklists JWT tokens) |
 | `/authors/` | GET | Yes (Staff) | List users |
 | `/author/<pk>/` | GET | Yes (Owner/Admin) | User profile |
 | `/author/<pk>/delete/` | GET/POST | Yes (Owner) | Delete own account |

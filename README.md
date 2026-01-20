@@ -204,11 +204,13 @@ LOGOUT_REDIRECT_URL = "home"
 - **Login**: `/login/` → Session created → Redirects to profile (via `get_default_redirect_url()` override)
 - **Logout**: `/logout/` → Session destroyed → Redirects to home
 - **Password Reset**: Standard Django password reset flow
+- **Password Change**: `/password_change/` → Requires current password → Blacklists JWT tokens
 
 **Views** (`apps/diary/views/html.py`):
 - `SignUp` - User registration with auto-login
 - `Login` - Session-based login (overrides redirect to profile page)
 - `PasswordReset` - Password reset request
+- `CustomPasswordChangeView` - Password change with JWT token blacklisting
 - Uses Django's `LoginRequiredMixin` and `UserPassesTestMixin` for access control
 
 **Middleware**:

@@ -13,6 +13,7 @@ from .views import (
     Login,
     PasswordReset,
     CustomPasswordResetConfirmView,
+    CustomPasswordChangeView,
     # Authors (HTML)
     AuthorListView,
     AuthorDetailView,
@@ -71,7 +72,8 @@ auth_patterns = [
     path("logout/", LogoutView.as_view(), name="logout"),
     path("password_reset/", PasswordReset.as_view(), name="password_reset"),
     path("reset/<uidb64>/<token>/", CustomPasswordResetConfirmView.as_view(), name="password_reset_confirm"),
-    # Include remaining Django auth views: password_change, password_change_done,
+    path("password_change/", CustomPasswordChangeView.as_view(), name="password_change"),
+    # Include remaining Django auth views: password_change_done,
     # password_reset_done, password_reset_complete. Our custom views above take
     # precedence due to ordering.
     path("", include("django.contrib.auth.urls")),

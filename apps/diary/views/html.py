@@ -20,6 +20,7 @@ from django.views.generic.edit import CreateView, UpdateView, DeleteView
 from django.views.generic.list import MultipleObjectMixin
 from django.contrib.auth.views import (
     LoginView,
+    PasswordChangeView,
     PasswordResetView,
     PasswordResetConfirmView,
 )
@@ -131,6 +132,39 @@ class CustomPasswordResetConfirmView(PasswordResetConfirmView):
     """Password reset confirmation view. Allows user to set new password."""
 
     form_class = CustomSetPasswordForm
+
+
+class CustomPasswordChangeView(PasswordChangeView):
+    """
+    Password change view that also blacklists JWT tokens.
+
+    Extends Django's built-in PasswordChangeView to ensure that when a user
+    changes their password via the HTML interface, all their JWT tokens are
+    also invalidated. This provides consistent security behavior with the
+    API password change endpoint.
+
+    Security: After successful password change:
+        - All JWT refresh tokens are blacklisted (forces API re-authentication)
+        - All sessions are invalidated (Django's default behavior when
+          update_session_auth_hash is not called, but we call it to keep
+          the current session valid while invalidating others)
+    """
+
+    def form_valid(self, form):
+        """
+        Save the new password and blacklist all JWT tokens.
+
+        Note: The parent's form_valid() calls update_session_auth_hash() which
+        keeps the current session valid. Other sessions will be invalidated
+        because their stored password hash won't match.
+        """
+        from .api import blacklist_user_tokens
+
+        # Blacklist all JWT tokens before changing password
+        blacklist_user_tokens(self.request.user)
+
+        # Call parent which saves password and updates current session
+        return super().form_valid(form)
 
 
 class StaffRequiredMixin(UserPassesTestMixin):
