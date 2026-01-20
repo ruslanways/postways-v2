@@ -58,6 +58,9 @@ uv sync
 - Session-based for HTML views
 - JWT (SimpleJWT) for API with token rotation and blacklisting
 - Custom token recovery via email
+ - Account deletion flows (both use `blacklist_user_tokens()` utility function for consistency):
+   - API: `UserDetailAPIView.destroy()` uses atomic transaction to blacklist all tokens and delete user (cascades posts/likes)
+   - HTML: `UserDeleteView` requires login, provides an owner-only confirmation page, blacklists JWT tokens, logs out, then deletes account
 
 **API** (`apps/diary/views/api.py`):
 - REST endpoints under `/api/v1/`

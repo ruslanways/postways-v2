@@ -13,6 +13,7 @@ Views:
 
 from django.shortcuts import redirect, resolve_url
 from django.contrib import messages
+from django.contrib.auth import logout
 from django.urls import reverse_lazy
 from django.views.generic import ListView, DetailView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
@@ -329,3 +330,44 @@ class PostDeleteView(PostOwnerOrStaffMixin, DeleteView):
     def get_success_url(self):
         """Redirect to the author's profile after deletion."""
         return reverse_lazy("author-detail", kwargs={"pk": self.object.author_id})
+
+
+class UserDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
+    """
+    Delete user account with confirmation page.
+
+    Only allows users to delete their own account (not staff deleting others).
+    Logs out the user before deletion and redirects to home page.
+    """
+
+    model = CustomUser
+    template_name = "diary/user-delete.html"
+    permission_denied_message = "You can only delete your own account!"
+
+    def test_func(self):
+        """Only allow users to delete their own account."""
+        return self.request.user.id == self.kwargs["pk"]
+
+    def handle_no_permission(self):
+        """Redirect with warning message instead of raising 403."""
+        messages.warning(self.request, self.permission_denied_message)
+        return redirect("home")
+
+    def form_valid(self, form):
+        """
+        Log out the user and invalidate tokens before deleting their account.
+        """
+        from .api import blacklist_user_tokens
+
+        self.object = self.get_object()
+        # Blacklist any JWT tokens (if user used the API)
+        blacklist_user_tokens(self.object)
+        # Log out before deletion to avoid session issues
+        logout(self.request)
+        # Perform the actual deletion
+        self.object.delete()
+        return redirect(self.get_success_url())
+
+    def get_success_url(self):
+        """Redirect to home page after account deletion."""
+        return reverse_lazy("home")

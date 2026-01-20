@@ -77,6 +77,8 @@ All API endpoints are under `/api/v1/` and use JWT authentication (except regist
 
 **`DELETE /api/v1/users/<id>/`**
 - Delete user (owner or admin only)
+- Before deletion, blacklists all outstanding refresh tokens for that user
+- User deletion cascades to their posts and likes (via `on_delete=models.CASCADE`)
 
 ---
 
@@ -154,7 +156,7 @@ All API endpoints are under `/api/v1/` and use JWT authentication (except regist
 | `/api/v1/users/` | POST | No | Register new user |
 | `/api/v1/users/<id>/` | GET | Owner/Admin | Get user details |
 | `/api/v1/users/<id>/` | PUT/PATCH | Owner/Admin | Update user |
-| `/api/v1/users/<id>/` | DELETE | Owner/Admin | Delete user |
+| `/api/v1/users/<id>/` | DELETE | Owner/Admin | Delete user (blacklists tokens, cascades posts/likes) |
 | `/api/v1/posts/` | GET | No | List published posts |
 | `/api/v1/posts/` | POST | Yes | Create post |
 | `/api/v1/posts/<id>/` | GET | No* | Get post details |
@@ -309,6 +311,7 @@ WebSocket connections use Django Channels' `AuthMiddlewareStack` (`config/asgi.p
 - Real-time like updates via WebSocket
 - Background task processing with Celery
 - Custom token recovery via email
+- Account deletion for users (HTML profile button and API), with JWT token blacklisting and cascading removal of posts/likes
 
 ## Project Structure
 

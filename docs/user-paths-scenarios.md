@@ -661,7 +661,91 @@ CLIENT (Authenticated - Owner)
 
 ---
 
-### 3.4 List Users (API - Staff Only)
+### 3.4 Delete Own Account (HTML)
+
+```
+USER (Authenticated - Owner only)
+ │
+ │ 1. Visits /author/<own_pk>/delete/
+ ▼
+ ┌─────────────────────────────┐
+ │ UserDeleteView              │
+ │ (LoginRequiredMixin +       │
+ │  UserPassesTestMixin)       │
+ └──────────────┬──────────────┘
+                │
+                │ 2. Check: logged in?
+                ▼
+ ┌─────────────────────────────┐
+ │ Authenticated?              │
+ └──────────────┬──────────────┘
+                │
+                ├─ No → Redirect to /login/
+                │
+                └─ Yes → 3. Check: is own account?
+                           ▼
+ ┌─────────────────────────────┐
+ │ Own account (pk == user.id)?│
+ └──────────────┬──────────────┘
+                │
+                ├─ No → Redirect to / with warning message
+                │
+                └─ Yes → 4. Show confirmation page
+                           5. User confirms deletion
+                           6. Blacklist all JWT tokens
+                           7. Log out user (destroy session)
+                           8. Delete CustomUser (CASCADE deletes posts/likes)
+                           9. Redirect to / (homepage)
+```
+
+**Security Features:**
+- Requires login (`LoginRequiredMixin`)
+- Only owners can delete their own accounts (not staff deleting others)
+- JWT tokens blacklisted via shared `blacklist_user_tokens()` utility (consistent with API behavior)
+- Session destroyed before user deletion to prevent session issues
+
+**User Experience:**
+- Unauthorized access redirects to homepage with warning message (not raw 403)
+- After deletion, user sees homepage as anonymous visitor
+
+---
+
+### 3.5 Delete Own Account (API)
+
+```
+CLIENT (Authenticated - Owner)
+ │
+ │ 1. DELETE /api/v1/users/<own_pk>/
+ │    Authorization: Bearer <access_token>
+ ▼
+ ┌─────────────────────────────┐
+ │ UserDetailAPIView.destroy() │
+ │ Permission: OwnerOrAdmin    │
+ └──────────────┬──────────────┘
+                │
+                │ 2. Check object permission
+                ▼
+ ┌─────────────────────────────┐
+ │ Is owner or staff?          │
+ └──────────────┬──────────────┘
+                │
+                ├─ No → 403 Forbidden
+                │
+                └─ Yes → 3. Begin atomic transaction
+                           4. Blacklist all OutstandingToken entries
+                           5. Delete CustomUser (CASCADE deletes posts/likes)
+                           6. Commit transaction
+                           7. Return 204 No Content
+```
+
+**Security Features:**
+- Uses atomic transaction to ensure token blacklisting and deletion succeed or fail together
+- All outstanding JWT refresh tokens blacklisted via `blacklist_user_tokens()` utility
+- Prevents use of any previously issued tokens after account deletion
+
+---
+
+### 3.6 List Users (API - Staff Only)
 
 ```
 CLIENT (Authenticated - Staff Only)
@@ -958,6 +1042,8 @@ USER A (Viewing Post)          USER B (Viewing Same Post)
 | Like post | `POST /api/v1/likes/toggle/` | ✅ Allowed |
 | View user list | `GET /api/v1/users/` | ❌ 403 Forbidden |
 | Update own profile | `PATCH /api/v1/users/<own_pk>/` | ✅ Allowed |
+| Delete own account (HTML) | `GET/POST /author/<own_pk>/delete/` | ✅ Allowed |
+| Delete own account (API) | `DELETE /api/v1/users/<own_pk>/` | ✅ Allowed |
 
 ---
 

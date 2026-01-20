@@ -16,6 +16,7 @@ from .views import (
     # Authors (HTML)
     AuthorListView,
     AuthorDetailView,
+    UserDeleteView,
     # Posts (HTML)
     PostListView,
     PostCreateView,
@@ -51,6 +52,7 @@ html_patterns = [
     path("authors/", AuthorListView.as_view(), name="author-list"),
     path("authors/<sortfield>/", AuthorListView.as_view(), name="author-list"),
     path("author/<int:pk>/", AuthorDetailView.as_view(), name="author-detail"),
+    path("author/<int:pk>/delete/", UserDeleteView.as_view(), name="user-delete"),
     # Posts
     path("posts/", PostListView.as_view(), name="post-list"),
     path("posts/add/", PostCreateView.as_view(), name="post-add"),

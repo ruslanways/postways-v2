@@ -56,6 +56,28 @@ from ..tasks import send_token_recovery_email
 logger = logging.getLogger(__name__)
 
 
+def blacklist_user_tokens(user):
+    """
+    Blacklist all outstanding JWT refresh tokens for a user.
+
+    This prevents further API access using any previously issued tokens.
+    Used during account deletion and password recovery flows.
+
+    Args:
+        user: The CustomUser instance whose tokens should be blacklisted.
+    """
+    blacklisted_token_ids = BlacklistedToken.objects.filter(
+        token__user=user
+    ).values_list("token_id", flat=True)
+    tokens_to_blacklist = OutstandingToken.objects.filter(user=user).exclude(
+        id__in=blacklisted_token_ids
+    )
+    BlacklistedToken.objects.bulk_create(
+        [BlacklistedToken(token=token) for token in tokens_to_blacklist],
+        ignore_conflicts=True,
+    )
+
+
 class UserListAPIView(generics.ListCreateAPIView):
     """
     List all users or create a new user.
@@ -75,7 +97,7 @@ class UserDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
 
     GET: Retrieve user details with their posts and likes.
     PUT/PATCH: Update user (owner or admin only).
-    DELETE: Delete user (owner or admin only).
+    DELETE: Delete user (owner or admin only). Blacklists all JWT tokens before deletion.
     """
 
     queryset = CustomUser.objects.all()
@@ -90,15 +112,29 @@ class UserDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_serializer_context(self):
         """
-        Override parent's method.
-        Add extra context 'obj' for using in serializer validator to get object.
+        Extend parent's context with the current object for serializer validators.
+
+        The 'obj' context is used by serializers that need to validate
+        unique constraints while excluding the current instance.
         """
-        return {
-            "request": self.request,
-            "format": self.format_kwarg,
-            "view": self,
-            "obj": self.get_object(),
-        }
+        context = super().get_serializer_context()
+        context["obj"] = self.get_object()
+        return context
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Delete a user account after blacklisting all their JWT tokens.
+
+        Uses atomic transaction to ensure token blacklisting and user deletion
+        succeed or fail together. Blacklists all outstanding refresh tokens
+        to prevent further API access, then performs user deletion which
+        cascades to related posts and likes.
+        """
+        user = self.get_object()
+
+        with transaction.atomic():
+            blacklist_user_tokens(user)
+            return super().destroy(request, *args, **kwargs)
 
 
 class PostAPIView(generics.ListCreateAPIView):
@@ -381,17 +417,7 @@ class TokenRecoveryAPIView(generics.GenericAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Blacklist all non-blacklisted tokens for this user
-        blacklisted_token_ids = BlacklistedToken.objects.filter(
-            token__user=user
-        ).values_list("token_id", flat=True)
-        tokens_to_blacklist = OutstandingToken.objects.filter(user=user).exclude(
-            id__in=blacklisted_token_ids
-        )
-        BlacklistedToken.objects.bulk_create(
-            [BlacklistedToken(token=token) for token in tokens_to_blacklist],
-            ignore_conflicts=True,
-        )
+        blacklist_user_tokens(user)
 
         refresh = RefreshToken.for_user(user)
 

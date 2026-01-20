@@ -4,13 +4,19 @@
 
 {% block content %}
  
-<h2>
-    {% if user.is_staff %}
-    {{object.username}} posts:
-    {% else %}
-    My posts:
+<h2 style="display: flex; justify-content: space-between; align-items: center;">
+    <span>
+        {% if user.is_staff %}
+        {{object.username}} posts:
+        {% else %}
+        My posts:
+        {% endif %}
+        {{ object.post_set.count }}
+    </span>
+    {% if user.id == object.id %}
+    <a href="{% url 'user-delete' object.pk %}" class="btn btn-danger btn-sm">Delete Account</a>
     {% endif %}
-    {{ object.post_set.count }}</h2> 
+</h2> 
 <br>
 
 {% for post in  page_obj %}

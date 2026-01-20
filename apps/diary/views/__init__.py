@@ -24,6 +24,7 @@ from .html import (
     PostOwnerOrStaffMixin,
     PostUpdateView,
     PostDeleteView,
+    UserDeleteView,
 )
 
 from .api import (
@@ -60,6 +61,7 @@ __all__ = [
     "PostOwnerOrStaffMixin",
     "PostUpdateView",
     "PostDeleteView",
+    "UserDeleteView",
     # API views
     "UserListAPIView",
     "UserDetailAPIView",
