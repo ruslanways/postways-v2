@@ -714,8 +714,10 @@ HTML endpoints use session-based authentication. Users must be logged in via `/l
 2. **Session Authentication**: HTML endpoints use Django session cookies
 3. **Token Expiration**: Access tokens typically expire after 5 minutes (configurable)
 4. **Token Rotation**: Refresh tokens are rotated and old ones blacklisted when `ROTATE_REFRESH_TOKENS=True`
-5. **Image Upload**: Use `multipart/form-data` content type for endpoints that accept images
-6. **Pagination**: Most list endpoints support standard DRF pagination (`page`, `page_size`)
-7. **Filtering**: Post list endpoint supports extensive filtering by author and date ranges
-8. **Real-time Updates**: Like count updates are broadcast via WebSocket to all connected clients
-9. **Error Responses**: Custom error handlers return JSON for API requests (`/api/*`) and HTML templates for browser requests (400, 403, 404, 500)
+5. **Custom Token Refresh**: Uses `MyTokenRefreshSerializer` which fixes a SimpleJWT limitation - the default serializer doesn't track rotated tokens in `OutstandingToken` table, breaking blacklist functionality
+6. **Token Blacklisting**: The `blacklist_user_tokens()` utility function blacklists all outstanding tokens for a user, used during account deletion and password recovery
+7. **Image Upload**: Use `multipart/form-data` content type for endpoints that accept images
+8. **Pagination**: Most list endpoints support standard DRF pagination (`page`, `page_size`)
+9. **Filtering**: Post list endpoint supports extensive filtering by author and date ranges
+10. **Real-time Updates**: Like count updates are broadcast via WebSocket to all connected clients
+11. **Error Responses**: Custom error handlers return JSON for API requests (`/api/*`) and HTML templates for browser requests (400, 403, 404, 500)

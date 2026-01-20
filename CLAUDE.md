@@ -66,6 +66,38 @@ uv sync
 - REST endpoints under `/api/v1/`
 - Custom permissions: `OwnerOrAdmin`, `OwnerOrAdminOrReadOnly`, `ReadForAdminCreateForAnonymous`
 
+**JWT Authentication Details** (`apps/diary/views/api.py`):
+
+The project uses SimpleJWT with custom enhancements for secure token management:
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `blacklist_user_tokens()` | `api.py:59-78` | Utility to blacklist all outstanding refresh tokens for a user |
+| `MyTokenObtainPairView` | `api.py:436-476` | Custom login with httponly cookie for refresh token |
+| `MyTokenRefreshSerializer` | `api.py:455-516` | Fixes OutstandingToken tracking for rotated tokens |
+| `MyTokenRefreshView` | `api.py:370-378` | Uses custom serializer for proper blacklist support |
+| `TokenRecoveryAPIView` | `api.py:381-433` | Password recovery via email with token blacklisting |
+
+**Key Implementation Details:**
+
+1. **Token Blacklisting Utility** (`blacklist_user_tokens()`):
+   - Finds all `OutstandingToken` entries for a user
+   - Creates `BlacklistedToken` entries for each (with `ignore_conflicts=True`)
+   - Used by: account deletion (API + HTML), password recovery
+
+2. **Custom Token Refresh Serializer** (`MyTokenRefreshSerializer`):
+   - **Problem**: Default SimpleJWT `TokenRefreshSerializer` doesn't add rotated refresh tokens to `OutstandingToken` table
+   - **Impact**: Without this fix, blacklisting doesn't work for rotated tokens
+   - **Solution**: Manually creates `OutstandingToken` record after generating new refresh token
+   - Includes: JTI, expiration time, user reference, and token string
+
+3. **Secure Cookie Login** (`MyTokenObtainPairView`):
+   - Returns access token in response body (for JS storage in memory)
+   - Sets refresh token as HTTP-only cookie with:
+     - `httponly=True` - prevents XSS attacks
+     - `samesite="Strict"` - prevents CSRF attacks
+     - `secure=not settings.DEBUG` - HTTPS-only in production
+
 **Custom Error Handlers** (`config/urls.py`, `apps/diary/views/api.py`, `apps/diary/middleware.py`):
 - Custom error pages for 400, 403, 404, and 500 errors
 - Returns JSON for API requests (`/api/*`), HTML templates for browser requests

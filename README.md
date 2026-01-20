@@ -235,6 +235,8 @@ SIMPLE_JWT = {
 1. **Token Rotation**: New refresh token issued on each refresh; old one blacklisted
 2. **Blacklisting**: Uses `rest_framework_simplejwt.token_blacklist` to invalidate tokens
 3. **Custom Recovery**: `TokenRecoveryAPIView` blacklists all user tokens, generates new pair, emails access token
+4. **Custom Refresh Serializer**: `MyTokenRefreshSerializer` fixes a SimpleJWT limitation where rotated refresh tokens aren't tracked in `OutstandingToken` table, which would break blacklist functionality
+5. **Token Blacklist Utility**: `blacklist_user_tokens()` function (in `apps/diary/views/api.py`) blacklists all outstanding tokens for a user - used during account deletion and password recovery
 
 **Custom Login View** (`MyTokenObtainPairView`):
 - Returns access token in response body (for JavaScript storage)

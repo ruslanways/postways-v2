@@ -1131,6 +1131,11 @@ CLIENT
 - New refresh token issued for next refresh
 - OutstandingToken table tracks all issued tokens for blacklist support
 
+**Why Custom Serializer (`MyTokenRefreshSerializer`)?**
+- **Problem**: Default SimpleJWT `TokenRefreshSerializer` doesn't add rotated refresh tokens to the `OutstandingToken` table
+- **Impact**: Without tracking, blacklisting doesn't work for rotated tokens (the `blacklist_user_tokens()` utility can't find them)
+- **Solution**: Custom serializer manually creates `OutstandingToken` record with JTI, expiration, user reference, and token string after generating the new refresh token
+
 ---
 
 ## 8. Image Processing Flow
