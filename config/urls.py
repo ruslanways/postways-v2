@@ -19,6 +19,7 @@ if settings.DEBUG:
 # ------------------------------------------------------------------------------
 # Custom error handlers
 # ------------------------------------------------------------------------------
+handler400 = "apps.diary.views.error_400"
 handler403 = "apps.diary.views.error_403"
 handler404 = "apps.diary.views.error_404"
 # Note: handler500 is handled by UncaughtExceptionMiddleware for logging + API support

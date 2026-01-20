@@ -40,6 +40,7 @@ from .api import (
     TokenRecoveryAPIView,
     MyTokenObtainPairView,
     RootAPIView,
+    error_400,
     error_403,
     error_404,
 )
@@ -76,6 +77,7 @@ __all__ = [
     "MyTokenObtainPairView",
     "RootAPIView",
     # Error handlers
+    "error_400",
     "error_403",
     "error_404",
 ]

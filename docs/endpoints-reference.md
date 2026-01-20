@@ -718,3 +718,4 @@ HTML endpoints use session-based authentication. Users must be logged in via `/l
 6. **Pagination**: Most list endpoints support standard DRF pagination (`page`, `page_size`)
 7. **Filtering**: Post list endpoint supports extensive filtering by author and date ranges
 8. **Real-time Updates**: Like count updates are broadcast via WebSocket to all connected clients
+9. **Error Responses**: Custom error handlers return JSON for API requests (`/api/*`) and HTML templates for browser requests (400, 403, 404, 500)

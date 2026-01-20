@@ -1190,6 +1190,10 @@ USER
 
 ## 9. Error Scenarios
 
+**Custom Error Pages**: The application uses custom error handlers that return:
+- **API requests** (`/api/*`): JSON responses (e.g., `{"error": "Not found"}`)
+- **HTML requests**: Custom templates (`400.html`, `403.html`, `404.html`, `500.html`) that extend the base layout
+
 ### 9.1 Authentication Failures
 
 | Scenario | HTTP Status | Response |

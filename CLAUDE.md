@@ -66,6 +66,12 @@ uv sync
 - REST endpoints under `/api/v1/`
 - Custom permissions: `OwnerOrAdmin`, `OwnerOrAdminOrReadOnly`, `ReadForAdminCreateForAnonymous`
 
+**Custom Error Handlers** (`config/urls.py`, `apps/diary/views/api.py`, `apps/diary/middleware.py`):
+- Custom error pages for 400, 403, 404, and 500 errors
+- Returns JSON for API requests (`/api/*`), HTML templates for browser requests
+- Templates located in `templates/` directory: `400.html`, `403.html`, `404.html`, `500.html`
+- 500 errors handled by `UncaughtExceptionMiddleware` with logging support
+
 **WebSocket - Real-time Likes** (`apps/diary/consumers.py`):
 
 The application uses Django Channels to broadcast like count updates in real-time. This means when one user likes a post, all other users viewing that post immediately see the updated like count without refreshing the page.
