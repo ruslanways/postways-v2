@@ -43,5 +43,10 @@ app.conf.beat_schedule = {
         "schedule": crontab(hour=10, minute=0, day_of_week=6),  # Saturday 10:00
         "options": {"expires": 3600},  # Task expires after 1 hour if not executed
     },
+    "flush-expired-tokens": {
+        "task": "apps.diary.tasks.flush_expired_tokens",
+        "schedule": crontab(hour=3, minute=0, day_of_week=0),  # Sunday 03:00
+        "options": {"expires": 3600},  # Task expires after 1 hour if not executed
+    },
 }
 

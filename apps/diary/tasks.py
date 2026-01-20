@@ -2,6 +2,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from PIL import Image, ImageOps
+from django.core.management import call_command
 from django.utils import timezone
 from django.core.mail import send_mail
 from django.conf import settings
@@ -93,3 +94,9 @@ def send_week_report():
         None,
         settings.WEEKLY_REPORT_RECIPIENTS
     )
+
+
+@shared_task
+def flush_expired_tokens():
+    """Remove expired tokens from OutstandingToken and BlacklistedToken tables."""
+    call_command("flushexpiredtokens")
