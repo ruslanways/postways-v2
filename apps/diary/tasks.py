@@ -100,3 +100,17 @@ def send_week_report():
 def flush_expired_tokens():
     """Remove expired tokens from OutstandingToken and BlacklistedToken tables."""
     call_command("flushexpiredtokens")
+
+
+@shared_task
+def send_email_verification(verification_link, new_email):
+    """Sends an email verification link to the user's new email address."""
+    send_mail(
+        "Postways email verification",
+        f"Please click the link below to verify your new email address:\n\n"
+        f"{verification_link}\n\n"
+        "This link will expire in 24 hours.\n\n"
+        "If you did not request this email change, please ignore this message.",
+        None,
+        [new_email],
+    )

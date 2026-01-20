@@ -59,6 +59,9 @@
             </li>
             {% endif %}
             <li class="nav-item d-lg-none text-end pe-2">
+              <a class="nav-link" href="{% url 'email_change' %}">Change Email</a>
+            </li>
+            <li class="nav-item d-lg-none text-end pe-2">
               <a class="nav-link" href="{% url 'username_change' %}">Change Username</a>
             </li>
             <li class="nav-item d-lg-none text-end pe-2">
@@ -89,6 +92,7 @@
                 <li><a class="dropdown-item" href="{% url 'author-list' %}">All Users</a></li>
                 <li><a class="dropdown-item" href="{% url 'post-list' %}">All Posts</a></li>
                 {% endif %}
+                <li><a class="dropdown-item" href="{% url 'email_change' %}">Change Email</a></li>
                 <li><a class="dropdown-item" href="{% url 'username_change' %}">Change Username</a></li>
                 <li><a class="dropdown-item" href="{% url 'password_change' %}">Change Password</a></li>
                 <li>

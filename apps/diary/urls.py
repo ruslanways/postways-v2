@@ -15,6 +15,8 @@ from .views import (
     CustomPasswordResetConfirmView,
     CustomPasswordChangeView,
     UsernameChangeView,
+    EmailChangeView,
+    EmailVerifyView,
     # Authors (HTML)
     AuthorListView,
     AuthorDetailView,
@@ -33,6 +35,8 @@ from .views import (
     TokenRecoveryAPIView,
     PasswordChangeAPIView,
     UsernameChangeAPIView,
+    EmailChangeAPIView,
+    EmailVerifyAPIView,
     MyTokenObtainPairView,
     MyTokenRefreshView,
     # Posts API
@@ -76,6 +80,8 @@ auth_patterns = [
     path("reset/<uidb64>/<token>/", CustomPasswordResetConfirmView.as_view(), name="password_reset_confirm"),
     path("password_change/", CustomPasswordChangeView.as_view(), name="password_change"),
     path("username_change/", UsernameChangeView.as_view(), name="username_change"),
+    path("email_change/", EmailChangeView.as_view(), name="email_change"),
+    path("email_verify/<str:token>/", EmailVerifyView.as_view(), name="email_verify"),
     # Include remaining Django auth views: password_change_done,
     # password_reset_done, password_reset_complete. Our custom views above take
     # precedence due to ordering.
@@ -98,6 +104,8 @@ api_v1_patterns = [
     path("auth/token/recovery/", TokenRecoveryAPIView.as_view(), name="token-recovery-api"),
     path("auth/password/change/", PasswordChangeAPIView.as_view(), name="password-change-api"),
     path("auth/username/change/", UsernameChangeAPIView.as_view(), name="username-change-api"),
+    path("auth/email/change/", EmailChangeAPIView.as_view(), name="email-change-api"),
+    path("auth/email/verify/", EmailVerifyAPIView.as_view(), name="email-verify-api"),
     # Posts
     path("posts/", PostAPIView.as_view(), name="post-list-create-api"),
     path("posts/<int:pk>/", PostDetailAPIView.as_view(), name="post-detail-api"),

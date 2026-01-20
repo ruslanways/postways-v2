@@ -174,6 +174,52 @@ Authorization: Bearer <access_token>
   - **Rate Limiting**: Users can only change their username once every 30 days
   - Returns `400 Bad Request` if cooldown period has not passed
 
+#### `POST /api/v1/auth/email/change/`
+- **Authentication**: Required
+- **Request Body**:
+  ```json
+  {
+    "password": "current_password",
+    "new_email": "new@example.com"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "detail": "Verification email sent to your new email address."
+  }
+  ```
+- **Note**:
+  - Requires verification of the current password before allowing changes
+  - New email is validated for:
+    - Case-insensitive uniqueness (cannot use existing email in any case variation)
+    - Must be different from current email
+  - Sends a verification email to the new address with a link that expires in 24 hours
+  - Email is NOT updated immediately - user must click the verification link
+
+#### `POST /api/v1/auth/email/verify/` or `GET /api/v1/auth/email/verify/?token=<token>`
+- **Authentication**: Not required
+- **Request Body** (POST):
+  ```json
+  {
+    "token": "uuid-verification-token"
+  }
+  ```
+- **Query Parameters** (GET):
+  - `token=<uuid>` - Verification token from email link
+- **Response**:
+  ```json
+  {
+    "detail": "Email changed successfully.",
+    "email": "new@example.com"
+  }
+  ```
+- **Note**:
+  - Validates that the token exists and is not expired (24-hour validity)
+  - Updates user's email to the pending email address
+  - Clears pending email fields after successful verification
+  - Returns `400 Bad Request` if token is invalid or expired
+
 ---
 
 ### Users
@@ -225,7 +271,7 @@ Authorization: Bearer <access_token>
 #### `GET /api/v1/users/<id>/`
 - **Authentication**: Required (Owner or Admin only)
 - **Request Body**: None
-- **Response**: User details with posts and likes
+- **Response**: User details with posts and likes (all fields are read-only)
 - **Example Response**:
   ```json
   {
@@ -248,21 +294,10 @@ Authorization: Bearer <access_token>
     ]
   }
   ```
-
-#### `PUT /api/v1/users/<id>/` or `PATCH /api/v1/users/<id>/`
-- **Authentication**: Required (Owner or Admin only)
-- **Request Body** (all fields optional for PATCH):
-  ```json
-  {
-    "email": "string"      // optional
-  }
-  ```
-- **Response**: `200 OK` with updated user data
-- **Note**:
-  - Password changes are NOT allowed via this endpoint for security reasons
-    - Use `POST /api/v1/auth/password/change/` to change passwords (requires current password verification)
-  - Username changes are NOT allowed via this endpoint for security reasons
-    - Use `POST /api/v1/auth/username/change/` to change username (requires password verification, 30-day cooldown)
+- **Note**: All user profile fields are read-only. Use dedicated endpoints for changes:
+  - Password: `POST /api/v1/auth/password/change/`
+  - Username: `POST /api/v1/auth/username/change/`
+  - Email: `POST /api/v1/auth/email/change/`
 
 #### `DELETE /api/v1/users/<id>/`
 - **Authentication**: Required (Owner or Admin only)
@@ -604,6 +639,38 @@ HTML endpoints use session-based authentication. Users must be logged in via `/l
   - Username must be unique (case-insensitive)
   - 30-day cooldown between username changes
 
+#### `GET /email_change/`
+- **Authentication**: Required (session)
+- **Purpose**: Display email change form
+- **Response**: HTML email change form
+
+#### `POST /email_change/`
+- **Authentication**: Required (session)
+- **Purpose**: Initiate email change for logged-in user
+- **Request Body** (form data):
+  ```
+  password: string
+  new_email: string
+  ```
+- **Response**:
+  - Success: Sends verification email and redirects to `/author/<pk>/` (profile page) with success message
+  - Failure: Returns form with validation errors
+- **Note**:
+  - Requires current password verification
+  - New email must be unique (case-insensitive)
+  - New email must be different from current email
+  - Email is NOT updated immediately - user must click the verification link
+
+#### `GET /email_verify/<token>/`
+- **Authentication**: Not required
+- **Purpose**: Verify email change and complete the update
+- **Response**:
+  - Success: Updates email and redirects to `/` (homepage) with success message
+  - Invalid/Expired Token: Redirects to `/` (homepage) with error message
+- **Note**:
+  - Token is valid for 24 hours
+  - After verification, pending email fields are cleared
+
 ---
 
 ### Authors
@@ -756,10 +823,11 @@ HTML endpoints use session-based authentication. Users must be logged in via `/l
 | `/api/v1/auth/token/recovery/` | POST | No | Password recovery |
 | `/api/v1/auth/password/change/` | POST | Yes | Change password (requires current password) |
 | `/api/v1/auth/username/change/` | POST | Yes | Change username (requires password, 30-day cooldown) |
+| `/api/v1/auth/email/change/` | POST | Yes | Initiate email change (requires password, sends verification) |
+| `/api/v1/auth/email/verify/` | POST/GET | No | Verify email change token |
 | `/api/v1/users/` | GET | Yes (Staff) | List users |
 | `/api/v1/users/` | POST | No | Registration (anonymous only) |
-| `/api/v1/users/<id>/` | GET | Yes (Owner/Admin) | User details |
-| `/api/v1/users/<id>/` | PUT/PATCH | Yes (Owner/Admin) | Update user |
+| `/api/v1/users/<id>/` | GET | Yes (Owner/Admin) | User details (read-only) |
 | `/api/v1/users/<id>/` | DELETE | Yes (Owner/Admin) | Delete user (blacklists tokens, cascades posts/likes) |
 | `/api/v1/posts/` | GET | No | List published posts |
 | `/api/v1/posts/` | POST | Yes | Create post |
@@ -786,6 +854,8 @@ HTML endpoints use session-based authentication. Users must be logged in via `/l
 | `/reset/<uidb64>/<token>/` | GET/POST | No | Password reset confirm |
 | `/password_change/` | GET/POST | Yes | Change password (blacklists JWT tokens) |
 | `/username_change/` | GET/POST | Yes | Change username (requires password, 30-day cooldown) |
+| `/email_change/` | GET/POST | Yes | Initiate email change (requires password, sends verification) |
+| `/email_verify/<token>/` | GET | No | Verify email change token |
 | `/authors/` | GET | Yes (Staff) | List users |
 | `/author/<pk>/` | GET | Yes (Owner/Admin) | User profile |
 | `/author/<pk>/delete/` | GET/POST | Yes (Owner) | Delete own account |

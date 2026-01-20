@@ -129,24 +129,27 @@ class UserSerializer(serializers.HyperlinkedModelSerializer):
 
 class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
     """
-    Serializer for user detail, update, and delete operations.
+    Serializer for user detail and delete operations.
 
-    Used for GET/PUT/PATCH/DELETE /api/v1/users/{id}/.
+    Used for GET/DELETE /api/v1/users/{id}/.
     Includes related posts and likes as hyperlinked relationships.
 
     Fields:
         - url: Hyperlink to user detail endpoint
         - id: User ID (read-only)
-        - username: Optional for updates
-        - email: Optional for updates
+        - username: Read-only (use /api/v1/auth/username/change/ to change)
+        - email: Read-only (use /api/v1/auth/email/change/ to change)
         - post_set: Hyperlinked list of all posts by this user (read-only)
         - like_set: Hyperlinked list of all likes by this user (read-only)
         - last_request, last_login, date_joined: Read-only timestamps
         - is_staff, is_active: Read-only admin flags
 
     Note:
-        Password changes are NOT allowed via this endpoint for security reasons.
-        Use the dedicated /api/v1/auth/password/change/ endpoint instead.
+        Password, username, and email changes are NOT allowed via this endpoint.
+        Use the dedicated endpoints instead:
+        - Password: /api/v1/auth/password/change/
+        - Username: /api/v1/auth/username/change/
+        - Email: /api/v1/auth/email/change/
     """
 
     url = serializers.HyperlinkedIdentityField(
@@ -175,68 +178,16 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
             "post_set",
             "like_set",
         )
-        extra_kwargs = {
-            "email": {"required": False},
-        }
         read_only_fields = (
             "id",
             "username",
+            "email",
             "is_active",
             "last_request",
             "last_login",
             "date_joined",
             "is_staff",
         )
-
-    def validate(self, data):
-        """
-        Reject requests that attempt to change password or username via this endpoint.
-
-        Args:
-            data: Dictionary containing fields to update
-
-        Returns:
-            dict: Validated data
-
-        Raises:
-            ValidationError: If password or username field is present in the request
-        """
-        if "password" in self.initial_data:
-            raise serializers.ValidationError(
-                {
-                    "password": "Password changes are not allowed via this endpoint. "
-                    "Use /api/v1/auth/password/change/ instead."
-                }
-            )
-        if "username" in self.initial_data:
-            raise serializers.ValidationError(
-                {
-                    "username": "Username changes are not allowed via this endpoint. "
-                    "Use /api/v1/auth/username/change/ instead."
-                }
-            )
-        return data
-
-    def update(self, instance, validated_data):
-        """
-        Update user instance with provided data.
-
-        Args:
-            instance: The existing CustomUser instance to update
-            validated_data: Dictionary containing validated fields to update
-
-        Returns:
-            CustomUser: The updated user instance
-
-        Note:
-            Only updates email. Password and username changes are not allowed
-            via this endpoint - use dedicated endpoints instead:
-            - Password: /api/v1/auth/password/change/
-            - Username: /api/v1/auth/username/change/
-        """
-        instance.email = validated_data.get("email", instance.email)
-        instance.save()
-        return instance
 
 
 # ============================================================================
@@ -700,3 +651,106 @@ class UsernameChangeSerializer(serializers.Serializer):
                 )
 
         return data
+
+
+class EmailChangeSerializer(serializers.Serializer):
+    """
+    Serializer for initiating email change.
+
+    Used for POST /api/v1/auth/email/change/ to request email change.
+    Requires the current password for verification before allowing the change.
+    Sends a verification email to the new address.
+
+    Fields:
+        - password: Current password (required, for verification)
+        - new_email: New email address (required, must be unique and different from current)
+    """
+
+    password = serializers.CharField(
+        style={"input_type": "password"},
+        write_only=True,
+    )
+    new_email = serializers.EmailField(max_length=254)
+
+    def validate_password(self, value):
+        """
+        Validate that password matches the current user's password.
+
+        Args:
+            value: The provided password
+
+        Returns:
+            str: The validated password
+
+        Raises:
+            ValidationError: If the password is incorrect
+        """
+        user = self.context["request"].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Password is incorrect.")
+        return value
+
+    def validate_new_email(self, value):
+        """
+        Validate that new email is unique (case-insensitive) and different from current.
+
+        Args:
+            value: The proposed new email
+
+        Returns:
+            str: The validated email (lowercased)
+
+        Raises:
+            ValidationError: If email is taken or same as current
+        """
+        user = self.context["request"].user
+        normalized_email = value.lower()
+
+        # Check if same as current email
+        if user.email.lower() == normalized_email:
+            raise serializers.ValidationError("New email must be different from current email.")
+
+        # Check case-insensitive uniqueness
+        if CustomUser.objects.filter(email__iexact=normalized_email).exists():
+            raise serializers.ValidationError("A user with that email already exists.")
+
+        return normalized_email
+
+
+class EmailVerifySerializer(serializers.Serializer):
+    """
+    Serializer for verifying email change token.
+
+    Used for POST /api/v1/auth/email/verify/ to complete email change.
+    Validates the token exists and is not expired.
+
+    Fields:
+        - token: UUID verification token (required)
+    """
+
+    token = serializers.CharField(max_length=36)
+
+    def validate_token(self, value):
+        """
+        Validate that token exists and is not expired.
+
+        Args:
+            value: The verification token
+
+        Returns:
+            str: The validated token
+
+        Raises:
+            ValidationError: If token is invalid or expired
+        """
+        try:
+            user = CustomUser.objects.get(email_verification_token=value)
+        except CustomUser.DoesNotExist:
+            raise serializers.ValidationError("Invalid verification token.")
+
+        if user.email_verification_expires < timezone.now():
+            raise serializers.ValidationError("Verification token has expired.")
+
+        # Store the user for later use in the view
+        self.user = user
+        return value

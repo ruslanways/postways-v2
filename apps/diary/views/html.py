@@ -36,9 +36,11 @@ from ..forms import (
     CustomUserCreationForm,
     CustomAuthenticationForm,
     CustomSetPasswordForm,
+    EmailChangeForm,
     UpdatePostForm,
     UsernameChangeForm,
 )
+from ..tasks import send_email_verification
 
 
 class HomeView(ListView):
@@ -197,6 +199,91 @@ class UsernameChangeView(LoginRequiredMixin, FormView):
         form.save()
         messages.success(self.request, "Username changed successfully.")
         return redirect("author-detail", self.request.user.pk)
+
+
+class EmailChangeView(LoginRequiredMixin, FormView):
+    """
+    Email change view with password confirmation.
+
+    Requires login and validates:
+        - Current password is correct
+        - New email is unique (case-insensitive)
+        - New email is different from current
+
+    Sends verification email to new address on success.
+    """
+
+    template_name = "registration/email_change.html"
+    form_class = EmailChangeForm
+
+    def get_form_kwargs(self):
+        """Pass the current user to the form."""
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def form_valid(self, form):
+        """Save pending email, send verification, and show success message."""
+        user, token, new_email = form.save()
+
+        # Build verification link
+        verification_link = self.request.build_absolute_uri(
+            reverse_lazy("email_verify", kwargs={"token": token})
+        )
+
+        # Send verification email via Celery
+        send_email_verification.delay(verification_link, new_email)
+
+        messages.success(
+            self.request,
+            "Verification email sent. Please check your new email address."
+        )
+        return redirect("author-detail", self.request.user.pk)
+
+
+class EmailVerifyView(FormView):
+    """
+    Email verification view.
+
+    Validates the token from the URL and completes the email change.
+    Redirects to home on success with a success message.
+    """
+
+    template_name = "registration/email_verify_error.html"
+
+    def get(self, request, token, *args, **kwargs):
+        """
+        Verify token and update email.
+
+        Args:
+            token: UUID verification token from URL
+
+        Returns:
+            Redirect to home on success, error page on failure
+        """
+        from django.utils import timezone
+
+        try:
+            user = CustomUser.objects.get(email_verification_token=token)
+        except CustomUser.DoesNotExist:
+            messages.error(request, "Invalid verification link.")
+            return redirect("home")
+
+        if user.email_verification_expires < timezone.now():
+            messages.error(request, "Verification link has expired.")
+            return redirect("home")
+
+        # Update email
+        user.email = user.pending_email
+
+        # Clear pending fields
+        user.pending_email = None
+        user.email_verification_token = None
+        user.email_verification_expires = None
+        user.save()
+
+        messages.success(request, "Email changed successfully.")
+        return redirect("home")
 
 
 class StaffRequiredMixin(UserPassesTestMixin):

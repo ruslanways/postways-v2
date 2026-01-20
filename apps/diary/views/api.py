@@ -36,6 +36,8 @@ from asgiref.sync import async_to_sync
 
 from ..models import Post, CustomUser, Like
 from ..serializers import (
+    EmailChangeSerializer,
+    EmailVerifySerializer,
     LikeCreateDestroySerializer,
     LikeSerializer,
     LikeDetailSerializer,
@@ -53,7 +55,7 @@ from ..permissions import (
     OwnerOrAdminOrReadOnly,
     ReadForAdminCreateForAnonymous,
 )
-from ..tasks import send_token_recovery_email
+from ..tasks import send_email_verification, send_token_recovery_email
 
 logger = logging.getLogger(__name__)
 
@@ -93,13 +95,18 @@ class UserListAPIView(generics.ListCreateAPIView):
     permission_classes = (ReadForAdminCreateForAnonymous,)
 
 
-class UserDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+class UserDetailAPIView(generics.RetrieveDestroyAPIView):
     """
-    Retrieve, update, or delete a user.
+    Retrieve or delete a user.
 
     GET: Retrieve user details with their posts and likes.
-    PUT/PATCH: Update user (owner or admin only).
     DELETE: Delete user (owner or admin only). Blacklists all JWT tokens before deletion.
+
+    Note:
+        User profile updates (password, username, email) are handled by dedicated endpoints:
+        - Password: POST /api/v1/auth/password/change/
+        - Username: POST /api/v1/auth/username/change/
+        - Email: POST /api/v1/auth/email/change/
     """
 
     queryset = CustomUser.objects.all()
@@ -111,17 +118,6 @@ class UserDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
         if not hasattr(self, "_cached_object"):
             self._cached_object = super().get_object()
         return self._cached_object
-
-    def get_serializer_context(self):
-        """
-        Extend parent's context with the current object for serializer validators.
-
-        The 'obj' context is used by serializers that need to validate
-        unique constraints while excluding the current instance.
-        """
-        context = super().get_serializer_context()
-        context["obj"] = self.get_object()
-        return context
 
     def destroy(self, request, *args, **kwargs):
         """
@@ -555,6 +551,146 @@ class UsernameChangeAPIView(generics.GenericAPIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class EmailChangeAPIView(generics.GenericAPIView):
+    """
+    Initiate email change for authenticated users.
+
+    This endpoint requires the current password for verification before
+    allowing an email change request. A verification email is sent to the
+    new address with a link that expires in 24 hours.
+
+    POST /api/v1/auth/email/change/
+        - password: Current password (required)
+        - new_email: New email address (required)
+
+    Validation:
+        - Password must be correct
+        - New email must be unique (case-insensitive)
+        - New email must be different from current email
+    """
+
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = EmailChangeSerializer
+
+    def post(self, request, *args, **kwargs):
+        """
+        Process email change request.
+
+        Request Body:
+            password: User's current password
+            new_email: New email address to verify
+
+        Returns:
+            200: Verification email sent successfully
+            400: Validation error (wrong password, email taken, etc.)
+        """
+        import uuid
+        from datetime import timedelta
+        from django.utils import timezone
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        new_email = serializer.validated_data["new_email"]
+
+        # Generate verification token and expiry
+        token = str(uuid.uuid4())
+        expires = timezone.now() + timedelta(hours=24)
+
+        # Store pending email change
+        user.pending_email = new_email
+        user.email_verification_token = token
+        user.email_verification_expires = expires
+        user.save()
+
+        # Build verification link
+        verification_link = request.build_absolute_uri(
+            reverse("email-verify-api")
+        ) + f"?token={token}"
+
+        # Send verification email via Celery
+        send_email_verification.delay(verification_link, new_email)
+
+        return Response(
+            {"detail": "Verification email sent to your new email address."},
+            status=status.HTTP_200_OK,
+        )
+
+
+class EmailVerifyAPIView(generics.GenericAPIView):
+    """
+    Verify email change token and update user's email.
+
+    This endpoint validates the verification token and completes the email
+    change by updating the user's email to the pending email address.
+
+    POST /api/v1/auth/email/verify/
+        - token: Verification token from email link (required)
+
+    GET /api/v1/auth/email/verify/?token=<token>
+        - Also accepts token as query parameter for convenience
+
+    Returns:
+        200: Email updated successfully
+        400: Invalid or expired token
+    """
+
+    serializer_class = EmailVerifySerializer
+
+    def post(self, request, *args, **kwargs):
+        """
+        Verify token and update email.
+
+        Request Body:
+            token: UUID verification token
+
+        Returns:
+            200: Email changed successfully, includes new email
+            400: Validation error (invalid or expired token)
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = serializer.user
+
+        with transaction.atomic():
+            # Update email
+            user.email = user.pending_email
+
+            # Clear pending fields
+            user.pending_email = None
+            user.email_verification_token = None
+            user.email_verification_expires = None
+            user.save()
+
+        return Response(
+            {
+                "detail": "Email changed successfully.",
+                "email": user.email,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    def get(self, request, *args, **kwargs):
+        """
+        Handle GET request with token as query parameter.
+
+        This allows users to click the verification link directly
+        instead of making a POST request.
+        """
+        token = request.query_params.get("token")
+        if not token:
+            return Response(
+                {"error": "Token is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Reuse POST logic
+        request._full_data = {"token": token}
+        return self.post(request, *args, **kwargs)
 
 
 class MyTokenObtainPairView(TokenObtainPairView):

@@ -42,15 +42,15 @@ uv sync
 - `config/` - Django settings, URLs, ASGI/WSGI, Celery config
 - `apps/diary/` - Main application with models, views, API, WebSocket consumers
   - `views/` - Views package (separated for clean code organization)
-    - `html.py` - Traditional Django CBVs with session auth (HomeView, SignUp, PostCreateView, etc.)
-    - `api.py` - DRF views with JWT auth (UserListAPIView, PostAPIView, LikeCreateDestroyAPIView, etc.)
+    - `html.py` - Traditional Django CBVs with session auth (HomeView, SignUp, PostCreateView, UsernameChangeView, EmailChangeView, EmailVerifyView, etc.)
+    - `api.py` - DRF views with JWT auth (UserListAPIView, PostAPIView, LikeCreateDestroyAPIView, EmailChangeAPIView, EmailVerifyAPIView, etc.)
     - `__init__.py` - Re-exports all views for backward-compatible imports
 - `docker/` - Dockerfile and docker-compose.yml
 
 ### Key Components
 
 **Models** (`apps/diary/models.py`):
-- `CustomUser` - Extended user model with `last_request` tracking and `username_changed_at` for rate-limiting username changes
+- `CustomUser` - Extended user model with `last_request` tracking, `username_changed_at` for rate-limiting username changes, and email verification fields (`pending_email`, `email_verification_token`, `email_verification_expires`)
 - `Post` - Blog posts with async image processing via Celery (resizing, thumbnail generation, EXIF orientation fix)
 - `Like` - Post likes with unique constraint per user/post
 
@@ -72,13 +72,15 @@ The project uses SimpleJWT with custom enhancements for secure token management:
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| `blacklist_user_tokens()` | `api.py:59-78` | Utility to blacklist all outstanding refresh tokens for a user |
-| `MyTokenObtainPairView` | `api.py:436-476` | Custom login with httponly cookie for refresh token |
-| `MyTokenRefreshSerializer` | `api.py:455-516` | Fixes OutstandingToken tracking for rotated tokens |
-| `MyTokenRefreshView` | `api.py:370-378` | Uses custom serializer for proper blacklist support |
-| `TokenRecoveryAPIView` | `api.py:381-433` | Password recovery via email with token blacklisting |
-| `PasswordChangeAPIView` | `api.py:442-481` | Secure password change requiring current password |
-| `UsernameChangeAPIView` | `api.py:507-554` | Secure username change with password verification and 30-day cooldown |
+| `blacklist_user_tokens()` | `api.py` | Utility to blacklist all outstanding refresh tokens for a user |
+| `MyTokenObtainPairView` | `api.py` | Custom login with httponly cookie for refresh token |
+| `MyTokenRefreshSerializer` | `serializers.py` | Fixes OutstandingToken tracking for rotated tokens |
+| `MyTokenRefreshView` | `api.py` | Uses custom serializer for proper blacklist support |
+| `TokenRecoveryAPIView` | `api.py` | Password recovery via email with token blacklisting |
+| `PasswordChangeAPIView` | `api.py` | Secure password change requiring current password |
+| `UsernameChangeAPIView` | `api.py` | Secure username change with password verification and 30-day cooldown |
+| `EmailChangeAPIView` | `api.py` | Initiate email change with password verification and verification email |
+| `EmailVerifyAPIView` | `api.py` | Verify email change token and complete email update |
 
 **Key Implementation Details:**
 
@@ -428,6 +430,7 @@ CELERY_RESULT_BACKEND = f"redis://{REDIS_HOST}:{REDIS_PORT}/1"
 |------|---------|---------|
 | `process_post_image` | Resizes image (max 2000x2000), generates thumbnail (300x300), fixes EXIF orientation | On-demand via `Post.save()` |
 | `send_token_recovery_email` | Emails password recovery token | On-demand via `.delay()` |
+| `send_email_verification` | Emails verification link for email change | On-demand via `.delay()` |
 | `send_week_report` | Emails weekly stats (users, posts, likes) | Scheduled: Saturday 10:00 |
 
 #### Task Invocation

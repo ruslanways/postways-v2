@@ -57,6 +57,27 @@ class CustomUser(AbstractUser):
         help_text=_("Timestamp of last username change. Used for rate limiting."),
     )
 
+    # Email change verification fields
+    pending_email = models.EmailField(
+        _("pending email"),
+        blank=True,
+        null=True,
+        help_text=_("New email address awaiting verification."),
+    )
+    email_verification_token = models.CharField(
+        _("email verification token"),
+        max_length=36,
+        blank=True,
+        null=True,
+        help_text=_("UUID token for email verification."),
+    )
+    email_verification_expires = models.DateTimeField(
+        _("email verification expires"),
+        blank=True,
+        null=True,
+        help_text=_("Token expiry time (24 hours after creation)."),
+    )
+
 
 class Post(models.Model):
     """

@@ -328,3 +328,92 @@ class UsernameChangeForm(BootstrapFormMixin, forms.Form):
         self.user.username_changed_at = timezone.now()
         self.user.save()
         return self.user
+
+
+class EmailChangeForm(BootstrapFormMixin, forms.Form):
+    """
+    Form for changing email with password confirmation.
+
+    Requires current password for verification. Sends verification email
+    to the new address. Email must be unique (case-insensitive).
+    """
+
+    password = forms.CharField(
+        label=_("Current Password"),
+        strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "current-password"}),
+        help_text=_("Enter your current password to confirm the change."),
+    )
+    new_email = forms.EmailField(
+        label=_("New Email"),
+        max_length=254,
+        widget=forms.EmailInput(attrs={"autofocus": True}),
+        help_text=_("A verification link will be sent to this address."),
+    )
+
+    def __init__(self, user, *args, **kwargs):
+        """
+        Initialize form with user instance for validation.
+
+        Args:
+            user: The current user requesting the email change
+        """
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_password(self):
+        """
+        Validate that the password is correct.
+
+        Returns:
+            str: The validated password
+
+        Raises:
+            ValidationError: If the password is incorrect
+        """
+        password = self.cleaned_data.get("password")
+        if not self.user.check_password(password):
+            raise forms.ValidationError(_("Password is incorrect."))
+        return password
+
+    def clean_new_email(self):
+        """
+        Validate that the new email is unique (case-insensitive) and different from current.
+
+        Returns:
+            str: The validated email (lowercased)
+
+        Raises:
+            ValidationError: If email is taken or same as current
+        """
+        new_email = self.cleaned_data.get("new_email")
+        normalized_email = new_email.lower()
+
+        # Check if same as current email
+        if self.user.email.lower() == normalized_email:
+            raise forms.ValidationError(_("New email must be different from current email."))
+
+        # Check case-insensitive uniqueness
+        if CustomUser.objects.filter(email__iexact=normalized_email).exists():
+            raise forms.ValidationError(_("A user with that email already exists."))
+
+        return normalized_email
+
+    def save(self):
+        """
+        Store pending email and generate verification token.
+
+        Returns:
+            tuple: (user, token, new_email) for use in view to send verification email
+        """
+        import uuid
+
+        token = str(uuid.uuid4())
+        expires = timezone.now() + timedelta(hours=24)
+
+        self.user.pending_email = self.cleaned_data["new_email"]
+        self.user.email_verification_token = token
+        self.user.email_verification_expires = expires
+        self.user.save()
+
+        return self.user, token, self.cleaned_data["new_email"]
