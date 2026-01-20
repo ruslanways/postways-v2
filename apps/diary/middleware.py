@@ -2,6 +2,7 @@ import logging
 import traceback
 
 from django.conf import settings
+from django.core.cache import cache
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
@@ -12,10 +13,9 @@ logger = logging.getLogger(__name__)
 class UserLastRequestMiddleware:
     """
     Updates the last_request timestamp for authenticated users.
-    Throttled to avoid database writes on every request.
+    Uses Redis cache to throttle DB writes (at most once per UPDATE_INTERVAL_SECONDS).
     """
 
-    # Only update if last request was more than 60 seconds ago
     UPDATE_INTERVAL_SECONDS = 60
 
     def __init__(self, get_response):
@@ -24,25 +24,28 @@ class UserLastRequestMiddleware:
     def __call__(self, request):
         response = self.get_response(request)
 
-        # Update last_request after response (non-blocking for user)
         if request.user.is_authenticated:
             self._update_last_request(request.user)
 
         return response
 
     def _update_last_request(self, user):
-        """Only update if enough time has passed since last update."""
-        now = timezone.now()
-        if user.last_request is None:
-            should_update = True
-        else:
-            elapsed = (now - user.last_request).total_seconds()
-            should_update = elapsed > self.UPDATE_INTERVAL_SECONDS
+        """
+        Update last_request only if cache key is missing (expired or first visit).
+        Cache acts as a "cooldown timer" - while key exists, skip DB write.
+        """
+        cache_key = f"user_last_request:{user.pk}"
 
-        if should_update:
-            # Use update() to handle case where user was deleted during request
-            # Use _meta.model to get the actual model class (works with SimpleLazyObject)
-            user._meta.model.objects.filter(pk=user.pk).update(last_request=now)
+        # If key exists in cache, we updated recently - skip
+        if cache.get(cache_key):
+            return
+
+        # Key missing = cooldown expired, time to update DB
+        now = timezone.now()
+        user._meta.model.objects.filter(pk=user.pk).update(last_request=now)
+
+        # Set cache key with TTL = interval (key auto-expires, allowing next update)
+        cache.set(cache_key, True, timeout=self.UPDATE_INTERVAL_SECONDS)
 
 
 class UncaughtExceptionMiddleware:
