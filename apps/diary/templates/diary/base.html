@@ -42,27 +42,59 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
           <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+            {% if request.user.is_authenticated %}
+            <!-- Mobile user menu (hidden on desktop) -->
+            <li class="nav-item d-lg-none text-end border-bottom pb-1 mb-1">
+              <span class="nav-link text-muted small mb-0">{{ user.username }}</span>
+            </li>
+            <li class="nav-item d-lg-none text-end pe-2">
+              <a class="nav-link {% if view.template_name == 'diary/customuser_detail.html' %}fw-bold{% endif %}" href="{% url 'author-detail' user.pk %}">Profile</a>
+            </li>
             {% if user.is_staff %}
-            <li class="nav-item dropdown">
-              <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown"
-                aria-expanded="false">
-                Summary
-              </a>
-              <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                <li><a class="dropdown-item" href="{% url 'author-list' %}">Authors</a></li>
-                <li><a class="dropdown-item" href="{% url 'post-list' %}">Posts</a></li>
-              </ul>
+            <li class="nav-item d-lg-none text-end pe-2">
+              <a class="nav-link" href="{% url 'author-list' %}">All Users</a>
+            </li>
+            <li class="nav-item d-lg-none text-end pe-2">
+              <a class="nav-link" href="{% url 'post-list' %}">All Posts</a>
+            </li>
+            {% endif %}
+            <li class="nav-item d-lg-none text-end pe-2">
+              <form method="post" action="{% url 'logout' %}" class="m-0">
+                {% csrf_token %}
+                <button type="submit" class="nav-link mobile-nav-btn text-end">Logout</button>
+              </form>
+            </li>
+            <li class="nav-item d-lg-none text-end pe-2">
+              <a class="nav-link text-danger" href="{% url 'user-delete' user.pk %}">Delete Account</a>
             </li>
             {% endif %}
           </ul>
           <div class="d-flex">
             {% if request.user.is_authenticated %}
-            <button type="button" id="user" class="btn btn-sm btn-outline-secondary {% if view.template_name == 'diary/customuser_detail.html' %}active{% endif %}"
-              onclick="location.href='{% url 'author-detail' user.pk %}';">{{user.username}}</button>
-            <form method="post" action="{% url 'logout' %}" style="display: inline;">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-sm btn-outline-secondary">Logout</button>
-            </form>
+            <!-- Desktop user dropdown (hidden on mobile) -->
+            <div class="dropdown d-none d-lg-block" id="user">
+              <button class="btn btn-sm btn-outline-secondary dropdown-toggle {% if view.template_name == 'diary/customuser_detail.html' %}active{% endif %}"
+                type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                {{ user.username }}
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                <li><a class="dropdown-item" href="{% url 'author-detail' user.pk %}">Profile</a></li>
+                {% if user.is_staff %}
+                <li><a class="dropdown-item" href="{% url 'author-list' %}">All Users</a></li>
+                <li><a class="dropdown-item" href="{% url 'post-list' %}">All Posts</a></li>
+                {% endif %}
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                  <form method="post" action="{% url 'logout' %}" class="m-0">
+                    {% csrf_token %}
+                    <button type="submit" class="dropdown-item">Logout</button>
+                  </form>
+                </li>
+                <li>
+                  <a class="dropdown-item text-danger" href="{% url 'user-delete' user.pk %}">Delete Account</a>
+                </li>
+              </ul>
+            </div>
             {% else %}
             <button type="button" class="btn btn-sm btn-outline-secondary {% if view.template_name == 'registration/signup.html' %}active{% endif %}"
               onclick="location.href='{% url 'signup' %}';">Signup</button>

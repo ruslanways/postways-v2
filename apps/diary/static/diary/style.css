@@ -79,3 +79,44 @@ a:focus {
     display: none;
   }
 }
+
+/* User dropdown styles */
+#userDropdown {
+  min-width: 100px;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dropdown-menu .dropdown-item {
+  font-size: 0.875rem;
+}
+
+.dropdown-menu form .dropdown-item {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.dropdown-menu form .dropdown-item:hover {
+  background-color: #f8f9fa;
+}
+
+.dropdown-item.text-danger:hover {
+  background-color: #f8d7da;
+}
+
+/* Mobile navbar logout button styling */
+.mobile-nav-btn {
+  background: none;
+  border: none;
+  width: 100%;
+  cursor: pointer;
+}
+
+.mobile-nav-btn.text-end {
+  text-align: right;
+}
