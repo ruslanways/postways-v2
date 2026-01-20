@@ -323,17 +323,19 @@ class PostAPITestCase(DiaryAPITestCase):
         self.assertEqual(serializer_after_update5.data["email"], "asdnaa1223@gmail.com")
         self.assertRaises(FieldError, CustomUser.objects.get, sex="Female")
 
-        # PASSWORD change by owner
+        # PASSWORD change via PATCH should be ignored (no longer allowed)
+        # Password changes must use the dedicated /api/v1/auth/password/change/ endpoint
+        original_password_hash = CustomUser.objects.get(id=self.test_user_1.id).password
         response = self.client.patch(
             reverse("user-detail-update-destroy-api", args=[self.test_user_1.id]),
             {"password": "fokker1234"},
             HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
         )
-        # Please recall that self.test_user_1.password reffered to the virgin user on the test start
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertNotEqual(
+        # Password should remain unchanged
+        self.assertEqual(
             CustomUser.objects.get(id=self.test_user_1.id).password,
-            self.test_user_1.password,
+            original_password_hash,
         )
 
     def test_user_delete(self):
@@ -363,4 +365,75 @@ class PostAPITestCase(DiaryAPITestCase):
         self.assertRaises(
             CustomUser.DoesNotExist, CustomUser.objects.get, username="TestUser3"
         )
+
+    def test_password_change(self):
+        """Test the dedicated password change endpoint."""
+
+        # Unauthorized request
+        response = self.client.post(
+            reverse("password-change-api"),
+            {
+                "old_password": "ribark8903",
+                "new_password": "newpassword123",
+                "new_password2": "newpassword123",
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # Authorized but wrong old password
+        response = self.client.post(
+            reverse("password-change-api"),
+            {
+                "old_password": "wrongpassword",
+                "new_password": "newpassword123",
+                "new_password2": "newpassword123",
+            },
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("old_password", response.data)
+
+        # Authorized but passwords don't match
+        response = self.client.post(
+            reverse("password-change-api"),
+            {
+                "old_password": "ribark8903",
+                "new_password": "newpassword123",
+                "new_password2": "differentpassword123",
+            },
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("new_password2", response.data)
+
+        # Authorized but new password too simple
+        response = self.client.post(
+            reverse("password-change-api"),
+            {
+                "old_password": "ribark8903",
+                "new_password": "123",
+                "new_password2": "123",
+            },
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Successful password change
+        original_password_hash = self.test_user_1.password
+        response = self.client.post(
+            reverse("password-change-api"),
+            {
+                "old_password": "ribark8903",
+                "new_password": "newpassword123",
+                "new_password2": "newpassword123",
+            },
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("detail", response.data)
+
+        # Verify password was actually changed
+        self.test_user_1.refresh_from_db()
+        self.assertNotEqual(self.test_user_1.password, original_password_hash)
+        self.assertTrue(self.test_user_1.check_password("newpassword123"))
 

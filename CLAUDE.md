@@ -77,13 +77,14 @@ The project uses SimpleJWT with custom enhancements for secure token management:
 | `MyTokenRefreshSerializer` | `api.py:455-516` | Fixes OutstandingToken tracking for rotated tokens |
 | `MyTokenRefreshView` | `api.py:370-378` | Uses custom serializer for proper blacklist support |
 | `TokenRecoveryAPIView` | `api.py:381-433` | Password recovery via email with token blacklisting |
+| `PasswordChangeAPIView` | `api.py:442-481` | Secure password change requiring current password |
 
 **Key Implementation Details:**
 
 1. **Token Blacklisting Utility** (`blacklist_user_tokens()`):
    - Finds all `OutstandingToken` entries for a user
    - Creates `BlacklistedToken` entries for each (with `ignore_conflicts=True`)
-   - Used by: account deletion (API + HTML), password recovery
+   - Used by: account deletion (API + HTML), password recovery, password change
 
 2. **Custom Token Refresh Serializer** (`MyTokenRefreshSerializer`):
    - **Problem**: Default SimpleJWT `TokenRefreshSerializer` doesn't add rotated refresh tokens to `OutstandingToken` table

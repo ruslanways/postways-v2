@@ -29,6 +29,7 @@ from .views import (
     UserListAPIView,
     UserDetailAPIView,
     TokenRecoveryAPIView,
+    PasswordChangeAPIView,
     MyTokenObtainPairView,
     MyTokenRefreshView,
     # Posts API
@@ -90,6 +91,7 @@ api_v1_patterns = [
     path("auth/token/verify/", TokenVerifyView.as_view(), name="token-verify-api"),
     path("auth/token/refresh/", MyTokenRefreshView.as_view(), name="token-refresh-api"),
     path("auth/token/recovery/", TokenRecoveryAPIView.as_view(), name="token-recovery-api"),
+    path("auth/password/change/", PasswordChangeAPIView.as_view(), name="password-change-api"),
     # Posts
     path("posts/", PostAPIView.as_view(), name="post-list-create-api"),
     path("posts/<int:pk>/", PostDetailAPIView.as_view(), name="post-detail-api"),

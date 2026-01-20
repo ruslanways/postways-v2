@@ -38,6 +38,7 @@ from .api import (
     LikeBatchAPIView,
     MyTokenRefreshView,
     TokenRecoveryAPIView,
+    PasswordChangeAPIView,
     MyTokenObtainPairView,
     RootAPIView,
     error_400,
@@ -74,6 +75,7 @@ __all__ = [
     "LikeBatchAPIView",
     "MyTokenRefreshView",
     "TokenRecoveryAPIView",
+    "PasswordChangeAPIView",
     "MyTokenObtainPairView",
     "RootAPIView",
     # Error handlers

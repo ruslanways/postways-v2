@@ -40,6 +40,7 @@ from ..serializers import (
     LikeSerializer,
     LikeDetailSerializer,
     MyTokenRefreshSerializer,
+    PasswordChangeSerializer,
     PostDetailSerializer,
     PostSerializer,
     TokenRecoverySerializer,
@@ -437,6 +438,55 @@ class TokenRecoveryAPIView(generics.GenericAPIView):
         )
 
         return Response({"Recovery email send": "Success"}, status=status.HTTP_200_OK)
+
+
+class PasswordChangeAPIView(generics.GenericAPIView):
+    """
+    Change password for authenticated users.
+
+    This endpoint requires the current password for verification before
+    allowing a password change. This is more secure than the user update
+    endpoint as it prevents unauthorized password changes.
+
+    POST /api/v1/auth/password/change/
+        - old_password: Current password (required)
+        - new_password: New password (required)
+        - new_password2: New password confirmation (required)
+
+    After successful password change, all existing JWT refresh tokens
+    are blacklisted to force re-authentication.
+    """
+
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = PasswordChangeSerializer
+
+    def post(self, request, *args, **kwargs):
+        """
+        Process password change request.
+
+        Request Body:
+            old_password: User's current password
+            new_password: New password (validated against Django validators)
+            new_password2: New password confirmation
+
+        Returns:
+            200: Password changed successfully
+            400: Validation error (wrong current password, passwords don't match, etc.)
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        user.set_password(serializer.validated_data["new_password"])
+        user.save()
+
+        # Blacklist all existing refresh tokens to force re-authentication
+        blacklist_user_tokens(user)
+
+        return Response(
+            {"detail": "Password changed successfully."},
+            status=status.HTTP_200_OK,
+        )
 
 
 class MyTokenObtainPairView(TokenObtainPairView):

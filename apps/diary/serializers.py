@@ -130,18 +130,20 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
 
     Used for GET/PUT/PATCH/DELETE /api/v1/users/{id}/.
     Includes related posts and likes as hyperlinked relationships.
-    All fields except password are optional for partial updates.
 
     Fields:
         - url: Hyperlink to user detail endpoint
         - id: User ID (read-only)
         - username: Optional for updates
         - email: Optional for updates
-        - password: Optional for updates, write-only, validated if provided
         - post_set: Hyperlinked list of all posts by this user (read-only)
         - like_set: Hyperlinked list of all likes by this user (read-only)
         - last_request, last_login, date_joined: Read-only timestamps
         - is_staff, is_active: Read-only admin flags
+
+    Note:
+        Password changes are NOT allowed via this endpoint for security reasons.
+        Use the dedicated /api/v1/auth/password/change/ endpoint instead.
     """
 
     url = serializers.HyperlinkedIdentityField(
@@ -169,12 +171,10 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
             "is_active",
             "post_set",
             "like_set",
-            "password",
         )
         extra_kwargs = {
             "username": {"required": False},
             "email": {"required": False},
-            "password": {"required": False, "write_only": True},
         }
         read_only_fields = (
             "id",
@@ -184,32 +184,6 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
             "date_joined",
             "is_staff",
         )
-
-    def validate(self, data):
-        """
-        Validate password if provided during update.
-
-        Args:
-            data: Dictionary containing fields to update
-
-        Returns:
-            dict: Validated data
-
-        Raises:
-            ValidationError: If password doesn't meet Django's password requirements
-
-        Note:
-            Uses existing user instance from context if password is not provided,
-            or creates a temporary user object for password validation if password is provided.
-        """
-        user = (
-            CustomUser(**data)
-            if data.get("password", False) and len(data) > 1
-            else self.context["obj"]
-        )
-        if data.get("password"):
-            validate_password(password=data.get("password"), user=user)
-        return data
 
     def update(self, instance, validated_data):
         """
@@ -223,14 +197,11 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
             CustomUser: The updated user instance
 
         Note:
-            Only updates fields that are provided. Password is hashed using
-            Django's set_password() method if provided.
+            Only updates username and email. Password changes are not allowed
+            via this endpoint - use /api/v1/auth/password/change/ instead.
         """
         instance.username = validated_data.get("username", instance.username)
         instance.email = validated_data.get("email", instance.email)
-        password_new = validated_data.get("password")
-        if password_new:
-            instance.set_password(password_new)
         instance.save()
         return instance
 
@@ -528,3 +499,71 @@ class TokenRecoverySerializer(serializers.Serializer):
     """
 
     email = serializers.EmailField(max_length=200)
+
+
+class PasswordChangeSerializer(serializers.Serializer):
+    """
+    Serializer for authenticated password change.
+
+    Used for POST /api/v1/auth/password/change/ to change password securely.
+    Requires the current password for verification before allowing the change.
+
+    Fields:
+        - old_password: Current password (required, for verification)
+        - new_password: New password (required, validated against Django validators)
+        - new_password2: New password confirmation (required, must match new_password)
+    """
+
+    old_password = serializers.CharField(
+        style={"input_type": "password"},
+        write_only=True,
+    )
+    new_password = serializers.CharField(
+        style={"input_type": "password"},
+        write_only=True,
+    )
+    new_password2 = serializers.CharField(
+        style={"input_type": "password"},
+        write_only=True,
+    )
+
+    def validate_old_password(self, value):
+        """
+        Validate that old_password matches the current user's password.
+
+        Args:
+            value: The provided old password
+
+        Returns:
+            str: The validated old password
+
+        Raises:
+            ValidationError: If the old password is incorrect
+        """
+        user = self.context["request"].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Current password is incorrect.")
+        return value
+
+    def validate(self, data):
+        """
+        Validate new password against Django validators and confirm match.
+
+        Args:
+            data: Dictionary containing old_password, new_password, new_password2
+
+        Returns:
+            dict: Validated data
+
+        Raises:
+            ValidationError: If passwords don't match or fail validation
+        """
+        if data["new_password"] != data["new_password2"]:
+            raise serializers.ValidationError(
+                {"new_password2": "New passwords must match."}
+            )
+
+        user = self.context["request"].user
+        validate_password(password=data["new_password"], user=user)
+
+        return data

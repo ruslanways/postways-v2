@@ -125,7 +125,28 @@ Authorization: Bearer <access_token>
 - **Note**: 
   - Blacklists all existing refresh tokens for the user
   - Generates new token pair and emails the access token via Celery task
-  - User can use the access token to update password via `PATCH /api/v1/users/<id>/`
+  - User can use the access token to change password via `POST /api/v1/auth/password/change/`
+
+#### `POST /api/v1/auth/password/change/`
+- **Authentication**: Required
+- **Request Body**:
+  ```json
+  {
+    "old_password": "current_password",
+    "new_password": "new_secure_password",
+    "new_password2": "new_secure_password"
+  }
+  ```
+- **Response**: 
+  ```json
+  {
+    "detail": "Password changed successfully."
+  }
+  ```
+- **Note**: 
+  - Requires verification of the current password before allowing changes
+  - New password is validated against Django's password validators
+  - All existing JWT refresh tokens are blacklisted after successful change (forces re-authentication)
 
 ---
 
@@ -208,14 +229,13 @@ Authorization: Bearer <access_token>
   ```json
   {
     "username": "string",  // optional
-    "email": "string",      // optional
-    "password": "string"    // optional, validated if provided
+    "email": "string"      // optional
   }
   ```
 - **Response**: `200 OK` with updated user data
 - **Note**: 
-  - Password is automatically hashed if provided
-  - Password is validated against Django's password validators if provided
+  - Password changes are NOT allowed via this endpoint for security reasons
+  - Use `POST /api/v1/auth/password/change/` to change passwords (requires current password verification)
 
 #### `DELETE /api/v1/users/<id>/`
 - **Authentication**: Required (Owner or Admin only)
@@ -667,6 +687,7 @@ HTML endpoints use session-based authentication. Users must be logged in via `/l
 | `/api/v1/auth/token/refresh/` | POST | No | Uses refresh token |
 | `/api/v1/auth/token/verify/` | POST | No | Token verification |
 | `/api/v1/auth/token/recovery/` | POST | No | Password recovery |
+| `/api/v1/auth/password/change/` | POST | Yes | Change password (requires current password) |
 | `/api/v1/users/` | GET | Yes (Staff) | List users |
 | `/api/v1/users/` | POST | No | Registration (anonymous only) |
 | `/api/v1/users/<id>/` | GET | Yes (Owner/Admin) | User details |
