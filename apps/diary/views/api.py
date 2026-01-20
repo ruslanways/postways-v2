@@ -485,11 +485,13 @@ class PasswordChangeAPIView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
 
         user = request.user
-        user.set_password(serializer.validated_data["new_password"])
-        user.save()
 
-        # Blacklist all JWT refresh tokens to force API re-authentication
-        blacklist_user_tokens(user)
+        with transaction.atomic():
+            user.set_password(serializer.validated_data["new_password"])
+            user.save()
+
+            # Blacklist all JWT refresh tokens to force API re-authentication
+            blacklist_user_tokens(user)
 
         # Note: Sessions are automatically invalidated because we don't call
         # update_session_auth_hash(). Django's session auth stores a password
