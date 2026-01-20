@@ -284,11 +284,12 @@ class LikeCreateDestroyAPIView(generics.CreateAPIView):
                     self.get_queryset().filter(post=post, user=user).delete()
                     response = Response(status=status.HTTP_204_NO_CONTENT)
 
-        self._broadcast_like_update(post, user)
+        like_count = Like.objects.filter(post=post).count()
+        self._broadcast_like_update(post, user, like_count)
 
         return response
 
-    def _broadcast_like_update(self, post, user):
+    def _broadcast_like_update(self, post, user, like_count):
         """
         Broadcast like count update to all WebSocket clients.
 
@@ -296,6 +297,11 @@ class LikeCreateDestroyAPIView(generics.CreateAPIView):
         - post_id: ID of the affected post
         - like_count: Current total like count
         - user_id: ID of user who triggered the update (for deduplication)
+
+        Args:
+            post: The Post instance that was liked/unliked.
+            user: The user who triggered the action.
+            like_count: Pre-computed like count to avoid extra query.
 
         Failures are logged but don't affect the HTTP response.
         """
@@ -306,7 +312,7 @@ class LikeCreateDestroyAPIView(generics.CreateAPIView):
                 {
                     "type": "like.message",
                     "post_id": str(post.id),
-                    "like_count": str(post.like_set.count()),
+                    "like_count": str(like_count),
                     "user_id": user.id,
                 },
             )
