@@ -44,6 +44,7 @@ from ..serializers import (
     PostDetailSerializer,
     PostSerializer,
     TokenRecoverySerializer,
+    UsernameChangeSerializer,
     UserDetailSerializer,
     UserSerializer,
 )
@@ -499,6 +500,59 @@ class PasswordChangeAPIView(generics.GenericAPIView):
 
         return Response(
             {"detail": "Password changed successfully."},
+            status=status.HTTP_200_OK,
+        )
+
+
+class UsernameChangeAPIView(generics.GenericAPIView):
+    """
+    Change username for authenticated users.
+
+    This endpoint requires the current password for verification before
+    allowing a username change. Enforces a 30-day cooldown between changes.
+
+    POST /api/v1/auth/username/change/
+        - password: Current password (required)
+        - new_username: New username (required)
+
+    Validation:
+        - Password must be correct
+        - New username must be unique (case-insensitive)
+        - Username must follow format rules (letters, numbers, @.+-_)
+        - 30-day cooldown between username changes
+    """
+
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = UsernameChangeSerializer
+
+    def post(self, request, *args, **kwargs):
+        """
+        Process username change request.
+
+        Request Body:
+            password: User's current password
+            new_username: New username (validated for uniqueness and format)
+
+        Returns:
+            200: Username changed successfully, includes new username
+            400: Validation error (wrong password, username taken, cooldown active, etc.)
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        from django.utils import timezone
+
+        with transaction.atomic():
+            user.username = serializer.validated_data["new_username"]
+            user.username_changed_at = timezone.now()
+            user.save()
+
+        return Response(
+            {
+                "detail": "Username changed successfully.",
+                "username": user.username,
+            },
             status=status.HTTP_200_OK,
         )
 

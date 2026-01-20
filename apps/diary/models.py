@@ -49,6 +49,14 @@ class CustomUser(AbstractUser):
     # Track when user last made a request (for analytics/activity tracking)
     last_request = models.DateTimeField(_("last request"), blank=True, null=True)
 
+    # Track when username was last changed (for rate limiting username changes)
+    username_changed_at = models.DateTimeField(
+        _("username changed at"),
+        blank=True,
+        null=True,
+        help_text=_("Timestamp of last username change. Used for rate limiting."),
+    )
+
 
 class Post(models.Model):
     """

@@ -15,7 +15,7 @@ from django.shortcuts import redirect, resolve_url
 from django.contrib import messages
 from django.contrib.auth import logout
 from django.urls import reverse_lazy
-from django.views.generic import ListView, DetailView
+from django.views.generic import ListView, DetailView, FormView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
 from django.views.generic.list import MultipleObjectMixin
 from django.contrib.auth.views import (
@@ -31,11 +31,13 @@ from django.db.models import Count
 from ..models import Post, CustomUser, Like
 from ..forms import (
     AddPostForm,
+    CustomPasswordChangeForm,
     CustomPasswordResetForm,
     CustomUserCreationForm,
     CustomAuthenticationForm,
     CustomSetPasswordForm,
     UpdatePostForm,
+    UsernameChangeForm,
 )
 
 
@@ -150,6 +152,8 @@ class CustomPasswordChangeView(PasswordChangeView):
           the current session valid while invalidating others)
     """
 
+    form_class = CustomPasswordChangeForm
+
     def form_valid(self, form):
         """
         Save the new password and blacklist all JWT tokens.
@@ -165,6 +169,34 @@ class CustomPasswordChangeView(PasswordChangeView):
 
         # Call parent which saves password and updates current session
         return super().form_valid(form)
+
+
+class UsernameChangeView(LoginRequiredMixin, FormView):
+    """
+    Username change view with password confirmation.
+
+    Requires login and validates:
+        - Current password is correct
+        - New username is unique (case-insensitive)
+        - 30-day cooldown between username changes
+
+    Redirects to user's profile page on success.
+    """
+
+    template_name = "registration/username_change.html"
+    form_class = UsernameChangeForm
+
+    def get_form_kwargs(self):
+        """Pass the current user to the form."""
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def form_valid(self, form):
+        """Save the new username and show success message."""
+        form.save()
+        messages.success(self.request, "Username changed successfully.")
+        return redirect("author-detail", self.request.user.pk)
 
 
 class StaffRequiredMixin(UserPassesTestMixin):

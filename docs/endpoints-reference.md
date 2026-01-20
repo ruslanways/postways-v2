@@ -137,18 +137,42 @@ Authorization: Bearer <access_token>
     "new_password2": "new_secure_password"
   }
   ```
-- **Response**: 
+- **Response**:
   ```json
   {
     "detail": "Password changed successfully."
   }
   ```
-- **Note**: 
+- **Note**:
   - Requires verification of the current password before allowing changes
   - New password is validated against Django's password validators
   - **Security**: Logs out from ALL devices after successful change:
     - All JWT refresh tokens are blacklisted (forces API re-authentication)
     - All sessions are invalidated (forces HTML re-login)
+
+#### `POST /api/v1/auth/username/change/`
+- **Authentication**: Required
+- **Request Body**:
+  ```json
+  {
+    "password": "current_password",
+    "new_username": "new_username"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "detail": "Username changed successfully.",
+    "username": "new_username"
+  }
+  ```
+- **Note**:
+  - Requires verification of the current password before allowing changes
+  - New username is validated for:
+    - Case-insensitive uniqueness (cannot use existing username in any case variation)
+    - Format rules (letters, numbers, and @/./+/-/_ characters only)
+  - **Rate Limiting**: Users can only change their username once every 30 days
+  - Returns `400 Bad Request` if cooldown period has not passed
 
 ---
 
@@ -230,14 +254,15 @@ Authorization: Bearer <access_token>
 - **Request Body** (all fields optional for PATCH):
   ```json
   {
-    "username": "string",  // optional
     "email": "string"      // optional
   }
   ```
 - **Response**: `200 OK` with updated user data
-- **Note**: 
+- **Note**:
   - Password changes are NOT allowed via this endpoint for security reasons
-  - Use `POST /api/v1/auth/password/change/` to change passwords (requires current password verification)
+    - Use `POST /api/v1/auth/password/change/` to change passwords (requires current password verification)
+  - Username changes are NOT allowed via this endpoint for security reasons
+    - Use `POST /api/v1/auth/username/change/` to change username (requires password verification, 30-day cooldown)
 
 #### `DELETE /api/v1/users/<id>/`
 - **Authentication**: Required (Owner or Admin only)
@@ -553,10 +578,31 @@ HTML endpoints use session-based authentication. Users must be logged in via `/l
   new_password1: string
   new_password2: string
   ```
-- **Response**: 
+- **Response**:
   - Success: Redirects to `/password_change/done/`
   - Failure: Returns form with validation errors
 - **Security**: All JWT tokens are blacklisted after successful change (consistent with API behavior)
+
+#### `GET /username_change/`
+- **Authentication**: Required (session)
+- **Purpose**: Display username change form
+- **Response**: HTML username change form
+
+#### `POST /username_change/`
+- **Authentication**: Required (session)
+- **Purpose**: Change username for logged-in user
+- **Request Body** (form data):
+  ```
+  password: string
+  new_username: string
+  ```
+- **Response**:
+  - Success: Redirects to `/author/<pk>/` (profile page) with success message
+  - Failure: Returns form with validation errors
+- **Note**:
+  - Requires current password verification
+  - Username must be unique (case-insensitive)
+  - 30-day cooldown between username changes
 
 ---
 
@@ -709,6 +755,7 @@ HTML endpoints use session-based authentication. Users must be logged in via `/l
 | `/api/v1/auth/token/verify/` | POST | No | Token verification |
 | `/api/v1/auth/token/recovery/` | POST | No | Password recovery |
 | `/api/v1/auth/password/change/` | POST | Yes | Change password (requires current password) |
+| `/api/v1/auth/username/change/` | POST | Yes | Change username (requires password, 30-day cooldown) |
 | `/api/v1/users/` | GET | Yes (Staff) | List users |
 | `/api/v1/users/` | POST | No | Registration (anonymous only) |
 | `/api/v1/users/<id>/` | GET | Yes (Owner/Admin) | User details |
@@ -738,6 +785,7 @@ HTML endpoints use session-based authentication. Users must be logged in via `/l
 | `/password_reset/` | GET/POST | No | Password reset request |
 | `/reset/<uidb64>/<token>/` | GET/POST | No | Password reset confirm |
 | `/password_change/` | GET/POST | Yes | Change password (blacklists JWT tokens) |
+| `/username_change/` | GET/POST | Yes | Change username (requires password, 30-day cooldown) |
 | `/authors/` | GET | Yes (Staff) | List users |
 | `/author/<pk>/` | GET | Yes (Owner/Admin) | User profile |
 | `/author/<pk>/delete/` | GET/POST | Yes (Owner) | Delete own account |

@@ -50,7 +50,7 @@ uv sync
 ### Key Components
 
 **Models** (`apps/diary/models.py`):
-- `CustomUser` - Extended user model with `last_request` tracking
+- `CustomUser` - Extended user model with `last_request` tracking and `username_changed_at` for rate-limiting username changes
 - `Post` - Blog posts with async image processing via Celery (resizing, thumbnail generation, EXIF orientation fix)
 - `Like` - Post likes with unique constraint per user/post
 
@@ -78,6 +78,7 @@ The project uses SimpleJWT with custom enhancements for secure token management:
 | `MyTokenRefreshView` | `api.py:370-378` | Uses custom serializer for proper blacklist support |
 | `TokenRecoveryAPIView` | `api.py:381-433` | Password recovery via email with token blacklisting |
 | `PasswordChangeAPIView` | `api.py:442-481` | Secure password change requiring current password |
+| `UsernameChangeAPIView` | `api.py:507-554` | Secure username change with password verification and 30-day cooldown |
 
 **Key Implementation Details:**
 

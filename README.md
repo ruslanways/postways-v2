@@ -63,6 +63,13 @@ All API endpoints are under `/api/v1/` and use JWT authentication (except regist
 - New password is validated against Django password validators
 - **Security**: Logs out from ALL devices after successful change (JWT tokens blacklisted + sessions invalidated)
 
+**`POST /api/v1/auth/username/change/`**
+- Change username for authenticated users
+- Request body: `{"password": "...", "new_username": "..."}`
+- Requires verification of current password
+- New username is validated for case-insensitive uniqueness and format
+- **Rate Limiting**: Users can only change username once every 30 days
+
 ---
 
 ### User Endpoints
@@ -80,8 +87,9 @@ All API endpoints are under `/api/v1/` and use JWT authentication (except regist
 - Owner or admin only
 
 **`PUT/PATCH /api/v1/users/<id>/`**
-- Update user (owner or admin only)
+- Update user email (owner or admin only)
 - Password changes are NOT allowed via this endpoint (use `/api/v1/auth/password/change/` instead)
+- Username changes are NOT allowed via this endpoint (use `/api/v1/auth/username/change/` instead)
 
 **`DELETE /api/v1/users/<id>/`**
 - Delete user (owner or admin only)
@@ -161,6 +169,7 @@ All API endpoints are under `/api/v1/` and use JWT authentication (except regist
 | `/api/v1/auth/token/verify/` | POST | No | Verify token validity |
 | `/api/v1/auth/token/recovery/` | POST | No | Password recovery via email |
 | `/api/v1/auth/password/change/` | POST | Yes | Change password (requires current password) |
+| `/api/v1/auth/username/change/` | POST | Yes | Change username (requires password, 30-day cooldown) |
 | `/api/v1/users/` | GET | Admin | List users |
 | `/api/v1/users/` | POST | No | Register new user |
 | `/api/v1/users/<id>/` | GET | Owner/Admin | Get user details |
@@ -205,12 +214,14 @@ LOGOUT_REDIRECT_URL = "home"
 - **Logout**: `/logout/` → Session destroyed → Redirects to home
 - **Password Reset**: Standard Django password reset flow
 - **Password Change**: `/password_change/` → Requires current password → Blacklists JWT tokens
+- **Username Change**: `/username_change/` → Requires current password → 30-day cooldown between changes
 
 **Views** (`apps/diary/views/html.py`):
 - `SignUp` - User registration with auto-login
 - `Login` - Session-based login (overrides redirect to profile page)
 - `PasswordReset` - Password reset request
 - `CustomPasswordChangeView` - Password change with JWT token blacklisting
+- `UsernameChangeView` - Username change with password verification and 30-day cooldown
 - Uses Django's `LoginRequiredMixin` and `UserPassesTestMixin` for access control
 
 **Middleware**:
@@ -326,6 +337,7 @@ WebSocket connections use Django Channels' `AuthMiddlewareStack` (`config/asgi.p
 - Real-time like updates via WebSocket
 - Background task processing with Celery
 - Secure password change with current password verification
+- Secure username change with password verification and 30-day cooldown
 - Custom token recovery via email
 - Account deletion for users (HTML profile button and API), with JWT token blacklisting and cascading removal of posts/likes
 

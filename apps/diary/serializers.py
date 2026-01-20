@@ -12,7 +12,10 @@ for RESTful URL-based relationships where appropriate.
 """
 import copy
 from rest_framework import serializers
+from datetime import timedelta
+from django.utils import timezone
 from .models import CustomUser, Like, Post
+from .validators import MyUnicodeUsernameValidator
 from django.contrib.auth.password_validation import validate_password
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.settings import api_settings
@@ -173,11 +176,11 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
             "like_set",
         )
         extra_kwargs = {
-            "username": {"required": False},
             "email": {"required": False},
         }
         read_only_fields = (
             "id",
+            "username",
             "is_active",
             "last_request",
             "last_login",
@@ -187,7 +190,7 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
 
     def validate(self, data):
         """
-        Reject requests that attempt to change password via this endpoint.
+        Reject requests that attempt to change password or username via this endpoint.
 
         Args:
             data: Dictionary containing fields to update
@@ -196,13 +199,20 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
             dict: Validated data
 
         Raises:
-            ValidationError: If password field is present in the request
+            ValidationError: If password or username field is present in the request
         """
         if "password" in self.initial_data:
             raise serializers.ValidationError(
                 {
                     "password": "Password changes are not allowed via this endpoint. "
                     "Use /api/v1/auth/password/change/ instead."
+                }
+            )
+        if "username" in self.initial_data:
+            raise serializers.ValidationError(
+                {
+                    "username": "Username changes are not allowed via this endpoint. "
+                    "Use /api/v1/auth/username/change/ instead."
                 }
             )
         return data
@@ -219,10 +229,11 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
             CustomUser: The updated user instance
 
         Note:
-            Only updates username and email. Password changes are not allowed
-            via this endpoint - use /api/v1/auth/password/change/ instead.
+            Only updates email. Password and username changes are not allowed
+            via this endpoint - use dedicated endpoints instead:
+            - Password: /api/v1/auth/password/change/
+            - Username: /api/v1/auth/username/change/
         """
-        instance.username = validated_data.get("username", instance.username)
         instance.email = validated_data.get("email", instance.email)
         instance.save()
         return instance
@@ -587,5 +598,105 @@ class PasswordChangeSerializer(serializers.Serializer):
 
         user = self.context["request"].user
         validate_password(password=data["new_password"], user=user)
+
+        return data
+
+
+class UsernameChangeSerializer(serializers.Serializer):
+    """
+    Serializer for authenticated username change.
+
+    Used for POST /api/v1/auth/username/change/ to change username securely.
+    Requires the current password for verification before allowing the change.
+    Enforces a 30-day cooldown between username changes.
+
+    Fields:
+        - password: Current password (required, for verification)
+        - new_username: New username (required, validated for uniqueness and format)
+    """
+
+    password = serializers.CharField(
+        style={"input_type": "password"},
+        write_only=True,
+    )
+    new_username = serializers.CharField(max_length=150)
+
+    # 30-day cooldown between username changes
+    USERNAME_CHANGE_COOLDOWN_DAYS = 30
+
+    def validate_password(self, value):
+        """
+        Validate that password matches the current user's password.
+
+        Args:
+            value: The provided password
+
+        Returns:
+            str: The validated password
+
+        Raises:
+            ValidationError: If the password is incorrect
+        """
+        user = self.context["request"].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Password is incorrect.")
+        return value
+
+    def validate_new_username(self, value):
+        """
+        Validate that new username is unique (case-insensitive) and properly formatted.
+
+        Args:
+            value: The proposed new username
+
+        Returns:
+            str: The validated username
+
+        Raises:
+            ValidationError: If username is taken or invalid format
+        """
+        user = self.context["request"].user
+
+        # Check case-insensitive uniqueness (excluding current user)
+        if CustomUser.objects.filter(username__iexact=value).exclude(pk=user.pk).exists():
+            raise serializers.ValidationError("A user with that username already exists.")
+
+        # Apply the custom username validator
+        validator = MyUnicodeUsernameValidator()
+        try:
+            validator(value)
+        except Exception as e:
+            raise serializers.ValidationError(str(e))
+
+        return value
+
+    def validate(self, data):
+        """
+        Validate that the 30-day cooldown has passed since last username change.
+
+        Args:
+            data: Dictionary containing password and new_username
+
+        Returns:
+            dict: Validated data
+
+        Raises:
+            ValidationError: If username was changed less than 30 days ago
+        """
+        user = self.context["request"].user
+
+        if user.username_changed_at:
+            cooldown_end = user.username_changed_at + timedelta(
+                days=self.USERNAME_CHANGE_COOLDOWN_DAYS
+            )
+            if timezone.now() < cooldown_end:
+                days_remaining = (cooldown_end - timezone.now()).days + 1
+                raise serializers.ValidationError(
+                    {
+                        "new_username": f"You can only change your username once every "
+                        f"{self.USERNAME_CHANGE_COOLDOWN_DAYS} days. "
+                        f"Please wait {days_remaining} more day(s)."
+                    }
+                )
 
         return data

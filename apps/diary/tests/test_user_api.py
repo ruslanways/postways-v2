@@ -218,10 +218,11 @@ class PostAPITestCase(DiaryAPITestCase):
 
     def test_user_update(self):
         """
-        IMHO.
-        It's worth noting that Post objects reachable with self.test_post_*
-        only accessibe for retrieving so they don't change their state.
-        In case we need to see wether the object is changed we should retrieve it from the object manager.
+        Test user update endpoint.
+
+        Note: Username is read-only via this endpoint. Username changes must use
+        the dedicated /api/v1/auth/username/change/ endpoint. Only email updates
+        are allowed here.
         """
 
         # Make a response just to obtain the wsgi_request for serializer to get serializer of clear Post object
@@ -234,7 +235,6 @@ class PostAPITestCase(DiaryAPITestCase):
         response = self.client.put(
             reverse("user-detail-update-destroy-api", args=[self.test_user_1.id]),
             {
-                "username": "TestUser1 UPDATED by put",
                 "email": "newemail@ukr.net",
             },
         )
@@ -245,11 +245,10 @@ class PostAPITestCase(DiaryAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertEqual(serializer_before_update.data, serializer_after_update1.data)
 
-        # Authorized by owner
+        # Authorized by owner - update email only
         response = self.client.put(
             reverse("user-detail-update-destroy-api", args=[self.test_user_1.id]),
             {
-                "username": "TestUser1PUTed",
                 "email": "newemail@ukr.net",
             },
             HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
@@ -262,14 +261,14 @@ class PostAPITestCase(DiaryAPITestCase):
         self.assertNotEqual(
             serializer_after_update1.data, serializer_after_update2.data
         )
-        self.assertEqual(serializer_after_update2.data["username"], "TestUser1PUTed")
+        # Username should remain unchanged (read-only)
+        self.assertEqual(serializer_after_update2.data["username"], "TestUser1")
         self.assertEqual(serializer_after_update2.data["email"], "newemail@ukr.net")
 
-        # Authorized by admin
+        # Authorized by admin - update email only
         response = self.client.put(
             reverse("user-detail-update-destroy-api", args=[self.test_user_1.id]),
             {
-                "username": "TestUser1PUTedbyAdmin",
                 "email": "newemailadm@ukr.net",
             },
             HTTP_AUTHORIZATION=f"Bearer {self.access_token_admin}",
@@ -282,16 +281,15 @@ class PostAPITestCase(DiaryAPITestCase):
         self.assertNotEqual(
             serializer_after_update2.data, serializer_after_update3.data
         )
-        self.assertEqual(
-            serializer_after_update3.data["username"], "TestUser1PUTedbyAdmin"
-        )
+        # Username should remain unchanged (read-only)
+        self.assertEqual(serializer_after_update3.data["username"], "TestUser1")
         self.assertEqual(serializer_after_update3.data["email"], "newemailadm@ukr.net")
 
         ######PATCH
         # Authorized by owner, incorrect email
         response = self.client.patch(
             reverse("user-detail-update-destroy-api", args=[self.test_user_1.id]),
-            {"username": "TestUser1PATCHed", "email": "asdnaa1223"},
+            {"email": "asdnaa1223"},
             HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
         )
         serializer_after_update4 = UserDetailSerializer(
@@ -301,11 +299,10 @@ class PostAPITestCase(DiaryAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(serializer_after_update3.data, serializer_after_update4.data)
 
-        # Authorized by owner, unnessesary unknown field
+        # Authorized by owner, with unnecessary unknown field
         response = self.client.patch(
             reverse("user-detail-update-destroy-api", args=[self.test_user_1.id]),
             {
-                "username": "TestUser1PATCHed",
                 "email": "asdnaa1223@gmail.com",
                 "sex": "Female",
             },
@@ -319,7 +316,8 @@ class PostAPITestCase(DiaryAPITestCase):
         self.assertNotEqual(
             serializer_after_update4.data, serializer_after_update5.data
         )
-        self.assertEqual(serializer_after_update5.data["username"], "TestUser1PATCHed")
+        # Username should remain unchanged (read-only)
+        self.assertEqual(serializer_after_update5.data["username"], "TestUser1")
         self.assertEqual(serializer_after_update5.data["email"], "asdnaa1223@gmail.com")
         self.assertRaises(FieldError, CustomUser.objects.get, sex="Female")
 
@@ -337,6 +335,21 @@ class PostAPITestCase(DiaryAPITestCase):
         self.assertEqual(
             CustomUser.objects.get(id=self.test_user_1.id).password,
             original_password_hash,
+        )
+
+        # USERNAME change via PATCH should be rejected with 400 error
+        # Username changes must use the dedicated /api/v1/auth/username/change/ endpoint
+        response = self.client.patch(
+            reverse("user-detail-update-destroy-api", args=[self.test_user_1.id]),
+            {"username": "NewUsername"},
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("username", response.data)
+        # Username should remain unchanged
+        self.assertEqual(
+            CustomUser.objects.get(id=self.test_user_1.id).username,
+            "TestUser1",
         )
 
     def test_user_delete(self):
@@ -374,7 +387,7 @@ class PostAPITestCase(DiaryAPITestCase):
         response = self.client.post(
             reverse("password-change-api"),
             {
-                "old_password": "ribark8903",
+                "old_password": "fokker123",
                 "new_password": "newpassword123",
                 "new_password2": "newpassword123",
             },
@@ -398,7 +411,7 @@ class PostAPITestCase(DiaryAPITestCase):
         response = self.client.post(
             reverse("password-change-api"),
             {
-                "old_password": "ribark8903",
+                "old_password": "fokker123",
                 "new_password": "newpassword123",
                 "new_password2": "differentpassword123",
             },
@@ -411,7 +424,7 @@ class PostAPITestCase(DiaryAPITestCase):
         response = self.client.post(
             reverse("password-change-api"),
             {
-                "old_password": "ribark8903",
+                "old_password": "fokker123",
                 "new_password": "123",
                 "new_password2": "123",
             },
@@ -424,7 +437,7 @@ class PostAPITestCase(DiaryAPITestCase):
         response = self.client.post(
             reverse("password-change-api"),
             {
-                "old_password": "ribark8903",
+                "old_password": "fokker123",
                 "new_password": "newpassword123",
                 "new_password2": "newpassword123",
             },
@@ -437,4 +450,95 @@ class PostAPITestCase(DiaryAPITestCase):
         self.test_user_1.refresh_from_db()
         self.assertNotEqual(self.test_user_1.password, original_password_hash)
         self.assertTrue(self.test_user_1.check_password("newpassword123"))
+
+    def test_username_change(self):
+        """Test the dedicated username change endpoint."""
+        from datetime import timedelta
+        from django.utils import timezone
+
+        # Unauthorized request
+        response = self.client.post(
+            reverse("username-change-api"),
+            {
+                "password": "fokker123",
+                "new_username": "NewTestUser1",
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # Authorized but wrong password
+        response = self.client.post(
+            reverse("username-change-api"),
+            {
+                "password": "wrongpassword",
+                "new_username": "NewTestUser1",
+            },
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("password", response.data)
+
+        # Authorized but username already taken (case-insensitive)
+        response = self.client.post(
+            reverse("username-change-api"),
+            {
+                "password": "fokker123",
+                "new_username": "testuser2",  # TestUser2 exists (case-insensitive check)
+            },
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("new_username", response.data)
+
+        # Successful username change
+        original_username = self.test_user_1.username
+        response = self.client.post(
+            reverse("username-change-api"),
+            {
+                "password": "fokker123",
+                "new_username": "NewTestUser1",
+            },
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("detail", response.data)
+        self.assertEqual(response.data["username"], "NewTestUser1")
+
+        # Verify username was actually changed
+        self.test_user_1.refresh_from_db()
+        self.assertNotEqual(self.test_user_1.username, original_username)
+        self.assertEqual(self.test_user_1.username, "NewTestUser1")
+        self.assertIsNotNone(self.test_user_1.username_changed_at)
+
+        # Test 30-day cooldown - immediate second change should fail
+        response = self.client.post(
+            reverse("username-change-api"),
+            {
+                "password": "fokker123",
+                "new_username": "AnotherUsername",
+            },
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("new_username", response.data)
+        # Username should remain unchanged
+        self.test_user_1.refresh_from_db()
+        self.assertEqual(self.test_user_1.username, "NewTestUser1")
+
+        # Simulate cooldown period passed (set username_changed_at to 31 days ago)
+        self.test_user_1.username_changed_at = timezone.now() - timedelta(days=31)
+        self.test_user_1.save()
+
+        # Now username change should succeed
+        response = self.client.post(
+            reverse("username-change-api"),
+            {
+                "password": "fokker123",
+                "new_username": "AnotherUsername",
+            },
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.test_user_1.refresh_from_db()
+        self.assertEqual(self.test_user_1.username, "AnotherUsername")
 

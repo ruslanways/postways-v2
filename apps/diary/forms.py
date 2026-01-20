@@ -4,10 +4,12 @@ Django forms for the diary application.
 This module contains form classes for user authentication, registration,
 password management, and blog post creation/editing.
 """
+
 from django import forms
 from django.contrib.auth import password_validation
 from django.contrib.auth.forms import (
     AuthenticationForm,
+    PasswordChangeForm,
     PasswordResetForm,
     SetPasswordForm,
     UserChangeForm,
@@ -16,7 +18,10 @@ from django.contrib.auth.forms import (
 )
 from django.utils.translation import gettext_lazy as _
 
+from datetime import timedelta
+from django.utils import timezone
 from .models import CustomUser, Post
+from .validators import MyUnicodeUsernameValidator
 
 
 class BootstrapFormMixin:
@@ -89,9 +94,7 @@ class CustomAuthenticationForm(BootstrapFormMixin, AuthenticationForm):
     Used for user login with username and password fields.
     """
 
-    username = UsernameField(
-        widget=forms.TextInput(attrs={"autofocus": True})
-    )
+    username = UsernameField(widget=forms.TextInput(attrs={"autofocus": True}))
     password = forms.CharField(
         label=_("Password"),
         strip=False,
@@ -120,6 +123,34 @@ class CustomSetPasswordForm(BootstrapFormMixin, SetPasswordForm):
     Used when setting a new password after reset.
     """
 
+    new_password1 = forms.CharField(
+        label=_("New password"),
+        strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+        help_text=password_validation.password_validators_help_text_html(),
+    )
+    new_password2 = forms.CharField(
+        label=_("New password confirmation"),
+        strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+    )
+
+
+class CustomPasswordChangeForm(BootstrapFormMixin, PasswordChangeForm):
+    """
+    Password change form with Bootstrap styling.
+
+    Extends Django's PasswordChangeForm with the BootstrapFormMixin
+    to apply form-control class to all input widgets.
+    """
+
+    old_password = forms.CharField(
+        label=_("Old password"),
+        strip=False,
+        widget=forms.PasswordInput(
+            attrs={"autocomplete": "current-password", "autofocus": True}
+        ),
+    )
     new_password1 = forms.CharField(
         label=_("New password"),
         strip=False,
@@ -174,3 +205,126 @@ class UpdatePostForm(AddPostForm):
         help_texts = {
             "image": _("Leave empty to keep the current image."),
         }
+
+
+class UsernameChangeForm(BootstrapFormMixin, forms.Form):
+    """
+    Form for changing username with password confirmation.
+
+    Requires current password for verification and enforces a 30-day
+    cooldown between username changes. Username must be unique (case-insensitive).
+    """
+
+    # 30-day cooldown between username changes
+    USERNAME_CHANGE_COOLDOWN_DAYS = 30
+
+    password = forms.CharField(
+        label=_("Current Password"),
+        strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "current-password"}),
+        help_text=_("Enter your current password to confirm the change."),
+    )
+    new_username = forms.CharField(
+        label=_("New Username"),
+        max_length=150,
+        widget=forms.TextInput(attrs={"autofocus": True}),
+        help_text=_("150 characters or fewer. Letters, digits and @/./+/-/_ only."),
+    )
+
+    def __init__(self, user, *args, **kwargs):
+        """
+        Initialize form with user instance for validation.
+
+        Args:
+            user: The current user requesting the username change
+        """
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_password(self):
+        """
+        Validate that the password is correct.
+
+        Returns:
+            str: The validated password
+
+        Raises:
+            ValidationError: If the password is incorrect
+        """
+        password = self.cleaned_data.get("password")
+        if not self.user.check_password(password):
+            raise forms.ValidationError(_("Password is incorrect."))
+        return password
+
+    def clean_new_username(self):
+        """
+        Validate that the new username is unique (case-insensitive) and properly formatted.
+
+        Returns:
+            str: The validated username
+
+        Raises:
+            ValidationError: If username is taken or invalid format
+        """
+        new_username = self.cleaned_data.get("new_username")
+
+        # Check case-insensitive uniqueness (excluding current user)
+        if (
+            CustomUser.objects.filter(username__iexact=new_username)
+            .exclude(pk=self.user.pk)
+            .exists()
+        ):
+            raise forms.ValidationError(_("A user with that username already exists."))
+
+        # Apply the custom username validator
+        validator = MyUnicodeUsernameValidator()
+        try:
+            validator(new_username)
+        except Exception as e:
+            raise forms.ValidationError(str(e))
+
+        return new_username
+
+    def clean(self):
+        """
+        Validate that the 30-day cooldown has passed since last username change.
+
+        Returns:
+            dict: Cleaned data
+
+        Raises:
+            ValidationError: If username was changed less than 30 days ago
+        """
+        cleaned_data = super().clean()
+
+        if self.user.username_changed_at:
+            cooldown_end = self.user.username_changed_at + timedelta(
+                days=self.USERNAME_CHANGE_COOLDOWN_DAYS
+            )
+            if timezone.now() < cooldown_end:
+                days_remaining = (cooldown_end - timezone.now()).days + 1
+                raise forms.ValidationError(
+                    _(
+                        "You can only change your username once every "
+                        "%(days)d days. Please wait %(remaining)d more day(s)."
+                    ),
+                    code="cooldown",
+                    params={
+                        "days": self.USERNAME_CHANGE_COOLDOWN_DAYS,
+                        "remaining": days_remaining,
+                    },
+                )
+
+        return cleaned_data
+
+    def save(self):
+        """
+        Save the new username and update the change timestamp.
+
+        Returns:
+            CustomUser: The updated user instance
+        """
+        self.user.username = self.cleaned_data["new_username"]
+        self.user.username_changed_at = timezone.now()
+        self.user.save()
+        return self.user
