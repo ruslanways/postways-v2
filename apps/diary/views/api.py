@@ -453,8 +453,11 @@ class PasswordChangeAPIView(generics.GenericAPIView):
         - new_password: New password (required)
         - new_password2: New password confirmation (required)
 
-    After successful password change, all existing JWT refresh tokens
-    are blacklisted to force re-authentication.
+    Security: After successful password change, the user is logged out from
+    ALL devices and sessions:
+        - All JWT refresh tokens are blacklisted
+        - All sessions are invalidated (by not calling update_session_auth_hash,
+          Django's session auth hash verification will fail on next request)
     """
 
     permission_classes = (permissions.IsAuthenticated,)
@@ -472,6 +475,11 @@ class PasswordChangeAPIView(generics.GenericAPIView):
         Returns:
             200: Password changed successfully
             400: Validation error (wrong current password, passwords don't match, etc.)
+
+        Security Note:
+            This intentionally does NOT call update_session_auth_hash() to ensure
+            all existing sessions are invalidated. Combined with JWT blacklisting,
+            this forces re-authentication on all devices after password change.
         """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -480,8 +488,12 @@ class PasswordChangeAPIView(generics.GenericAPIView):
         user.set_password(serializer.validated_data["new_password"])
         user.save()
 
-        # Blacklist all existing refresh tokens to force re-authentication
+        # Blacklist all JWT refresh tokens to force API re-authentication
         blacklist_user_tokens(user)
+
+        # Note: Sessions are automatically invalidated because we don't call
+        # update_session_auth_hash(). Django's session auth stores a password
+        # hash that will no longer match, logging out all sessions on next request.
 
         return Response(
             {"detail": "Password changed successfully."},

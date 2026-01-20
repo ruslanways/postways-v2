@@ -146,7 +146,9 @@ Authorization: Bearer <access_token>
 - **Note**: 
   - Requires verification of the current password before allowing changes
   - New password is validated against Django's password validators
-  - All existing JWT refresh tokens are blacklisted after successful change (forces re-authentication)
+  - **Security**: Logs out from ALL devices after successful change:
+    - All JWT refresh tokens are blacklisted (forces API re-authentication)
+    - All sessions are invalidated (forces HTML re-login)
 
 ---
 

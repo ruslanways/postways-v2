@@ -61,7 +61,7 @@ All API endpoints are under `/api/v1/` and use JWT authentication (except regist
 - Request body: `{"old_password": "...", "new_password": "...", "new_password2": "..."}`
 - Requires verification of current password
 - New password is validated against Django password validators
-- All existing JWT tokens are blacklisted after successful change (forces re-authentication)
+- **Security**: Logs out from ALL devices after successful change (JWT tokens blacklisted + sessions invalidated)
 
 ---
 

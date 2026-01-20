@@ -323,7 +323,7 @@ class PostAPITestCase(DiaryAPITestCase):
         self.assertEqual(serializer_after_update5.data["email"], "asdnaa1223@gmail.com")
         self.assertRaises(FieldError, CustomUser.objects.get, sex="Female")
 
-        # PASSWORD change via PATCH should be ignored (no longer allowed)
+        # PASSWORD change via PATCH should be rejected with 400 error
         # Password changes must use the dedicated /api/v1/auth/password/change/ endpoint
         original_password_hash = CustomUser.objects.get(id=self.test_user_1.id).password
         response = self.client.patch(
@@ -331,7 +331,8 @@ class PostAPITestCase(DiaryAPITestCase):
             {"password": "fokker1234"},
             HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
         )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("password", response.data)
         # Password should remain unchanged
         self.assertEqual(
             CustomUser.objects.get(id=self.test_user_1.id).password,

@@ -185,6 +185,28 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
             "is_staff",
         )
 
+    def validate(self, data):
+        """
+        Reject requests that attempt to change password via this endpoint.
+
+        Args:
+            data: Dictionary containing fields to update
+
+        Returns:
+            dict: Validated data
+
+        Raises:
+            ValidationError: If password field is present in the request
+        """
+        if "password" in self.initial_data:
+            raise serializers.ValidationError(
+                {
+                    "password": "Password changes are not allowed via this endpoint. "
+                    "Use /api/v1/auth/password/change/ instead."
+                }
+            )
+        return data
+
     def update(self, instance, validated_data):
         """
         Update user instance with provided data.
