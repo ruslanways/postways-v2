@@ -3,53 +3,77 @@
 {% block title %} author#{{object.pk}} {{ object.username }} {% endblock %}
 
 {% block content %}
- 
-<h2>
-    {% if user.is_staff %}
-    {{object.username}} posts:
-    {% else %}
-    My posts:
-    {% endif %}
-    {{ object.post_set.count }}
-</h2> 
-<br>
 
-{% for post in  page_obj %}
-<div class="post">
-<div>
-<a href="{% url 'post-detail' post.pk %}"><h3 class="title">{{ post.title }}</h3></a>
-<p class="author">{{ post.created|date }} at {{ post.created|time:"H:i" }}
-    {% if not post.published %}
-    <br><b>*unpublished</b>
+<div class="container">
+  <div class="profile-header">
+    <h3 class="profile-username">{{ object.username }}</h3>
+    <p class="profile-stats">
+      {% with post_count=object.post_set.count %}
+        {% if post_count == 0 %}No posts yet{% elif post_count == 1 %}1 post{% else %}{{ post_count }} posts{% endif %}
+      {% endwith %}
+      <span class="profile-stats-separator">·</span>
+      Member since {{ object.date_joined|date:"M Y" }}
+    </p>
+    <p class="profile-likes">
+      <span class="heart">♥</span>
+      {% if object.likes_received == 1 %}1 like{% else %}{{ object.likes_received }} likes{% endif %} received
+    </p>
+    {% if object.last_request %}
+      <p class="profile-activity">
+        Active {{ object.last_request|timesince }} ago
+      </p>
     {% endif %}
-<p class="title">
-    <a href="{% url 'post-detail' post.pk %}" class="post-content">
-    <span class="short-post">{{ post.content|truncatechars:100 }}</span>
-    </a>
-    <br>
-    {% if user.is_authenticated and post.id in liked_by_user %}
-    <a href="{% url 'like-toggle-api' %}" id="{{ post.id }}" class="like"><span class="heart">&#10084;</span> <span class="count">{{ post.like__count }}</span></a>
-    {% elif user.is_authenticated %}
-    <a href="{% url 'like-toggle-api' %}" id="{{ post.id }}" class="like"><span class="heart">&#9825;</span> <span class="count">{{ post.like__count }}</span></a>
-    {% else %}
-    <a href="{% url 'login' %}" id="{{ post.id }}" class="like"><span class="heart">&#9825;</span> <span class="count">{{ post.like__count }}</span></a>
-    {% endif %}
-</p>
+  </div>
 </div>
 
-{% if post.image %}
-<div>
-<a href="{% url 'post-detail' post.pk %}">
-<img src="{{ post.image.url }}" alt="" class="rounded float-left post-img">
-</a>
+<div class="posts-grid">
+  {% for post in page_obj %}
+    <article class="post-card">
+      <div class="post-card-header">
+        {% if post.image %}
+          <a href="{% url 'post-detail' post.pk %}">
+            <img src="{% if post.thumbnail %}{{ post.thumbnail.url }}{% else %}{{ post.image.url }}{% endif %}" 
+                 alt="{{ post.title }}" 
+                 class="post-card-image">
+          </a>
+        {% endif %}
+        <div class="post-card-content">
+          <h3 class="post-card-title">
+            <a href="{% url 'post-detail' post.pk %}">{{ post.title }}</a>
+          </h3>
+          <div class="post-card-meta">
+            <span class="post-card-date">
+              {{ post.created|date }} at {{ post.created|time:"H:i" }}
+            </span>
+            {% if not post.published %}
+              <span class="text-muted">*unpublished</span>
+            {% endif %}
+            {% if user.is_authenticated and post.id in liked_by_user %}
+              <a href="{% url 'like-toggle-api' %}" id="{{ post.id }}" class="like is-liked">
+                <span class="heart">♥</span>
+                <span class="count">{{ post.like__count }}</span>
+              </a>
+            {% elif user.is_authenticated %}
+              <a href="{% url 'like-toggle-api' %}" id="{{ post.id }}" class="like">
+                <span class="heart">♡</span>
+                <span class="count">{{ post.like__count }}</span>
+              </a>
+            {% else %}
+              <a href="{% url 'login' %}" id="{{ post.id }}" class="like">
+                <span class="heart">♡</span>
+                <span class="count">{{ post.like__count }}</span>
+              </a>
+            {% endif %}
+          </div>
+          <p class="post-card-excerpt">
+            <a href="{% url 'post-detail' post.pk %}">
+              {{ post.content|truncatechars:150 }}
+            </a>
+          </p>
+        </div>
+      </div>
+    </article>
+  {% endfor %}
 </div>
-{% endif %}
-
-</div>
-<hr>
-<br>
-{% endfor %}
-
 
 {% endblock %}
-

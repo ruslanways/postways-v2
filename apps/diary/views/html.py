@@ -54,7 +54,7 @@ class HomeView(ListView):
     Authenticated users see which posts they've liked.
     """
 
-    paginate_by = 5
+    paginate_by = 6
     template_name = "diary/index.html"
     queryset = (
         Post.objects.annotate(Count("like"))
@@ -392,10 +392,21 @@ class AuthorListView(StaffRequiredMixin, ListView):
         Context additions:
             posts: Total post count across all users
             likes: Total like count across all posts
+            current_sort: Current sort field (without - prefix)
+            sort_direction: 'desc' or 'asc'
         """
         context = super().get_context_data(**kwargs)
         context["posts"] = Post.objects.count()
         context["likes"] = Like.objects.count()
+
+        ordering = self.request.session.get("author_list_ordering", "id")
+        if ordering.startswith("-"):
+            context["current_sort"] = ordering[1:]
+            context["sort_direction"] = "desc"
+        else:
+            context["current_sort"] = ordering
+            context["sort_direction"] = "asc"
+
         return context
 
 
@@ -409,12 +420,18 @@ class AuthorDetailView(UserPassesTestMixin, DetailView, MultipleObjectMixin):
 
     template_name = "diary/customuser_detail.html"
     model = CustomUser
-    paginate_by = 5
+    paginate_by = 6
     permission_denied_message = "Access for staff or profile owner only!"
 
     def test_func(self):
         """Allow access only to staff or the profile owner."""
         return self.request.user.is_staff or self.request.user.id == self.kwargs["pk"]
+
+    def get_queryset(self):
+        """Annotate user with total likes received on their posts."""
+        return CustomUser.objects.annotate(
+            likes_received=Count("post__like", distinct=True)
+        )
 
     def get_context_data(self, **kwargs):
         """

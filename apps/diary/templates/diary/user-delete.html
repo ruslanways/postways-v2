@@ -4,16 +4,23 @@
 
 {% block content %}
 
-    <form method="post" enctype="multipart/form-data">{% csrf_token %}
-        
-        <p>Are you sure you want to delete your account <b>{{ object.username }}</b>?</p>
-        <p class="text-danger"><b>Warning:</b> This action cannot be undone. All your posts and likes will be permanently deleted.</p>
+<div class="form-container">
+  <h1>Delete Account</h1>
+  
+  <div class="alert alert-danger">
+    <p><strong>Warning:</strong> Are you sure you want to delete your account <strong>{{ object.username }}</strong>?</p>
+    <p>This action cannot be undone. All your posts and likes will be permanently deleted.</p>
+  </div>
 
-        <div style="display:none"> {{ form }} </div>
-       
-        <button type="submit" class="btn btn-danger btn-sm">Delete Account</button>
-        <a href="{% url 'author-detail' object.pk %}" class="btn btn-secondary btn-sm">Cancel</a>
-    </form>
-
+  <form method="post">
+    {% csrf_token %}
+    <div class="hidden">{{ form }}</div>
     
+    <div style="display: flex; gap: var(--spacing-sm);">
+      <button type="submit" class="btn btn-danger">Delete Account</button>
+      <a href="{% url 'author-detail' object.pk %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
 {% endblock %}

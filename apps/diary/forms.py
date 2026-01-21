@@ -24,13 +24,13 @@ from .models import CustomUser, Post
 from .validators import MyUnicodeUsernameValidator
 
 
-class BootstrapFormMixin:
+class FormControlMixin:
     """
-    Mixin that adds Bootstrap form-control class to form widgets.
+    Mixin that adds custom form-control class to form widgets.
 
-    Automatically applies 'form-control' class to text-like input widgets
+    Automatically applies 'form-input' class to text-like input widgets
     (TextInput, EmailInput, PasswordInput, Textarea, FileInput).
-    Checkbox widgets are excluded as they use different Bootstrap classes.
+    Checkbox widgets use 'form-checkbox' class.
     """
 
     def __init__(self, *args, **kwargs):
@@ -45,17 +45,23 @@ class BootstrapFormMixin:
         for field in self.fields.values():
             if isinstance(field.widget, form_control_widgets):
                 existing_class = field.widget.attrs.get("class", "")
-                if "form-control" not in existing_class:
+                if "form-input" not in existing_class:
                     field.widget.attrs["class"] = (
-                        f"{existing_class} form-control".strip()
+                        f"{existing_class} form-input".strip()
+                    )
+            elif isinstance(field.widget, forms.CheckboxInput):
+                existing_class = field.widget.attrs.get("class", "")
+                if "form-checkbox" not in existing_class:
+                    field.widget.attrs["class"] = (
+                        f"{existing_class} form-checkbox".strip()
                     )
 
 
-class CustomUserCreationForm(BootstrapFormMixin, UserCreationForm):
+class CustomUserCreationForm(FormControlMixin, UserCreationForm):
     """
     Form for creating new users with email and terms acceptance.
 
-    Extends Django's UserCreationForm with Bootstrap styling,
+    Extends Django's UserCreationForm with custom styling,
     email field, and terms acceptance checkbox.
     """
 
@@ -77,7 +83,7 @@ class CustomUserCreationForm(BootstrapFormMixin, UserCreationForm):
     )
     accept_terms = forms.BooleanField(
         label=_("Accept Terms"),
-        widget=forms.CheckboxInput(attrs={"class": "checkbox-inline"}),
+        widget=forms.CheckboxInput(),
         help_text=_("I accept the terms of service and privacy policy"),
         error_messages={"required": _("You must accept the terms to continue")},
     )
@@ -87,9 +93,9 @@ class CustomUserCreationForm(BootstrapFormMixin, UserCreationForm):
         fields = ("username", "email", "accept_terms")
 
 
-class CustomAuthenticationForm(BootstrapFormMixin, AuthenticationForm):
+class CustomAuthenticationForm(FormControlMixin, AuthenticationForm):
     """
-    Authentication form with Bootstrap styling.
+    Authentication form with custom styling.
 
     Used for user login with username and password fields.
     """
@@ -102,9 +108,9 @@ class CustomAuthenticationForm(BootstrapFormMixin, AuthenticationForm):
     )
 
 
-class CustomPasswordResetForm(BootstrapFormMixin, PasswordResetForm):
+class CustomPasswordResetForm(FormControlMixin, PasswordResetForm):
     """
-    Password reset form with Bootstrap styling.
+    Password reset form with custom styling.
 
     Used to request a password reset email.
     """
@@ -116,9 +122,9 @@ class CustomPasswordResetForm(BootstrapFormMixin, PasswordResetForm):
     )
 
 
-class CustomSetPasswordForm(BootstrapFormMixin, SetPasswordForm):
+class CustomSetPasswordForm(FormControlMixin, SetPasswordForm):
     """
-    Set password form with Bootstrap styling.
+    Set password form with custom styling.
 
     Used when setting a new password after reset.
     """
@@ -136,12 +142,12 @@ class CustomSetPasswordForm(BootstrapFormMixin, SetPasswordForm):
     )
 
 
-class CustomPasswordChangeForm(BootstrapFormMixin, PasswordChangeForm):
+class CustomPasswordChangeForm(FormControlMixin, PasswordChangeForm):
     """
-    Password change form with Bootstrap styling.
+    Password change form with custom styling.
 
-    Extends Django's PasswordChangeForm with the BootstrapFormMixin
-    to apply form-control class to all input widgets.
+    Extends Django's PasswordChangeForm with the FormControlMixin
+    to apply form-input class to all input widgets.
     """
 
     old_password = forms.CharField(
@@ -164,9 +170,9 @@ class CustomPasswordChangeForm(BootstrapFormMixin, PasswordChangeForm):
     )
 
 
-class CustomUserChangeForm(BootstrapFormMixin, UserChangeForm):
+class CustomUserChangeForm(FormControlMixin, UserChangeForm):
     """
-    User profile change form with Bootstrap styling.
+    User profile change form with custom styling.
 
     Used for updating user profile information.
     """
@@ -176,7 +182,7 @@ class CustomUserChangeForm(BootstrapFormMixin, UserChangeForm):
         fields = ("username", "email")
 
 
-class AddPostForm(BootstrapFormMixin, forms.ModelForm):
+class AddPostForm(FormControlMixin, forms.ModelForm):
     """
     Form for creating new blog posts.
 
@@ -187,7 +193,7 @@ class AddPostForm(BootstrapFormMixin, forms.ModelForm):
         model = Post
         fields = ("title", "content", "image", "published")
         widgets = {
-            "published": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "published": forms.CheckboxInput(),
         }
         labels = {
             "published": _("Publish"),
@@ -207,7 +213,7 @@ class UpdatePostForm(AddPostForm):
         }
 
 
-class UsernameChangeForm(BootstrapFormMixin, forms.Form):
+class UsernameChangeForm(FormControlMixin, forms.Form):
     """
     Form for changing username with password confirmation.
 
@@ -330,7 +336,7 @@ class UsernameChangeForm(BootstrapFormMixin, forms.Form):
         return self.user
 
 
-class EmailChangeForm(BootstrapFormMixin, forms.Form):
+class EmailChangeForm(FormControlMixin, forms.Form):
     """
     Form for changing email with password confirmation.
 

@@ -218,139 +218,48 @@ class PostAPITestCase(DiaryAPITestCase):
 
     def test_user_update(self):
         """
-        Test user update endpoint.
+        User detail endpoint does not support updates.
 
-        Note: Username is read-only via this endpoint. Username changes must use
-        the dedicated /api/v1/auth/username/change/ endpoint. Only email updates
-        are allowed here.
+        All profile updates must use dedicated endpoints:
+        - /api/v1/auth/password/change/
+        - /api/v1/auth/username/change/
+        - /api/v1/auth/email/change/
         """
 
-        # Make a response just to obtain the wsgi_request for serializer to get serializer of clear Post object
+        # Snapshot user before requests
         response_initial = self.client.get("/")
-        serializer_before_update = UserDetailSerializer(
+        serializer_before = UserDetailSerializer(
             self.test_user_1, context={"request": response_initial.wsgi_request}
         )
 
-        # Unathorized
+        url = reverse("user-detail-update-destroy-api", args=[self.test_user_1.id])
+
+        # Unauthorized PUT
+        response = self.client.put(url, {"email": "newemail@ukr.net"})
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+        # Authorized PUT (owner)
         response = self.client.put(
-            reverse("user-detail-update-destroy-api", args=[self.test_user_1.id]),
-            {
-                "email": "newemail@ukr.net",
-            },
-        )
-        serializer_after_update1 = UserDetailSerializer(
-            CustomUser.objects.get(id=self.test_user_1.id),
-            context={"request": response.wsgi_request},
-        )
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertEqual(serializer_before_update.data, serializer_after_update1.data)
-
-        # Authorized by owner - update email only
-        response = self.client.put(
-            reverse("user-detail-update-destroy-api", args=[self.test_user_1.id]),
-            {
-                "email": "newemail@ukr.net",
-            },
+            url,
+            {"email": "newemail@ukr.net"},
             HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
         )
-        serializer_after_update2 = UserDetailSerializer(
-            CustomUser.objects.get(id=self.test_user_1.id),
-            context={"request": response.wsgi_request},
-        )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertNotEqual(
-            serializer_after_update1.data, serializer_after_update2.data
-        )
-        # Username should remain unchanged (read-only)
-        self.assertEqual(serializer_after_update2.data["username"], "TestUser1")
-        self.assertEqual(serializer_after_update2.data["email"], "newemail@ukr.net")
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
-        # Authorized by admin - update email only
-        response = self.client.put(
-            reverse("user-detail-update-destroy-api", args=[self.test_user_1.id]),
-            {
-                "email": "newemailadm@ukr.net",
-            },
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_admin}",
-        )
-        serializer_after_update3 = UserDetailSerializer(
-            CustomUser.objects.get(id=self.test_user_1.id),
-            context={"request": response.wsgi_request},
-        )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertNotEqual(
-            serializer_after_update2.data, serializer_after_update3.data
-        )
-        # Username should remain unchanged (read-only)
-        self.assertEqual(serializer_after_update3.data["username"], "TestUser1")
-        self.assertEqual(serializer_after_update3.data["email"], "newemailadm@ukr.net")
-
-        ######PATCH
-        # Authorized by owner, incorrect email
+        # Authorized PATCH (owner)
         response = self.client.patch(
-            reverse("user-detail-update-destroy-api", args=[self.test_user_1.id]),
-            {"email": "asdnaa1223"},
+            url,
+            {"email": "newemail@ukr.net"},
             HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
         )
-        serializer_after_update4 = UserDetailSerializer(
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+        # Ensure user has not changed
+        serializer_after = UserDetailSerializer(
             CustomUser.objects.get(id=self.test_user_1.id),
-            context={"request": response.wsgi_request},
+            context={"request": response_initial.wsgi_request},
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(serializer_after_update3.data, serializer_after_update4.data)
-
-        # Authorized by owner, with unnecessary unknown field
-        response = self.client.patch(
-            reverse("user-detail-update-destroy-api", args=[self.test_user_1.id]),
-            {
-                "email": "asdnaa1223@gmail.com",
-                "sex": "Female",
-            },
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
-        )
-        serializer_after_update5 = UserDetailSerializer(
-            CustomUser.objects.get(id=self.test_user_1.id),
-            context={"request": response.wsgi_request},
-        )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertNotEqual(
-            serializer_after_update4.data, serializer_after_update5.data
-        )
-        # Username should remain unchanged (read-only)
-        self.assertEqual(serializer_after_update5.data["username"], "TestUser1")
-        self.assertEqual(serializer_after_update5.data["email"], "asdnaa1223@gmail.com")
-        self.assertRaises(FieldError, CustomUser.objects.get, sex="Female")
-
-        # PASSWORD change via PATCH should be rejected with 400 error
-        # Password changes must use the dedicated /api/v1/auth/password/change/ endpoint
-        original_password_hash = CustomUser.objects.get(id=self.test_user_1.id).password
-        response = self.client.patch(
-            reverse("user-detail-update-destroy-api", args=[self.test_user_1.id]),
-            {"password": "fokker1234"},
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
-        )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("password", response.data)
-        # Password should remain unchanged
-        self.assertEqual(
-            CustomUser.objects.get(id=self.test_user_1.id).password,
-            original_password_hash,
-        )
-
-        # USERNAME change via PATCH should be rejected with 400 error
-        # Username changes must use the dedicated /api/v1/auth/username/change/ endpoint
-        response = self.client.patch(
-            reverse("user-detail-update-destroy-api", args=[self.test_user_1.id]),
-            {"username": "NewUsername"},
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
-        )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("username", response.data)
-        # Username should remain unchanged
-        self.assertEqual(
-            CustomUser.objects.get(id=self.test_user_1.id).username,
-            "TestUser1",
-        )
+        self.assertEqual(serializer_before.data, serializer_after.data)
 
     def test_user_delete(self):
         # Unauthorized

@@ -33,7 +33,7 @@ function getCookie(name) {
 const csrfToken = getCookie("csrftoken");
 const likeElements = document.querySelectorAll(".like");
 const postIds = Array.from(likeElements).map((el) => el.id);
-const isAuthenticated = Boolean(document.getElementById("user"));
+const isAuthenticated = Boolean(document.querySelector(".user-dropdown-toggle"));
 
 // Only attach click handlers for authenticated users
 if (isAuthenticated && likeElements.length) {
@@ -92,15 +92,16 @@ async function handleLikeClick(event) {
   const heartEl = element.querySelector(".heart");
   const countEl = element.querySelector(".count");
 
-  const isLiked = heartEl.textContent.charCodeAt(0) === 10084; // ❤ (filled heart)
+  const isLiked = heartEl.textContent.charCodeAt(0) === 9829; // ♥ (filled heart)
 
   // Store original state for potential rollback
   const originalHeart = heartEl.textContent;
   const originalCount = countEl.textContent;
 
   // Optimistic update: toggle heart and adjust count immediately
-  heartEl.textContent = isLiked ? "♡" : "❤";
+  heartEl.textContent = isLiked ? "♡" : "♥";
   countEl.textContent = isLiked ? Number(originalCount) - 1 : Number(originalCount) + 1;
+  element.classList.toggle("is-liked", !isLiked);
 
   try {
     const response = await fetch(element.href, {
@@ -117,12 +118,14 @@ async function handleLikeClick(event) {
       console.warn("Like request failed with status:", response.status);
       heartEl.textContent = originalHeart;
       countEl.textContent = originalCount;
+      element.classList.toggle("is-liked", isLiked);
     }
   } catch (error) {
     // Network error - rollback
     console.warn("Like request failed:", error);
     heartEl.textContent = originalHeart;
     countEl.textContent = originalCount;
+    element.classList.toggle("is-liked", isLiked);
   }
 }
 
@@ -151,8 +154,9 @@ async function refreshLikeCounts() {
       const countEl = element.querySelector(".count");
 
       if (heartEl) {
-        heartEl.textContent = info.liked ? "❤" : "♡";
+        heartEl.textContent = info.liked ? "♥" : "♡";
       }
+      element.classList.toggle("is-liked", info.liked);
       if (countEl) {
         countEl.textContent = info.count;
       }

@@ -1,49 +1,63 @@
 {% extends 'diary/base.html' %}
 
-{% block title %} Signup {% endblock %}
+{% block title %} Sign up {% endblock %}
 
 {% block content %}
 
-<h1>Signup</h1>
-<br>
+<div class="form-container">
+  <h1>Sign up</h1>
 
-<form method="post" class="auth-form">
+  <form method="post">
     {% csrf_token %}
     {{ form.non_field_errors }}
     
-    <div class="mb-3">
-        <label for="{{ form.username.id_for_label }}" class="form-label">{{form.username.label}}:</label> 
-        {{ form.username }}
+    <div class="form-group">
+      <label for="{{ form.username.id_for_label }}" class="form-label">{{ form.username.label }}</label>
+      {{ form.username }}
+      {% if form.username.errors %}
+        <div class="form-errors">{{ form.username.errors }}</div>
+      {% endif %}
     </div>
-    <div class="form-text">{{form.username.errors}}</div>
 
-    <div class="mb-3">
-        <label for="{{ form.username.id_for_label }}" class="form-label">{{form.email.label}}:</label> 
-        {{ form.email }}
+    <div class="form-group">
+      <label for="{{ form.email.id_for_label }}" class="form-label">{{ form.email.label }}</label>
+      {{ form.email }}
+      {% if form.email.errors %}
+        <div class="form-errors">{{ form.email.errors }}</div>
+      {% endif %}
     </div>
-    <div class="form-text">{{form.email.errors}}</div>
 
-    <div class="mb-3">
-        <label for="{{ form.username.id_for_label }}" class="form-label">{{form.password1.label}}:</label> 
-        {{ form.password1 }}
+    <div class="form-group">
+      <label for="{{ form.password1.id_for_label }}" class="form-label">{{ form.password1.label }}</label>
+      {{ form.password1 }}
+      {% if form.password1.help_text %}
+        <span class="form-help-text">{{ form.password1.help_text|safe }}</span>
+      {% endif %}
+      {% if form.password1.errors %}
+        <div class="form-errors">{{ form.password1.errors }}</div>
+      {% endif %}
     </div>
-    <div class="form-text">{{form.password1.errors}}</div>
 
-    <div class="mb-3">
-        <label for="{{ form.username.id_for_label }}" class="form-label">{{form.password2.label}}:</label> 
-        {{ form.password2 }}
+    <div class="form-group">
+      <label for="{{ form.password2.id_for_label }}" class="form-label">{{ form.password2.label }}</label>
+      {{ form.password2 }}
+      {% if form.password2.errors %}
+        <div class="form-errors">{{ form.password2.errors }}</div>
+      {% endif %}
     </div>
-    <div class="form-text">{{form.password2.errors}}</div>
 
-    <div class="mb-3">
-        <label for="{{ form.accept_terms.id_for_label }}" class="form-label">
-            {{ form.accept_terms }} {{ form.accept_terms.help_text }}
-        </label>
+    <div class="form-group">
+      <label class="form-checkbox-label">
+        {{ form.accept_terms }}
+        <span>{{ form.accept_terms.help_text }}</span>
+      </label>
+      {% if form.accept_terms.errors %}
+        <div class="form-errors">{{ form.accept_terms.errors }}</div>
+      {% endif %}
     </div>
-    <div class="form-text">{{ form.accept_terms.errors }}</div>
 
-    <button type="submit" class="btn btn-primary">submit</button>
-</form>
+    <button type="submit" class="btn btn-primary">Submit</button>
+  </form>
+</div>
 
 {% endblock %}
-

@@ -4,29 +4,38 @@
 
 {% block content %}
 
-<h1>Change Username</h1>
-<br>
+<div class="form-container">
+  <h1>Change Username</h1>
 
-<form method="post" class="auth-form">
+  <form method="post">
     {% csrf_token %}
 
     {{ form.non_field_errors }}
 
-    <div class="mb-3">
-        <label for="{{ form.password.id_for_label }}" class="form-label">{{ form.password.label }}:</label>
-        {{ form.password }}
+    <div class="form-group">
+      <label for="{{ form.password.id_for_label }}" class="form-label">{{ form.password.label }}</label>
+      {{ form.password }}
+      {% if form.password.help_text %}
+        <span class="form-help-text">{{ form.password.help_text }}</span>
+      {% endif %}
+      {% if form.password.errors %}
+        <div class="form-errors">{{ form.password.errors }}</div>
+      {% endif %}
     </div>
-    <div class="form-text">{{ form.password.help_text }}</div>
-    <div class="form-text">{{ form.password.errors }}</div>
 
-    <div class="mb-3">
-        <label for="{{ form.new_username.id_for_label }}" class="form-label">{{ form.new_username.label }}:</label>
-        {{ form.new_username }}
+    <div class="form-group">
+      <label for="{{ form.new_username.id_for_label }}" class="form-label">{{ form.new_username.label }}</label>
+      {{ form.new_username }}
+      {% if form.new_username.help_text %}
+        <span class="form-help-text">{{ form.new_username.help_text }}</span>
+      {% endif %}
+      {% if form.new_username.errors %}
+        <div class="form-errors">{{ form.new_username.errors }}</div>
+      {% endif %}
     </div>
-    <div class="form-text">{{ form.new_username.help_text }}</div>
-    <div class="form-text">{{ form.new_username.errors }}</div>
 
     <button type="submit" class="btn btn-primary">Change Username</button>
-</form>
+  </form>
+</div>
 
 {% endblock %}
