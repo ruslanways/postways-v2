@@ -124,7 +124,7 @@ class Command(BaseCommand):
 
             post = Post(
                 author=author,
-                title=fake.sentence(nb_words=random.randint(4, 8)),
+                title=fake.sentence(nb_words=random.randint(4, 8)).rstrip("."),
                 content="\n\n".join(fake.paragraphs(random.randint(1, 6))),
             )
 
