@@ -4,23 +4,27 @@
 
 {% block content %}
 
-<div class="form-container">
-  <h1>Delete Account</h1>
-  
-  <div class="alert alert-danger">
-    <p><strong>Warning:</strong> Are you sure you want to delete your account <strong>{{ object.username }}</strong>?</p>
-    <p>This action cannot be undone. All your posts and likes will be permanently deleted.</p>
-  </div>
-
-  <form method="post">
-    {% csrf_token %}
-    <div class="hidden">{{ form }}</div>
+<div class="form-container" style="display: flex; flex-direction: column; align-items: center;">
+  <div style="width: 300px;">
+    <h1>Delete Account</h1>
     
-    <div style="display: flex; gap: var(--spacing-sm);">
-      <button type="submit" class="btn btn-danger">Delete Account</button>
-      <a href="{% url 'author-detail' object.pk %}" class="btn btn-secondary">Cancel</a>
+    <div class="alert alert-danger" style="display: block;">
+      <p><strong>Warning:</strong></p>
+      <p>Are you sure you want to delete your account <strong>{{ object.username }}</strong>?</p>
+      <p>This action cannot be undone.</p>
+      <p>All your posts and likes will be permanently deleted.</p>
     </div>
-  </form>
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="hidden">{{ form }}</div>
+      
+      <div style="display: flex; gap: var(--spacing-sm);">
+        <button type="submit" class="btn btn-danger">Delete Account</button>
+        <a href="{% url 'author-detail' object.pk %}" class="btn btn-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
 </div>
 
 {% endblock %}

@@ -15,6 +15,7 @@ Best Practices:
     - The `like_or_unlike` tag is available for edge cases where the set is not
       provided, but should be avoided in loops.
 """
+import os
 import re
 
 from django import template
@@ -37,6 +38,24 @@ def like_or_unlike(user, post):
     """
     is_liked = Like.objects.filter(user=user, post=post).exists()
     return "&#10084;" if is_liked else "&#9825;"
+
+
+@register.filter
+def filename(value):
+    """
+    Extract the filename from a file path.
+    
+    Args:
+        value: A file path string or FieldFile object
+    
+    Returns:
+        str: Just the filename without the directory path
+    """
+    if not value:
+        return ""
+    # Handle both string paths and FieldFile objects
+    path = str(value)
+    return os.path.basename(path)
 
 
 @register.filter(is_safe=True)

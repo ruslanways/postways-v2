@@ -44,49 +44,7 @@
 
 <div class="posts-grid">
   {% for post in page_obj %}
-    <article class="post-card">
-      <div class="post-card-header">
-        {% if post.image %}
-          <a href="{% url 'post-detail' post.pk %}">
-            <img src="{% if post.thumbnail %}{{ post.thumbnail.url }}{% else %}{{ post.image.url }}{% endif %}" 
-                 alt="{{ post.title }}" 
-                 class="post-card-image">
-          </a>
-        {% endif %}
-        <div class="post-card-content">
-          <h3 class="post-card-title">
-            <a href="{% url 'post-detail' post.pk %}">{{ post.title }}</a>
-          </h3>
-          <div class="post-card-meta">
-            <span class="post-card-date">
-              {{ post.created|date }} at {{ post.created|time:"H:i" }}
-            </span>
-            {% if not post.published %}
-              <span class="text-muted">*unpublished</span>
-            {% endif %}
-            {% if user.is_authenticated and post.id in liked_by_user %}
-              <a href="{% url 'like-toggle-api' %}" id="{{ post.id }}" class="like is-liked">
-                <span class="heart">♥</span>
-                <span class="count">{{ post.like__count }}</span>
-              </a>
-            {% elif user.is_authenticated %}
-              <a href="{% url 'like-toggle-api' %}" id="{{ post.id }}" class="like">
-                <span class="heart">♡</span>
-                <span class="count">{{ post.like__count }}</span>
-              </a>
-            {% else %}
-              <a href="{% url 'login' %}" id="{{ post.id }}" class="like">
-                <span class="heart">♡</span>
-                <span class="count">{{ post.like__count }}</span>
-              </a>
-            {% endif %}
-          </div>
-          <p class="post-card-excerpt">
-            {{ post.content|truncatechars:150 }}
-          </p>
-        </div>
-      </div>
-    </article>
+    {% include "diary/_post_card.html" with post=post liked_by_user=liked_by_user %}
   {% endfor %}
 </div>
 
