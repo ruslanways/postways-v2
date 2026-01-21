@@ -6,22 +6,38 @@
 
 <div class="container">
   <div class="profile-header">
-    <h3 class="profile-username">{{ object.username }}</h3>
-    <p class="profile-stats">
-      {% with post_count=object.post_set.count %}
-        {% if post_count == 0 %}No posts yet{% elif post_count == 1 %}1 post{% else %}{{ post_count }} posts{% endif %}
-      {% endwith %}
-      <span class="profile-stats-separator">·</span>
-      Member since {{ object.date_joined|date:"M Y" }}
-    </p>
-    <p class="profile-likes">
-      <span class="heart">♥</span>
-      {% if object.likes_received == 1 %}1 like{% else %}{{ object.likes_received }} likes{% endif %} received
-    </p>
-    {% if object.last_request %}
-      <p class="profile-activity">
-        Active {{ object.last_request|timesince }} ago
+    <div class="profile-details">
+      <h3 class="profile-username">{{ object.username }}</h3>
+      {% if user.is_authenticated and user.pk == object.pk %}
+        <p class="profile-email">{{ object.email }}</p>
+      {% endif %}
+      <p class="profile-stats">
+        Member since {{ object.date_joined|date:"M Y" }}
       </p>
+      <p class="profile-posts">
+        {% with post_count=object.post_set.count %}
+          {% if post_count == 0 %}No posts yet{% elif post_count == 1 %}1 post{% else %}{{ post_count }} posts{% endif %}
+        {% endwith %}
+      </p>
+      <p class="profile-likes">
+        <span class="heart">♥</span>
+        {% if object.likes_received == 1 %}1 like{% else %}{{ object.likes_received }} likes{% endif %} received
+      </p>
+      {% if object.last_request %}
+        {% if user.is_staff or user.is_authenticated and user.pk == object.pk %}
+          <p class="profile-activity">
+            Active {{ object.last_request|timesince }} ago
+          </p>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% if user.is_authenticated and user.pk == object.pk %}
+      <div class="profile-actions">
+        <a class="btn btn-secondary btn-sm {% if view.template_name == 'registration/email_change.html' %}active{% endif %}" href="{% url 'email_change' %}">Change Email</a>
+        <a class="btn btn-secondary btn-sm {% if view.template_name == 'registration/username_change.html' %}active{% endif %}" href="{% url 'username_change' %}">Change Username</a>
+        <a class="btn btn-secondary btn-sm {% if view.template_name == 'registration/password_change_form.html' %}active{% endif %}" href="{% url 'password_change' %}">Change Password</a>
+        <a class="btn btn-danger btn-sm {% if view.template_name == 'diary/user-delete.html' %}active{% endif %}" href="{% url 'user-delete' user.pk %}">Delete Account</a>
+      </div>
     {% endif %}
   </div>
 </div>

@@ -414,18 +414,18 @@ class AuthorDetailView(UserPassesTestMixin, DetailView, MultipleObjectMixin):
     """
     User profile page showing user details and their posts.
 
-    Access restricted to staff members or the profile owner.
+    Access restricted to authenticated users.
     Displays paginated list of user's posts with like counts.
     """
 
     template_name = "diary/customuser_detail.html"
     model = CustomUser
     paginate_by = 6
-    permission_denied_message = "Access for staff or profile owner only!"
+    permission_denied_message = "Please log in to view profiles."
 
     def test_func(self):
-        """Allow access only to staff or the profile owner."""
-        return self.request.user.is_staff or self.request.user.id == self.kwargs["pk"]
+        """Allow access only to authenticated users."""
+        return self.request.user.is_authenticated
 
     def get_queryset(self):
         """Annotate user with total likes received on their posts."""

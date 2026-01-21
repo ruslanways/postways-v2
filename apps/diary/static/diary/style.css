@@ -592,8 +592,19 @@ header {
 /* Profile header */
 .profile-header {
   text-align: left;
-  margin-top: var(--spacing-md);
+  margin-top: var(--spacing-lg);
   margin-bottom: var(--spacing-md);
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-lg);
+}
+
+.profile-details {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .profile-username {
@@ -601,6 +612,12 @@ header {
   font-weight: 600;
   margin-bottom: var(--spacing-xs);
   color: var(--color-text-primary);
+}
+
+.profile-email {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-xs);
 }
 
 .profile-stats {
@@ -612,6 +629,12 @@ header {
 .profile-stats-separator {
   color: var(--color-text-muted);
   margin: 0 var(--spacing-xs);
+}
+
+.profile-posts {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-xs);
 }
 
 .profile-likes {
@@ -629,6 +652,39 @@ header {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
   margin-bottom: 0;
+}
+
+.profile-actions {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: var(--spacing-sm);
+  margin-top: calc(var(--font-size-lg) * var(--line-height-tight) + var(--spacing-xs));
+  width: auto;
+  justify-content: flex-start;
+  align-items: flex-end;
+  text-align: right;
+  margin-left: auto;
+}
+
+.profile-actions .btn {
+  width: 100%;
+  min-width: 7.25rem;
+  font-size: var(--font-size-xs);
+  padding: 0.25rem var(--spacing-xs);
+  font-weight: 400;
+  background-color: transparent;
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.profile-actions .btn:hover:not(:disabled) {
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.profile-actions .btn-danger {
+  color: var(--color-danger);
 }
 
 /* Filter tabs */
