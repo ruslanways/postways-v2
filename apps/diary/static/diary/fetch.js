@@ -169,9 +169,12 @@ async function refreshLikeCounts() {
 // Initial WebSocket connection
 connectWebSocket();
 
-// Reconnect and refresh when page is restored from bfcache (back/forward navigation)
+// Reconnect and refresh when page is restored from bfcache or back/forward navigation
 window.addEventListener("pageshow", (event) => {
-  if (event.persisted) {
+  const navEntries = performance.getEntriesByType("navigation");
+  const isBackForward = navEntries.length > 0 && navEntries[0].type === "back_forward";
+
+  if (event.persisted || isBackForward) {
     connectWebSocket(true);
     refreshLikeCounts();
   }
