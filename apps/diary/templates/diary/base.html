@@ -10,7 +10,7 @@
   <meta property="og:url" content="{% url 'home' %}"/>
   <meta property="og:title" content="Social Network"/>
   <meta property="og:description" content="Share your discovery with the world"/>
-  <title>{% block title %}postways{% endblock %}</title>
+  <title>{% block title %}Postways{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -28,8 +28,7 @@
   <header>
     <nav class="navbar">
       <a class="navbar-brand {% if view.template_name == 'diary/index.html' %}selected{% endif %}" href="{% url 'home' %}">
-        <img alt="logo" src="{% static 'diary/images/logo.svg' %}">
-        Postways
+        <img alt="logo" src="{% static 'diary/images/logo-3.png' %}">
       </a>
       
       {% if user.is_authenticated %}

@@ -195,6 +195,8 @@ header {
 .navbar-brand img {
   height: 2rem;
   width: auto;
+  display: block;
+  margin-top: 2px;
 }
 
 .navbar-brand.selected {
@@ -744,43 +746,48 @@ header {
    ---------------------------------------------------------------------------- */
 
 .form-container {
-  max-width: 500px;
+  max-width: 300px;
   margin: 0 auto;
   padding: var(--spacing-xl) var(--container-padding);
+  --form-scale: 1.1;
+}
+
+.form-container.form-container--post {
+  max-width: 500px;
 }
 
 .form-container h1 {
-  font-size: var(--font-size-2xl);
+  font-size: calc(var(--font-size-2xl) * var(--form-scale));
   margin-bottom: var(--spacing-lg);
 }
 
 .form-container h4 {
-  font-size: var(--font-size-base);
+  font-size: calc(var(--font-size-base) * var(--form-scale));
 }
 
 .form-container .form-label {
-  font-size: var(--font-size-xs);
+  font-size: calc(var(--font-size-xs) * var(--form-scale));
 }
 
 .form-container .form-input,
 .form-container .form-textarea,
 .form-container input,
 .form-container select {
-  font-size: var(--font-size-sm);
+  font-size: calc(var(--font-size-sm) * var(--form-scale));
   padding: var(--spacing-xs) var(--spacing-sm);
 }
 
 .form-container .btn {
-  font-size: var(--font-size-sm);
+  font-size: calc(var(--font-size-sm) * var(--form-scale));
   padding: var(--spacing-xs) var(--spacing-md);
 }
 
 .form-container .form-help-text {
-  font-size: 0.7rem;
+  font-size: calc(0.7rem * var(--form-scale));
 }
 
 .form-container .alert {
-  font-size: var(--font-size-sm);
+  font-size: calc(var(--font-size-sm) * var(--form-scale));
 }
 
 .form-container .alert p {
