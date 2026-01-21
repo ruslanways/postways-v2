@@ -11,10 +11,13 @@ Views:
     - PostCreateView, PostDetailView, PostUpdateView, PostDeleteView: Post CRUD
 """
 
+from django.contrib.auth.tokens import default_token_generator
 from django.shortcuts import redirect, resolve_url
 from django.contrib import messages
 from django.contrib.auth import logout
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
 from django.views.generic import ListView, DetailView, FormView
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
 from django.views.generic.list import MultipleObjectMixin
@@ -40,7 +43,7 @@ from ..forms import (
     UpdatePostForm,
     UsernameChangeForm,
 )
-from ..tasks import send_email_verification
+from ..tasks import send_email_verification, send_password_reset_email
 
 
 class HomeView(ListView):
@@ -127,9 +130,49 @@ class Login(LoginView):
 
 
 class PasswordReset(PasswordResetView):
-    """Password reset request view. Sends reset email to user."""
+    """
+    Password reset request view. Sends reset email via Celery.
+
+    Overrides the default behavior to queue password reset emails asynchronously
+    instead of sending them synchronously, preventing request timeouts if the
+    SMTP server is slow or unresponsive.
+    """
 
     form_class = CustomPasswordResetForm
+    template_name = "registration/password_reset_form.html"
+    success_url = reverse_lazy("password_reset_done")
+
+    def get_site_name(self) -> str:
+        """Get site name from Django Sites framework or fallback to default."""
+        try:
+            from django.contrib.sites.models import Site
+
+            return Site.objects.get_current().name
+        except Exception:
+            # Sites framework not installed, not configured, or no current site
+            return "Postways"
+
+    def form_valid(self, form):
+        """Queue password reset emails via Celery instead of sending synchronously."""
+        email = form.cleaned_data["email"]
+        site_name = self.get_site_name()
+
+        for user in form.get_users(email):
+            token = default_token_generator.make_token(user)
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+
+            reset_url = self.request.build_absolute_uri(
+                reverse("password_reset_confirm", kwargs={"uidb64": uid, "token": token})
+            )
+
+            send_password_reset_email.delay(
+                user_email=email,
+                reset_url=reset_url,
+                username=user.get_username(),
+                site_name=site_name,
+            )
+
+        return redirect(self.success_url)
 
 
 class CustomPasswordResetConfirmView(PasswordResetConfirmView):

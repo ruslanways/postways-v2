@@ -92,7 +92,7 @@ def send_week_report():
         f"new likes: {likes}\n"
         "\nHave a nice weekend😉",
         None,
-        settings.WEEKLY_REPORT_RECIPIENTS
+        settings.WEEKLY_RECIPIENTS
     )
 
 
@@ -113,4 +113,35 @@ def send_email_verification(verification_link, new_email):
         "If you did not request this email change, please ignore this message.",
         None,
         [new_email],
+    )
+
+
+@shared_task
+def send_password_reset_email(user_email, reset_url, username, site_name="Postways"):
+    """
+    Sends a password reset email to the user.
+    
+    Args:
+        user_email: The user's email address
+        reset_url: The password reset confirmation URL (with uidb64 and token)
+        username: The user's username for the email template
+        site_name: The site name to use in the email (defaults to "Postways")
+    """
+    # Build email message using similar format to Django's default template
+    message = (
+        f"Hi there😉\n\n"
+        f"You're receiving this email because you requested a password reset "
+        f"for your user account at {site_name}.\n\n"
+        f"Please go to the following page and choose a new password:\n"
+        f"{reset_url}\n\n"
+        f"Your username, in case you've forgotten: {username}\n\n"
+        f"Thanks for using our site!\n\n"
+        f"The {site_name} team"
+    )
+    
+    send_mail(
+        subject=f"Password reset on {site_name}",
+        message=message,
+        from_email=None,  # Uses DEFAULT_FROM_EMAIL
+        recipient_list=[user_email],
     )
