@@ -47,9 +47,7 @@
             {% endif %}
           </div>
           <p class="post-card-excerpt">
-            <a href="{% url 'post-detail' post.pk %}">
-              {{ post.content|truncatechars:150 }}
-            </a>
+            {{ post.content|truncatechars:150 }}
           </p>
         </div>
       </div>
