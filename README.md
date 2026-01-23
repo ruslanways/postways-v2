@@ -8,8 +8,14 @@ A Django-based diary/blog application with both traditional HTML views and a RES
 # Start all services (web, db, redis, celery worker, celery beat)
 docker compose -f docker/docker-compose.yml up
 
+# First-time setup (after containers are running)
+mkdir -p logs
+
 # Apply migrations
 docker compose -f docker/docker-compose.yml exec web python manage.py migrate
+
+# Generate demo data
+docker compose -f docker/docker-compose.yml exec web python manage.py seed_demo_data
 
 # Create superuser
 docker compose -f docker/docker-compose.yml exec web python manage.py createsuperuser

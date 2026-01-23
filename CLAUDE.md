@@ -12,11 +12,17 @@ Postways is a Django-based diary/blog application with both traditional HTML vie
 # Start all services (web, db, redis, celery worker, celery beat)
 docker compose -f docker/docker-compose.yml up
 
+# First-time setup (after containers are running)
+mkdir -p logs
+
 # Run Django management commands inside the container
 docker compose -f docker/docker-compose.yml exec web python manage.py <command>
 
 # Apply migrations
 docker compose -f docker/docker-compose.yml exec web python manage.py migrate
+
+# Generate demo data
+docker compose -f docker/docker-compose.yml exec web python manage.py seed_demo_data
 
 # Create superuser
 docker compose -f docker/docker-compose.yml exec web python manage.py createsuperuser
@@ -488,7 +494,10 @@ Environment variables loaded from `config/.env`:
 - Otherwise, make reasonable assumptions and state them explicitly
 
 ### Documentation & Research
-- Use Context7 MCP tools when working with:
+- Always use Context7 MCP proactively (without being explicitly asked) when working with:
+  - Library/API documentation lookup
+  - Code generation involving external libraries
+  - Setup or configuration steps
   - Framework or library configuration
   - Version-sensitive APIs or behavior
   - Infrastructure, deployment, or lifecycle hooks
