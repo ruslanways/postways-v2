@@ -4,6 +4,7 @@ Django models for the diary application.
 This module contains the data models for user authentication, blog posts,
 and user interactions (likes).
 """
+
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
@@ -16,7 +17,7 @@ from .validators import MyUnicodeUsernameValidator, profanity
 class CustomUser(AbstractUser):
     """
     Custom user model extending Django's AbstractUser.
-    
+
     Extends the default Django user model with:
     - Email field that is unique and required
     - Custom username validator with Unicode support
@@ -61,14 +62,12 @@ class CustomUser(AbstractUser):
     pending_email = models.EmailField(
         _("pending email"),
         blank=True,
-        null=True,
         help_text=_("New email address awaiting verification."),
     )
     email_verification_token = models.CharField(
         _("email verification token"),
         max_length=36,
         blank=True,
-        null=True,
         help_text=_("UUID token for email verification."),
     )
     email_verification_expires = models.DateTimeField(
@@ -82,7 +81,7 @@ class CustomUser(AbstractUser):
 class Post(models.Model):
     """
     Blog post model representing a diary entry.
-    
+
     Posts contain title, content, optional images, and metadata.
     Images are automatically resized and thumbnails are generated on save.
     Content is validated for profanity.
@@ -129,6 +128,17 @@ class Post(models.Model):
         help_text="Whether the post is published and visible to others.",
     )
 
+    class Meta:
+        """Meta options for Post model."""
+
+        ordering = ["-updated"]
+        verbose_name = _("Post")
+        verbose_name_plural = _("Posts")
+
+    def __str__(self) -> str:
+        """String representation of the post."""
+        return f"{self.author.username}: {self.title}"
+
     def save(self, *args, **kwargs):
         """
         Override save to trigger async image processing.
@@ -139,7 +149,9 @@ class Post(models.Model):
         # Track if this is a new image upload
         is_new_image = False
         if self.pk:
-            old_image = Post.objects.filter(pk=self.pk).values_list('image', flat=True).first()
+            old_image = (
+                Post.objects.filter(pk=self.pk).values_list("image", flat=True).first()
+            )
             is_new_image = self.image and self.image.name != old_image
         elif self.image:
             is_new_image = True
@@ -149,17 +161,8 @@ class Post(models.Model):
         # Trigger async processing for new images
         if is_new_image:
             from .tasks import process_post_image
+
             process_post_image.delay(self.pk)
-
-    class Meta:
-        """Meta options for Post model."""
-        ordering = ["-updated"]
-        verbose_name = _("Post")
-        verbose_name_plural = _("Posts")
-
-    def __str__(self) -> str:
-        """String representation of the post."""
-        return f"{self.author.username}: {self.title}"
 
     def get_absolute_url(self):
         """Return the absolute URL for this post."""
@@ -169,7 +172,7 @@ class Post(models.Model):
 class Like(models.Model):
     """
     Like model representing a user's like on a post.
-    
+
     Enforces uniqueness: each user can only like a post once.
     """
 
@@ -191,6 +194,7 @@ class Like(models.Model):
 
     class Meta:
         """Meta options for Like model."""
+
         constraints = [
             models.UniqueConstraint(
                 fields=["user", "post"],

@@ -13,47 +13,47 @@ API Views (under /api/v1/):
 
 import logging
 
-from django.shortcuts import render
-from django.http import JsonResponse
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.db.models import Count
-from django.conf import settings
+from django.http import JsonResponse
+from django.shortcuts import render
 
-from rest_framework import generics, status, permissions
-from rest_framework.response import Response
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import generics, permissions, status
 from rest_framework.filters import OrderingFilter
+from rest_framework.response import Response
 from rest_framework.reverse import reverse
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.token_blacklist.models import (
-    OutstandingToken,
     BlacklistedToken,
+    OutstandingToken,
 )
 from rest_framework_simplejwt.tokens import RefreshToken
-from django_filters.rest_framework import DjangoFilterBackend
-from channels.layers import get_channel_layer
-from asgiref.sync import async_to_sync
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from ..models import Post, CustomUser, Like
+from ..models import CustomUser, Like, Post
+from ..permissions import (
+    OwnerOrAdmin,
+    OwnerOrAdminOrReadOnly,
+    ReadForAdminCreateForAnonymous,
+)
 from ..serializers import (
     EmailChangeSerializer,
     EmailVerifySerializer,
     LikeCreateDestroySerializer,
-    LikeSerializer,
     LikeDetailSerializer,
+    LikeSerializer,
     MyTokenRefreshSerializer,
     PasswordChangeSerializer,
     PostDetailSerializer,
     PostSerializer,
     TokenRecoverySerializer,
-    UsernameChangeSerializer,
     UserDetailSerializer,
+    UsernameChangeSerializer,
     UserSerializer,
-)
-from ..permissions import (
-    OwnerOrAdmin,
-    OwnerOrAdminOrReadOnly,
-    ReadForAdminCreateForAnonymous,
 )
 from ..tasks import send_email_verification, send_token_recovery_email
 
@@ -348,7 +348,9 @@ class LikeBatchAPIView(generics.GenericAPIView):
         try:
             post_ids = [int(id.strip()) for id in ids_param.split(",") if id.strip()]
         except ValueError:
-            return Response({"error": "Invalid post IDs"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Invalid post IDs"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         if not post_ids:
             return Response({})
@@ -358,9 +360,9 @@ class LikeBatchAPIView(generics.GenericAPIView):
         user_liked_ids = set()
         if request.user.is_authenticated:
             user_liked_ids = set(
-                Like.objects.filter(user=request.user, post_id__in=post_ids).values_list(
-                    "post_id", flat=True
-                )
+                Like.objects.filter(
+                    user=request.user, post_id__in=post_ids
+                ).values_list("post_id", flat=True)
             )
 
         result = {
@@ -588,6 +590,7 @@ class EmailChangeAPIView(generics.GenericAPIView):
         """
         import uuid
         from datetime import timedelta
+
         from django.utils import timezone
 
         serializer = self.get_serializer(data=request.data)
@@ -607,9 +610,9 @@ class EmailChangeAPIView(generics.GenericAPIView):
         user.save()
 
         # Build verification link
-        verification_link = request.build_absolute_uri(
-            reverse("email-verify-api")
-        ) + f"?token={token}"
+        verification_link = (
+            request.build_absolute_uri(reverse("email-verify-api")) + f"?token={token}"
+        )
 
         # Send verification email via Celery
         send_email_verification.delay(verification_link, new_email)
@@ -661,8 +664,8 @@ class EmailVerifyAPIView(generics.GenericAPIView):
             user.email = user.pending_email
 
             # Clear pending fields
-            user.pending_email = None
-            user.email_verification_token = None
+            user.pending_email = ""
+            user.email_verification_token = ""
             user.email_verification_expires = None
             user.save()
 
@@ -721,7 +724,7 @@ class MyTokenObtainPairView(TokenObtainPairView):
         try:
             serializer.is_valid(raise_exception=True)
         except TokenError as e:
-            raise InvalidToken(e.args[0])
+            raise InvalidToken(e.args[0]) from e
         response = Response(
             {"access_token": serializer.validated_data["access"]},
             status=status.HTTP_200_OK,

@@ -4,6 +4,7 @@ WebSocket URL routing for the diary application.
 This module defines the WebSocket URL patterns that connect clients
 to Django Channels consumers for real-time updates.
 """
+
 from django.urls import path
 
 from . import consumers

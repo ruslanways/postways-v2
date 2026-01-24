@@ -49,6 +49,7 @@ from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
+
 from faker import Faker
 
 from apps.diary.models import Like, Post
@@ -64,7 +65,9 @@ class Command(BaseCommand):
         parser.add_argument("--users", type=int, default=10)
         parser.add_argument("--posts", type=int, default=50)
         parser.add_argument("--max-likes", type=int, default=20)
-        parser.add_argument("--clear", action="store_true", help="Clear existing demo data first")
+        parser.add_argument(
+            "--clear", action="store_true", help="Clear existing demo data first"
+        )
         parser.add_argument(
             "--with-images",
             action="store_true",
@@ -134,7 +137,9 @@ class Command(BaseCommand):
                     filename = f"demo_{fake.uuid4()}.jpg"
                     post.image.save(filename, ContentFile(image_data), save=False)
                 if (i + 1) % 10 == 0:
-                    self.stdout.write(f"  Created {i + 1}/{posts_count} posts with images...")
+                    self.stdout.write(
+                        f"  Created {i + 1}/{posts_count} posts with images..."
+                    )
 
             post.save()
             posts.append((post, post_date))
@@ -160,20 +165,22 @@ class Command(BaseCommand):
         """Download a random image from picsum.photos with varied dimensions."""
         # Various aspect ratios and sizes for visual variety
         dimensions = [
-            (800, 600),   # 4:3 landscape
-            (600, 800),   # 3:4 portrait
+            (800, 600),  # 4:3 landscape
+            (600, 800),  # 3:4 portrait
             (1000, 600),  # wide landscape
-            (600, 400),   # small landscape
-            (700, 700),   # square
-            (900, 500),   # panoramic
-            (500, 750),   # tall portrait
+            (600, 400),  # small landscape
+            (700, 700),  # square
+            (900, 500),  # panoramic
+            (500, 750),  # tall portrait
             (1200, 900),  # large landscape
-            (3000, 2000), # iPhone-like large
+            (3000, 2000),  # iPhone-like large
         ]
         width, height = random.choice(dimensions)
         try:
             url = f"https://picsum.photos/{width}/{height}"
-            request = urllib.request.Request(url, headers={"User-Agent": "PostwaysSeeder/1.0"})
+            request = urllib.request.Request(
+                url, headers={"User-Agent": "PostwaysSeeder/1.0"}
+            )
             with urllib.request.urlopen(request, timeout=10) as response:
                 return response.read()
         except Exception as e:

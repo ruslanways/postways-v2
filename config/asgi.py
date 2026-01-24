@@ -9,11 +9,12 @@ https://docs.djangoproject.com/en/5.2/howto/deployment/asgi/
 
 import os
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
 from django.core.asgi import get_asgi_application
-from channels.routing import ProtocolTypeRouter, URLRouter
+
 from channels.auth import AuthMiddlewareStack
+from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.security.websocket import AllowedHostsOriginValidator
 
 # Initialize Django application first to avoid circular imports
@@ -25,8 +26,8 @@ import apps.diary.routing  # noqa: E402
 
 application = ProtocolTypeRouter(
     {
-        'http': django_app,
-        'websocket': AllowedHostsOriginValidator(
+        "http": django_app,
+        "websocket": AllowedHostsOriginValidator(
             AuthMiddlewareStack(URLRouter(apps.diary.routing.websocket_urlpatterns))
         ),
     }

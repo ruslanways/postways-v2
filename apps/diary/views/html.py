@@ -11,38 +11,37 @@ Views:
     - PostCreateView, PostDetailView, PostUpdateView, PostDeleteView: Post CRUD
 """
 
-from django.contrib.auth.tokens import default_token_generator
-from django.shortcuts import redirect, resolve_url
 from django.contrib import messages
-from django.contrib.auth import logout
-from django.urls import reverse_lazy, reverse
-from django.utils.encoding import force_bytes
-from django.utils.http import urlsafe_base64_encode
-from django.views.generic import ListView, DetailView, FormView
-from django.views.generic.edit import CreateView, UpdateView, DeleteView
-from django.views.generic.list import MultipleObjectMixin
+from django.contrib.auth import login, logout
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth.views import (
     LoginView,
     PasswordChangeView,
-    PasswordResetView,
     PasswordResetConfirmView,
+    PasswordResetView,
 )
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.contrib.auth import login
 from django.db.models import Count
+from django.shortcuts import redirect, resolve_url
+from django.urls import reverse, reverse_lazy
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
+from django.views.generic import DetailView, FormView, ListView
+from django.views.generic.edit import CreateView, DeleteView, UpdateView
+from django.views.generic.list import MultipleObjectMixin
 
-from ..models import Post, CustomUser, Like
 from ..forms import (
     AddPostForm,
+    CustomAuthenticationForm,
     CustomPasswordChangeForm,
     CustomPasswordResetForm,
-    CustomUserCreationForm,
-    CustomAuthenticationForm,
     CustomSetPasswordForm,
+    CustomUserCreationForm,
     EmailChangeForm,
     UpdatePostForm,
     UsernameChangeForm,
 )
+from ..models import CustomUser, Like, Post
 from ..tasks import send_email_verification, send_password_reset_email
 
 
@@ -162,7 +161,9 @@ class PasswordReset(PasswordResetView):
             uid = urlsafe_base64_encode(force_bytes(user.pk))
 
             reset_url = self.request.build_absolute_uri(
-                reverse("password_reset_confirm", kwargs={"uidb64": uid, "token": token})
+                reverse(
+                    "password_reset_confirm", kwargs={"uidb64": uid, "token": token}
+                )
             )
 
             send_password_reset_email.delay(
@@ -279,7 +280,7 @@ class EmailChangeView(LoginRequiredMixin, FormView):
 
         messages.success(
             self.request,
-            "Verification email sent. Please check your new email address."
+            "Verification email sent. Please check your new email address.",
         )
         return redirect("author-detail", self.request.user.pk)
 
@@ -320,8 +321,8 @@ class EmailVerifyView(FormView):
         user.email = user.pending_email
 
         # Clear pending fields
-        user.pending_email = None
-        user.email_verification_token = None
+        user.pending_email = ""
+        user.email_verification_token = ""
         user.email_verification_expires = None
         user.save()
 
@@ -436,7 +437,7 @@ class AuthorDetailView(UserPassesTestMixin, DetailView, MultipleObjectMixin):
     def get_context_data(self, **kwargs):
         """
         Add paginated post list and liked posts set to context.
-        
+
         Context additions:
             object_list: Paginated list of user's posts with like counts
             liked_by_user: Set of post IDs the user has liked (authenticated only)
@@ -493,9 +494,13 @@ class PostDetailView(DetailView):
         """Add liked_by_user set for authenticated users."""
         context = super().get_context_data(**kwargs)
         if self.request.user.is_authenticated:
-            context["liked_by_user"] = {self.object.id} if Like.objects.filter(
-                user=self.request.user, post=self.object
-            ).exists() else set()
+            context["liked_by_user"] = (
+                {self.object.id}
+                if Like.objects.filter(
+                    user=self.request.user, post=self.object
+                ).exists()
+                else set()
+            )
         return context
 
 

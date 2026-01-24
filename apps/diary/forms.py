@@ -5,6 +5,8 @@ This module contains form classes for user authentication, registration,
 password management, and blog post creation/editing.
 """
 
+from datetime import timedelta
+
 from django import forms
 from django.contrib.auth import password_validation
 from django.contrib.auth.forms import (
@@ -16,10 +18,9 @@ from django.contrib.auth.forms import (
     UserCreationForm,
     UsernameField,
 )
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from datetime import timedelta
-from django.utils import timezone
 from .models import CustomUser, Post
 from .validators import MyUnicodeUsernameValidator
 
@@ -46,9 +47,7 @@ class FormControlMixin:
             if isinstance(field.widget, form_control_widgets):
                 existing_class = field.widget.attrs.get("class", "")
                 if "form-input" not in existing_class:
-                    field.widget.attrs["class"] = (
-                        f"{existing_class} form-input".strip()
-                    )
+                    field.widget.attrs["class"] = f"{existing_class} form-input".strip()
             elif isinstance(field.widget, forms.CheckboxInput):
                 existing_class = field.widget.attrs.get("class", "")
                 if "form-checkbox" not in existing_class:
@@ -287,7 +286,7 @@ class UsernameChangeForm(FormControlMixin, forms.Form):
         try:
             validator(new_username)
         except Exception as e:
-            raise forms.ValidationError(str(e))
+            raise forms.ValidationError(str(e)) from e
 
         return new_username
 
@@ -397,7 +396,9 @@ class EmailChangeForm(FormControlMixin, forms.Form):
 
         # Check if same as current email
         if self.user.email.lower() == normalized_email:
-            raise forms.ValidationError(_("New email must be different from current email."))
+            raise forms.ValidationError(
+                _("New email must be different from current email.")
+            )
 
         # Check case-insensitive uniqueness
         if CustomUser.objects.filter(email__iexact=normalized_email).exists():

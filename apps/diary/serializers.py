@@ -10,23 +10,28 @@ This module contains serializers for:
 All serializers follow DRF conventions and use HyperlinkedModelSerializer
 for RESTful URL-based relationships where appropriate.
 """
+
 import copy
-from rest_framework import serializers
+from contextlib import suppress
 from datetime import timedelta
-from django.utils import timezone
-from .models import CustomUser, Like, Post
-from .validators import MyUnicodeUsernameValidator
+
 from django.contrib.auth.password_validation import validate_password
+from django.utils import timezone
+
+from rest_framework import serializers
+from rest_framework.reverse import reverse
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.utils import datetime_from_epoch
-from rest_framework.reverse import reverse
 
+from .models import CustomUser, Like, Post
+from .validators import MyUnicodeUsernameValidator
 
 # ============================================================================
 # User Serializers
 # ============================================================================
+
 
 class UserSerializer(serializers.HyperlinkedModelSerializer):
     """
@@ -194,6 +199,7 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
 # Post Serializers
 # ============================================================================
 
+
 class PostSerializer(serializers.HyperlinkedModelSerializer):
     """
     Serializer for post list and create operations.
@@ -299,6 +305,7 @@ class PostDetailSerializer(serializers.HyperlinkedModelSerializer):
 # Like Serializers
 # ============================================================================
 
+
 class LikeSerializer(serializers.Serializer):
     """
     Serializer for like analytics/aggregation data.
@@ -335,7 +342,7 @@ class LikeDetailSerializer(serializers.HyperlinkedModelSerializer):
         read_only=True, view_name="user-detail-update-destroy-api"
     )
     post = serializers.HyperlinkedRelatedField(
-       read_only=True, view_name="post-detail-api"
+        read_only=True, view_name="post-detail-api"
     )
 
     class Meta:
@@ -407,6 +414,7 @@ class LikeCreateDestroySerializer(serializers.HyperlinkedModelSerializer):
 # Authentication & Token Serializers
 # ============================================================================
 
+
 class MyTokenRefreshSerializer(TokenRefreshSerializer):
     """
     Custom token refresh serializer with OutstandingToken tracking.
@@ -441,13 +449,10 @@ class MyTokenRefreshSerializer(TokenRefreshSerializer):
 
         if api_settings.ROTATE_REFRESH_TOKENS:
             if api_settings.BLACKLIST_AFTER_ROTATION:
-                try:
-                    # Attempt to blacklist the given refresh token
+                # Attempt to blacklist the given refresh token
+                # If blacklist app not installed, `blacklist` method will not be present
+                with suppress(AttributeError):
                     refresh.blacklist()
-                except AttributeError:
-                    # If blacklist app not installed, `blacklist` method will
-                    # not be present
-                    pass
 
             refresh.set_jti()
             refresh.set_exp()
@@ -609,15 +614,21 @@ class UsernameChangeSerializer(serializers.Serializer):
         user = self.context["request"].user
 
         # Check case-insensitive uniqueness (excluding current user)
-        if CustomUser.objects.filter(username__iexact=value).exclude(pk=user.pk).exists():
-            raise serializers.ValidationError("A user with that username already exists.")
+        if (
+            CustomUser.objects.filter(username__iexact=value)
+            .exclude(pk=user.pk)
+            .exists()
+        ):
+            raise serializers.ValidationError(
+                "A user with that username already exists."
+            )
 
         # Apply the custom username validator
         validator = MyUnicodeUsernameValidator()
         try:
             validator(value)
         except Exception as e:
-            raise serializers.ValidationError(str(e))
+            raise serializers.ValidationError(str(e)) from e
 
         return value
 
@@ -708,7 +719,9 @@ class EmailChangeSerializer(serializers.Serializer):
 
         # Check if same as current email
         if user.email.lower() == normalized_email:
-            raise serializers.ValidationError("New email must be different from current email.")
+            raise serializers.ValidationError(
+                "New email must be different from current email."
+            )
 
         # Check case-insensitive uniqueness
         if CustomUser.objects.filter(email__iexact=normalized_email).exists():
@@ -746,7 +759,7 @@ class EmailVerifySerializer(serializers.Serializer):
         try:
             user = CustomUser.objects.get(email_verification_token=value)
         except CustomUser.DoesNotExist:
-            raise serializers.ValidationError("Invalid verification token.")
+            raise serializers.ValidationError("Invalid verification token.") from None
 
         if user.email_verification_expires < timezone.now():
             raise serializers.ValidationError("Verification token has expired.")

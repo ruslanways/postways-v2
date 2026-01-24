@@ -1,14 +1,12 @@
-
-from apps.diary.models import CustomUser, Post, Like
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from apps.diary.models import CustomUser, Like, Post
 
 
 class DiaryAPITestCase(APITestCase):
     @classmethod
     def setUpTestData(cls):
-
         cls.admin = CustomUser.objects.create_user(
             email="admin@ukr.net", username="admin", password="fokker123", is_staff=True
         )

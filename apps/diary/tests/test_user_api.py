@@ -1,23 +1,19 @@
-from pprint import pprint
-import random
-import re
-from unittest import skip
+from django.core.exceptions import FieldError
 
-from .test_fixture import DiaryAPITestCase
-from apps.diary.serializers import (
-    UserSerializer,
-    UserDetailSerializer,
-)
-from apps.diary.models import CustomUser
 from rest_framework import status
 from rest_framework.reverse import reverse
-from django.core.exceptions import FieldError
+
+from apps.diary.models import CustomUser
+from apps.diary.serializers import (
+    UserDetailSerializer,
+    UserSerializer,
+)
+
+from .test_fixture import DiaryAPITestCase
 
 
 class PostAPITestCase(DiaryAPITestCase):
-
     def test_user_list(self):
-
         # Unauthorized
         response1 = self.client.get(reverse("user-list-create-api"))
         self.assertEqual(response1.status_code, status.HTTP_401_UNAUTHORIZED)
@@ -43,7 +39,6 @@ class PostAPITestCase(DiaryAPITestCase):
         self.assertEqual(response_usernames, expected_usernames)
 
     def test_user_create(self):
-
         # Authorized
         response1 = self.client.post(
             reverse("user-list-create-api"),
@@ -172,7 +167,6 @@ class PostAPITestCase(DiaryAPITestCase):
         self.assertEqual(serializer8.data, response8.data)
 
     def test_user_detail(self):
-
         def compare_user_data(serializer_data, response_data):
             """Compare user data excluding last_request (updated by middleware after response)."""
             s_data = {k: v for k, v in serializer_data.items() if k != "last_request"}
@@ -363,6 +357,7 @@ class PostAPITestCase(DiaryAPITestCase):
     def test_username_change(self):
         """Test the dedicated username change endpoint."""
         from datetime import timedelta
+
         from django.utils import timezone
 
         # Unauthorized request
@@ -450,4 +445,3 @@ class PostAPITestCase(DiaryAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.test_user_1.refresh_from_db()
         self.assertEqual(self.test_user_1.username, "AnotherUsername")
-

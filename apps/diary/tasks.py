@@ -1,12 +1,13 @@
 from datetime import timedelta
 from pathlib import Path
 
-from PIL import Image, ImageOps
+from django.conf import settings
+from django.core.mail import send_mail
 from django.core.management import call_command
 from django.utils import timezone
-from django.core.mail import send_mail
-from django.conf import settings
+
 from celery import shared_task
+from PIL import Image, ImageOps
 
 
 @shared_task
@@ -62,20 +63,20 @@ def process_post_image(post_id):
 def send_token_recovery_email(link_to_change_user, token, user_email):
     """Sends a token recovery email to the user."""
     send_mail(
-            "Postways token recovery",
-            f"Here are your new access token expires in 5 min."
-            f"\n\n'access': {token}\n\n"
-            "You can use it to change password by Post-request to: "
-            f"{link_to_change_user}"
-            "\n\nTherefore you could obtain new tokens pair by logging.",
-            None,
-            [user_email],
-        )
+        "Postways token recovery",
+        f"Here are your new access token expires in 5 min."
+        f"\n\n'access': {token}\n\n"
+        "You can use it to change password by Post-request to: "
+        f"{link_to_change_user}"
+        "\n\nTherefore you could obtain new tokens pair by logging.",
+        None,
+        [user_email],
+    )
 
 
 @shared_task
 def send_week_report():
-    from .models import CustomUser, Post, Like  # Import here to avoid circular import
+    from .models import CustomUser, Like, Post  # Import here to avoid circular import
 
     now = timezone.now()
     week_ago = timezone.now() - timedelta(days=7)
@@ -92,7 +93,7 @@ def send_week_report():
         f"new likes: {likes}\n"
         "\nHave a nice weekend😉",
         None,
-        settings.WEEKLY_RECIPIENTS
+        settings.WEEKLY_RECIPIENTS,
     )
 
 
@@ -120,7 +121,7 @@ def send_email_verification(verification_link, new_email):
 def send_password_reset_email(user_email, reset_url, username, site_name="Postways"):
     """
     Sends a password reset email to the user.
-    
+
     Args:
         user_email: The user's email address
         reset_url: The password reset confirmation URL (with uidb64 and token)
@@ -138,7 +139,7 @@ def send_password_reset_email(user_email, reset_url, username, site_name="Postwa
         f"Thanks for using our site!\n\n"
         f"The {site_name} team"
     )
-    
+
     send_mail(
         subject=f"Password reset on {site_name}",
         message=message,

@@ -44,6 +44,9 @@ coverage.xml
 .dmypy.json
 dmypy.json
 
+# Ruff
+.ruff_cache/
+
 # IDE
 .vscode/
 .idea/

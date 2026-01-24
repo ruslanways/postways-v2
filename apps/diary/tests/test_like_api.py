@@ -1,23 +1,19 @@
-from pprint import pprint
-import random
-import re
-from unittest import skip
+from django.db.models import Count
 
-from .test_fixture import DiaryAPITestCase
-from apps.diary.serializers import (
-    LikeSerializer,
-    LikeDetailSerializer,
-)
-from apps.diary.models import Like
 from rest_framework import status
 from rest_framework.reverse import reverse
-from django.db.models import Count
+
+from apps.diary.models import Like
+from apps.diary.serializers import (
+    LikeDetailSerializer,
+    LikeSerializer,
+)
+
+from .test_fixture import DiaryAPITestCase
 
 
 class PostAPITestCase(DiaryAPITestCase):
-
     def test_like_list(self):
-
         queryset = (
             Like.objects.values("created__date")
             .annotate(likes=Count("id"))
@@ -34,7 +30,6 @@ class PostAPITestCase(DiaryAPITestCase):
         self.assertEqual(serializer.data, response.data["results"])
 
     def test_like_detail(self):
-
         response = self.client.get(
             reverse("like-detail-api", args=[self.test_like1.id])
         )
@@ -48,7 +43,6 @@ class PostAPITestCase(DiaryAPITestCase):
         self.assertEqual(serializer.data, response.data)
 
     def test_like_create_delete(self):
-
         count = self.test_post_11.like_set.count()
 
         # Unauthorized

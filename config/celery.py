@@ -7,12 +7,14 @@ from Django apps that define a `tasks.py` module.
 
 Configuration is loaded from Django settings using the `CELERY_*` namespace.
 """
+
 import os
 from pathlib import Path
 
+from django.conf import settings
+
 from celery import Celery
 from celery.schedules import crontab
-from django.conf import settings
 
 # Set default Django settings module before importing Django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
@@ -49,4 +51,3 @@ app.conf.beat_schedule = {
         "options": {"expires": 3600},  # Task expires after 1 hour if not executed
     },
 }
-

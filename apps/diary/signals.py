@@ -4,6 +4,7 @@ Django signal handlers for the diary application.
 This module contains signal receivers that respond to Django framework events,
 such as user authentication events, to perform side effects like logging.
 """
+
 import logging
 
 from django.contrib.auth.signals import user_logged_in
@@ -17,10 +18,10 @@ logger = logging.getLogger(__name__)
 def log_user_login(sender, request, user, **kwargs):
     """
     Log user login events.
-    
+
     Receives the user_logged_in signal and logs authentication events
     for monitoring and audit purposes.
-    
+
     Args:
         sender: The model class that sent the signal (User model)
         request: The HTTP request object

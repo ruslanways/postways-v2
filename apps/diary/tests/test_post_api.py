@@ -1,43 +1,38 @@
-from pprint import pprint
-import random
-import re
-from unittest import skip
+from django.db.models import Count
 
-from .test_fixture import DiaryAPITestCase
-from apps.diary.serializers import (
-    PostSerializer,
-    PostDetailSerializer,
-)
-from apps.diary.models import Post
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.settings import api_settings
-from django.db.models import Count
+
+from apps.diary.models import Post
+from apps.diary.serializers import (
+    PostDetailSerializer,
+    PostSerializer,
+)
+
+from .test_fixture import DiaryAPITestCase
 
 
 class PostAPITestCase(DiaryAPITestCase):
-
     def test_post_list(self):
+        queryset = (
+            Post.objects.exclude(published=False)
+            .annotate(likes=Count("like"))
+            .order_by("-updated")
+        )
 
-            queryset = (
-                Post.objects.exclude(published=False)
-                .annotate(likes=Count("like"))
-                .order_by("-updated")
-            )
+        response = self.client.get(reverse("post-list-create-api"))
 
-            response = self.client.get(reverse("post-list-create-api"))
+        serializer = PostSerializer(
+            queryset, many=True, context={"request": response.wsgi_request}
+        )
 
-            serializer = PostSerializer(
-                queryset, many=True, context={"request": response.wsgi_request}
-            )
-
-            self.assertEqual(response.status_code, status.HTTP_200_OK)
-            self.assertEqual(
-                serializer.data[: api_settings.PAGE_SIZE], response.data["results"]
-            )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            serializer.data[: api_settings.PAGE_SIZE], response.data["results"]
+        )
 
     def test_post_create(self):
-
         # We just need to include Authorization header with our post-request below.
         # We also can use .credentials to set Authorization header with all requests:
         # self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
@@ -123,7 +118,6 @@ class PostAPITestCase(DiaryAPITestCase):
         self.assertEqual(Post.objects.get(title="New Test Post 6").published, False)
 
     def test_post_detail(self):
-
         # It's good idea to make a random choosing of Post object,
         # but we need to test both Post object with published Ture and False.
         # post_id = random.choice(Post.objects.all().values('id'))['id']
@@ -320,7 +314,6 @@ class PostAPITestCase(DiaryAPITestCase):
         )
 
     def test_post_delete(self):
-
         # Unauthorized
         response1 = self.client.delete(
             reverse("post-detail-api", args=[self.test_post_1.id])

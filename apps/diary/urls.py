@@ -2,51 +2,52 @@
 
 from django.contrib.auth.views import LogoutView
 from django.urls import include, path
+
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenVerifyView
 
 from .views import (
+    AuthorDetailView,
+    # Authors (HTML)
+    AuthorListView,
+    CustomPasswordChangeView,
+    CustomPasswordResetConfirmView,
+    EmailChangeAPIView,
+    EmailChangeView,
+    EmailVerifyAPIView,
+    EmailVerifyView,
     # Home
     HomeView,
     HomeViewLikeOrdered,
-    # Auth (HTML)
-    SignUp,
-    Login,
-    PasswordReset,
-    CustomPasswordResetConfirmView,
-    CustomPasswordChangeView,
-    UsernameChangeView,
-    EmailChangeView,
-    EmailVerifyView,
-    # Authors (HTML)
-    AuthorListView,
-    AuthorDetailView,
-    UserDeleteView,
-    # Posts (HTML)
-    PostListView,
-    PostCreateView,
-    PostDetailView,
-    PostUpdateView,
-    PostDeleteView,
-    # API root
-    RootAPIView,
-    # Users API
-    UserListAPIView,
-    UserDetailAPIView,
-    TokenRecoveryAPIView,
-    PasswordChangeAPIView,
-    UsernameChangeAPIView,
-    EmailChangeAPIView,
-    EmailVerifyAPIView,
-    MyTokenObtainPairView,
-    MyTokenRefreshView,
-    # Posts API
-    PostAPIView,
-    PostDetailAPIView,
     # Likes API
     LikeAPIView,
     LikeBatchAPIView,
     LikeCreateDestroyAPIView,
     LikeDetailAPIView,
+    Login,
+    MyTokenObtainPairView,
+    MyTokenRefreshView,
+    PasswordChangeAPIView,
+    PasswordReset,
+    # Posts API
+    PostAPIView,
+    PostCreateView,
+    PostDeleteView,
+    PostDetailAPIView,
+    PostDetailView,
+    # Posts (HTML)
+    PostListView,
+    PostUpdateView,
+    # API root
+    RootAPIView,
+    # Auth (HTML)
+    SignUp,
+    TokenRecoveryAPIView,
+    UserDeleteView,
+    UserDetailAPIView,
+    # Users API
+    UserListAPIView,
+    UsernameChangeAPIView,
+    UsernameChangeView,
 )
 
 # ------------------------------------------------------------------------------
@@ -77,8 +78,14 @@ auth_patterns = [
     path("login/", Login.as_view(), name="login"),
     path("logout/", LogoutView.as_view(), name="logout"),
     path("password_reset/", PasswordReset.as_view(), name="password_reset"),
-    path("reset/<uidb64>/<token>/", CustomPasswordResetConfirmView.as_view(), name="password_reset_confirm"),
-    path("password_change/", CustomPasswordChangeView.as_view(), name="password_change"),
+    path(
+        "reset/<uidb64>/<token>/",
+        CustomPasswordResetConfirmView.as_view(),
+        name="password_reset_confirm",
+    ),
+    path(
+        "password_change/", CustomPasswordChangeView.as_view(), name="password_change"
+    ),
     path("username_change/", UsernameChangeView.as_view(), name="username_change"),
     path("email_change/", EmailChangeView.as_view(), name="email_change"),
     path("email_verify/<str:token>/", EmailVerifyView.as_view(), name="email_verify"),
@@ -95,15 +102,31 @@ api_v1_patterns = [
     path("", RootAPIView.as_view(), name="root-api"),
     # Users
     path("users/", UserListAPIView.as_view(), name="user-list-create-api"),
-    path("users/<int:pk>/", UserDetailAPIView.as_view(), name="user-detail-update-destroy-api"),
+    path(
+        "users/<int:pk>/",
+        UserDetailAPIView.as_view(),
+        name="user-detail-update-destroy-api",
+    ),
     # Auth
     path("auth/login/", TokenObtainPairView.as_view(), name="login-api"),
     path("auth/mylogin/", MyTokenObtainPairView.as_view(), name="my-login-api"),
     path("auth/token/verify/", TokenVerifyView.as_view(), name="token-verify-api"),
     path("auth/token/refresh/", MyTokenRefreshView.as_view(), name="token-refresh-api"),
-    path("auth/token/recovery/", TokenRecoveryAPIView.as_view(), name="token-recovery-api"),
-    path("auth/password/change/", PasswordChangeAPIView.as_view(), name="password-change-api"),
-    path("auth/username/change/", UsernameChangeAPIView.as_view(), name="username-change-api"),
+    path(
+        "auth/token/recovery/",
+        TokenRecoveryAPIView.as_view(),
+        name="token-recovery-api",
+    ),
+    path(
+        "auth/password/change/",
+        PasswordChangeAPIView.as_view(),
+        name="password-change-api",
+    ),
+    path(
+        "auth/username/change/",
+        UsernameChangeAPIView.as_view(),
+        name="username-change-api",
+    ),
     path("auth/email/change/", EmailChangeAPIView.as_view(), name="email-change-api"),
     path("auth/email/verify/", EmailVerifyAPIView.as_view(), name="email-verify-api"),
     # Posts
@@ -120,7 +143,5 @@ api_v1_patterns = [
 # URL Patterns
 # ------------------------------------------------------------------------------
 urlpatterns = (
-    html_patterns
-    + auth_patterns
-    + [path("api/v1/", include(api_v1_patterns))]
+    html_patterns + auth_patterns + [path("api/v1/", include(api_v1_patterns))]
 )

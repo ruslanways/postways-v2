@@ -82,6 +82,9 @@ coverage.xml
 .dmypy.json
 dmypy.json
 
+# Ruff
+.ruff_cache/
+
 # Celery
 celerybeat-schedule
 celerybeat.pid

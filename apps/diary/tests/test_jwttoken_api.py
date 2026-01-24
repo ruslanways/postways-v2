@@ -1,17 +1,12 @@
-from pprint import pprint
-import random
-import re
-from unittest import skip
-
-from .test_fixture import DiaryAPITestCase
-from apps.diary.models import CustomUser
 from rest_framework import status
 from rest_framework.reverse import reverse
-from django.core import mail
+
+from apps.diary.models import CustomUser
+
+from .test_fixture import DiaryAPITestCase
 
 
 class PostAPITestCase(DiaryAPITestCase):
-
     def test_jwt_authentication(self):
         # Create new user
         test_user_4 = CustomUser.objects.create_user(

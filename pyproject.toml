@@ -21,4 +21,33 @@ dependencies = [
 [dependency-groups]
 dev = [
     "faker>=40.1.2",
+    "ruff>=0.14.14",
 ]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+exclude = [
+    "*/migrations/*",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "F",      # pyflakes
+    "I",      # isort
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "SIM",    # flake8-simplify
+    "DJ",     # flake8-django
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["apps", "config"]
+section-order = ["future", "standard-library", "django", "third-party", "first-party", "local-folder"]
+
+[tool.ruff.lint.isort.sections]
+django = ["django"]
