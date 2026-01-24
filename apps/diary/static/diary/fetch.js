@@ -33,7 +33,9 @@ function getCookie(name) {
 const csrfToken = getCookie("csrftoken");
 const likeElements = document.querySelectorAll(".like");
 const postIds = Array.from(likeElements).map((el) => el.id);
-const isAuthenticated = Boolean(document.querySelector(".user-dropdown-toggle"));
+const isAuthenticated = Boolean(
+  document.querySelector(".user-dropdown-toggle"),
+);
 
 // Only attach click handlers for authenticated users
 if (isAuthenticated && likeElements.length) {
@@ -57,12 +59,18 @@ function connectWebSocket(forceReconnect = false) {
   if (socket && socket.readyState === WebSocket.OPEN && !forceReconnect) return;
 
   // Close existing connection before creating new one
-  if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+  if (
+    socket &&
+    (socket.readyState === WebSocket.OPEN ||
+      socket.readyState === WebSocket.CONNECTING)
+  ) {
     socket.close();
   }
 
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  socket = new WebSocket(`${protocol}//${window.location.host}/ws/socket-server/`);
+  socket = new WebSocket(
+    `${protocol}//${window.location.host}/ws/socket-server/`,
+  );
 
   socket.onmessage = (event) => {
     const { post_id, like_count } = JSON.parse(event.data);
@@ -100,7 +108,9 @@ async function handleLikeClick(event) {
 
   // Optimistic update: toggle heart and adjust count immediately
   heartEl.textContent = isLiked ? "♡" : "♥";
-  countEl.textContent = isLiked ? Number(originalCount) - 1 : Number(originalCount) + 1;
+  countEl.textContent = isLiked
+    ? Number(originalCount) - 1
+    : Number(originalCount) + 1;
   element.classList.toggle("is-liked", !isLiked);
 
   try {
@@ -138,7 +148,9 @@ async function refreshLikeCounts() {
   if (!postIds.length) return;
 
   try {
-    const response = await fetch(`/api/v1/likes/batch/?ids=${postIds.join(",")}`);
+    const response = await fetch(
+      `/api/v1/likes/batch/?ids=${postIds.join(",")}`,
+    );
     if (!response.ok) {
       console.warn("Failed to refresh likes:", response.status);
       return;
