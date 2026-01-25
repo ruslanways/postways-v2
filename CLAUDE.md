@@ -79,6 +79,7 @@ The project uses SimpleJWT with custom enhancements for secure token management:
 | Component | Location | Purpose |
 |-----------|----------|---------|
 | `blacklist_user_tokens()` | `api.py` | Utility to blacklist all outstanding refresh tokens for a user |
+| `broadcast_like_update()` | `api.py` | Utility to broadcast like count updates via WebSocket |
 | `MyTokenObtainPairView` | `api.py` | Custom login with httponly cookie for refresh token |
 | `MyTokenRefreshSerializer` | `serializers.py` | Fixes OutstandingToken tracking for rotated tokens |
 | `MyTokenRefreshView` | `api.py` | Uses custom serializer for proper blacklist support |
@@ -154,12 +155,12 @@ LikeCreateDestroyAPIView.create() receives request
 → Checks if user already liked this post (with database lock)
 → If not liked: creates Like record → returns 201
 → If already liked: deletes Like record → returns 204
-→ Calls _broadcast_like_update() to notify all users
+→ Calls broadcast_like_update() utility to notify all users
 ```
 
 **Step 4: Broadcasting to All Users**
 ```
-_broadcast_like_update() calls channel_layer.group_send()
+broadcast_like_update() calls channel_layer.group_send()
 → Message goes to Redis (message broker)
 → Redis distributes to all Daphne workers
 → Each LikeConsumer.like_message() receives the message
@@ -274,14 +275,14 @@ function getCookie(name) { ... }
 const csrfToken = getCookie("csrftoken");
 const likeElements = document.querySelectorAll(".like");
 const postIds = Array.from(likeElements).map((el) => el.id);
-const isAuthenticated = Boolean(document.getElementById("user"));
+const isAuthenticated = document.body.dataset.authenticated === "true";
 ```
 
 When the page loads:
 1. Get the CSRF token for making secure requests
 2. Find all like buttons on the page (elements with class "like")
 3. Extract the post IDs from those elements
-4. Check if user is logged in (by looking for a "user" element)
+4. Check if user is logged in (via `data-authenticated` attribute on `<body>` tag)
 
 ```javascript
 if (isAuthenticated && likeElements.length) {
@@ -326,7 +327,7 @@ async function handleLikeClick(event) { ... }
 
 **Step-by-step flow:**
 1. Prevent default link behavior (`event.preventDefault()`)
-2. Detect current state: is the heart filled (❤) or empty (♡)?
+2. Detect current state via `.is-liked` CSS class (more robust than charCode check)
 3. **Optimistic update**: immediately toggle the heart and adjust count
 4. Send POST request to server
 5. If request fails: roll back to original state
@@ -353,7 +354,7 @@ async function refreshLikeCounts() { ... }
 
 **Purpose:** Fetch fresh like data from server for all posts on the page.
 
-**When it's used:** After back/forward navigation (bfcache restoration).
+**When it's used:** After back/forward navigation (bfcache restoration) or when tab becomes visible and WebSocket needed reconnection.
 
 **Why it's needed:** When you navigate away and use the browser back button, the page might be restored from cache with stale like counts. This function fetches the current counts and updates the UI.
 
@@ -376,11 +377,12 @@ window.addEventListener("pageshow", (event) => {
   }
 });
 
-// Handle tab visibility
+// Reconnect and refresh when tab becomes visible again (after being hidden)
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     if (!socket || socket.readyState !== WebSocket.OPEN) {
       connectWebSocket();
+      refreshLikeCounts();
     }
   }
 });
@@ -399,6 +401,7 @@ document.addEventListener("visibilitychange", () => {
    - User switched back to this tab
    - Check if WebSocket is still connected
    - Reconnect if needed (connection might have timed out)
+   - Fetch fresh like counts to sync any changes missed while tab was hidden
 
 **Celery - Background Tasks**
 

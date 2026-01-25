@@ -24,7 +24,7 @@
   <meta name="theme-color" content="#ffffff">
 </head>
 
-<body>
+<body data-authenticated="{% if user.is_authenticated %}true{% else %}false{% endif %}">
   <header>
     <nav class="navbar">
       <a class="navbar-brand {% if view.template_name == 'diary/index.html' %}selected{% endif %}" href="{% url 'home' %}">

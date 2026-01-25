@@ -33,9 +33,7 @@ function getCookie(name) {
 const csrfToken = getCookie("csrftoken");
 const likeElements = document.querySelectorAll(".like");
 const postIds = Array.from(likeElements).map((el) => el.id);
-const isAuthenticated = Boolean(
-  document.querySelector(".user-dropdown-toggle"),
-);
+const isAuthenticated = document.body.dataset.authenticated === "true";
 
 // Only attach click handlers for authenticated users
 if (isAuthenticated && likeElements.length) {
@@ -100,7 +98,7 @@ async function handleLikeClick(event) {
   const heartEl = element.querySelector(".heart");
   const countEl = element.querySelector(".count");
 
-  const isLiked = heartEl.textContent.charCodeAt(0) === 9829; // ♥ (filled heart)
+  const isLiked = element.classList.contains("is-liked");
 
   // Store original state for potential rollback
   const originalHeart = heartEl.textContent;
@@ -196,11 +194,12 @@ window.addEventListener("pageshow", (event) => {
   }
 });
 
-// Reconnect when tab becomes visible again (after being hidden)
+// Reconnect and refresh when tab becomes visible again (after being hidden)
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     if (!socket || socket.readyState !== WebSocket.OPEN) {
       connectWebSocket();
+      refreshLikeCounts();
     }
   }
 });

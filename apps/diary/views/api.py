@@ -18,6 +18,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import Count
 from django.http import JsonResponse
 from django.shortcuts import render
+from django.utils import timezone
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -80,6 +81,37 @@ def blacklist_user_tokens(user):
         [BlacklistedToken(token=token) for token in tokens_to_blacklist],
         ignore_conflicts=True,
     )
+
+
+def broadcast_like_update(post_id, user_id, like_count):
+    """
+    Broadcast like count update to all WebSocket clients.
+
+    Sends a message to the "likes" channel group containing:
+    - post_id: ID of the affected post
+    - like_count: Current total like count
+    - user_id: ID of user who triggered the update (for deduplication)
+
+    Args:
+        post_id: ID of the post that was liked/unliked.
+        user_id: ID of the user who triggered the action.
+        like_count: Current like count for the post.
+
+    Failures are logged but don't affect the caller.
+    """
+    try:
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            "likes",
+            {
+                "type": "like.message",
+                "post_id": str(post_id),
+                "like_count": str(like_count),
+                "user_id": user_id,
+            },
+        )
+    except Exception as e:
+        logger.warning("Failed to broadcast like update: %s", e)
 
 
 class UserListAPIView(generics.ListCreateAPIView):
@@ -282,40 +314,12 @@ class LikeCreateDestroyAPIView(generics.CreateAPIView):
                     self.get_queryset().filter(post=post, user=user).delete()
                     response = Response(status=status.HTTP_204_NO_CONTENT)
 
-        like_count = Like.objects.filter(post=post).count()
-        self._broadcast_like_update(post, user, like_count)
+            # Query inside transaction to ensure consistency
+            like_count = Like.objects.filter(post=post).count()
+
+        broadcast_like_update(post.id, user.id, like_count)
 
         return response
-
-    def _broadcast_like_update(self, post, user, like_count):
-        """
-        Broadcast like count update to all WebSocket clients.
-
-        Sends a message to the "likes" channel group containing:
-        - post_id: ID of the affected post
-        - like_count: Current total like count
-        - user_id: ID of user who triggered the update (for deduplication)
-
-        Args:
-            post: The Post instance that was liked/unliked.
-            user: The user who triggered the action.
-            like_count: Pre-computed like count to avoid extra query.
-
-        Failures are logged but don't affect the HTTP response.
-        """
-        try:
-            channel_layer = get_channel_layer()
-            async_to_sync(channel_layer.group_send)(
-                "likes",
-                {
-                    "type": "like.message",
-                    "post_id": str(post.id),
-                    "like_count": str(like_count),
-                    "user_id": user.id,
-                },
-            )
-        except Exception as e:
-            logger.warning("Failed to broadcast like update: %s", e)
 
 
 class LikeBatchAPIView(generics.GenericAPIView):
@@ -539,7 +543,6 @@ class UsernameChangeAPIView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
 
         user = request.user
-        from django.utils import timezone
 
         with transaction.atomic():
             user.username = serializer.validated_data["new_username"]
