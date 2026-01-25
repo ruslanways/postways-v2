@@ -21,8 +21,14 @@ dependencies = [
 [dependency-groups]
 dev = [
     "faker>=40.1.2",
+    "pytest>=9.0.2",
+    "pytest-django>=4.11.0",
     "ruff>=0.14.14",
 ]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = ["test_*.py"]
 
 [tool.ruff]
 line-length = 88
