@@ -5,8 +5,23 @@ from apps.diary.models import CustomUser, Like, Post
 
 
 class DiaryAPITestCase(APITestCase):
+    """
+    Base test case class for Diary API tests.
+
+    This class sets up a comprehensive test environment with:
+    - 4 Users (1 admin, 3 regular users)
+    - 12 Posts with various authors and published states
+    - JWT Access Tokens for all users
+    - 22 Likes distributed across posts and users
+
+    This setup provides a consistent state for testing permissions,
+    filtering, and object manipulation across different API endpoints.
+    """
     @classmethod
     def setUpTestData(cls):
+        # ----------------------------------------------------------------------
+        # Create Users
+        # ----------------------------------------------------------------------
         cls.admin = CustomUser.objects.create_user(
             email="admin@ukr.net", username="admin", password="fokker123", is_staff=True
         )
@@ -20,20 +35,37 @@ class DiaryAPITestCase(APITestCase):
             email="test3@ukr.net", username="TestUser3", password="fokker123"
         )
 
+        # ----------------------------------------------------------------------
+        # Create Posts
+        # ----------------------------------------------------------------------
+        # User 1 posts
         cls.test_post_1 = Post.objects.create(
             title="TestPost1", author=cls.test_user_1, content="Some test 1 content"
-        )
-        cls.test_post_2 = Post.objects.create(
-            title="TestPost2", author=cls.test_user_3, content="Some test 2 content"
         )
         cls.test_post_3 = Post.objects.create(
             title="TestPost3",
             author=cls.test_user_1,
             content="Some test 3 content",
-            published=False,
+            published=False,  # Private post
         )
+        cls.test_post_7 = Post.objects.create(
+            title="TestPost7", author=cls.test_user_1, content="Some test 7 content"
+        )
+
+        # User 2 posts
         cls.test_post_4 = Post.objects.create(
             title="TestPost4", author=cls.test_user_2, content="Some test 4 content"
+        )
+        cls.test_post_8 = Post.objects.create(
+            title="TestPost8", author=cls.test_user_2, content="Some test 8 content"
+        )
+        cls.test_post_10 = Post.objects.create(
+            title="TestPost10", author=cls.test_user_2, content="Some test 10 content"
+        )
+
+        # User 3 posts
+        cls.test_post_2 = Post.objects.create(
+            title="TestPost2", author=cls.test_user_3, content="Some test 2 content"
         )
         cls.test_post_5 = Post.objects.create(
             title="TestPost5", author=cls.test_user_3, content="Some test 5 content"
@@ -41,17 +73,8 @@ class DiaryAPITestCase(APITestCase):
         cls.test_post_6 = Post.objects.create(
             title="TestPost6", author=cls.test_user_3, content="Some test 6 content"
         )
-        cls.test_post_7 = Post.objects.create(
-            title="TestPost7", author=cls.test_user_1, content="Some test 7 content"
-        )
-        cls.test_post_8 = Post.objects.create(
-            title="TestPost8", author=cls.test_user_2, content="Some test 8 content"
-        )
         cls.test_post_9 = Post.objects.create(
             title="TestPost9", author=cls.test_user_3, content="Some test 9 content"
-        )
-        cls.test_post_10 = Post.objects.create(
-            title="TestPost10", author=cls.test_user_2, content="Some test 10 content"
         )
         cls.test_post_11 = Post.objects.create(
             title="TestPost11", author=cls.test_user_3, content="Some test 11 content"
@@ -60,21 +83,30 @@ class DiaryAPITestCase(APITestCase):
             title="TestPost12",
             author=cls.test_user_3,
             content="Some test 11 content",
-            published=False,
+            published=False,  # Private post
         )
 
+        # ----------------------------------------------------------------------
+        # Generate JWT Tokens
+        # ----------------------------------------------------------------------
         # Obtaining an access token for further authorization by JWT-tokens.
         cls.access_token_admin = RefreshToken.for_user(cls.admin).access_token
         cls.access_token_user1 = RefreshToken.for_user(cls.test_user_1).access_token
         cls.access_token_user2 = RefreshToken.for_user(cls.test_user_2).access_token
         cls.access_token_user3 = RefreshToken.for_user(cls.test_user_3).access_token
 
+        # ----------------------------------------------------------------------
+        # Create Likes
+        # ----------------------------------------------------------------------
+        # User 1 likes
         cls.test_like1 = Like.objects.create(user=cls.test_user_1, post=cls.test_post_1)
         cls.test_like2 = Like.objects.create(user=cls.test_user_1, post=cls.test_post_3)
         cls.test_like3 = Like.objects.create(user=cls.test_user_1, post=cls.test_post_5)
         cls.test_like4 = Like.objects.create(user=cls.test_user_1, post=cls.test_post_9)
         cls.test_like5 = Like.objects.create(user=cls.test_user_1, post=cls.test_post_7)
         cls.test_like6 = Like.objects.create(user=cls.test_user_1, post=cls.test_post_2)
+        
+        # User 2 likes
         cls.test_like7 = Like.objects.create(user=cls.test_user_2, post=cls.test_post_1)
         cls.test_like8 = Like.objects.create(user=cls.test_user_2, post=cls.test_post_2)
         cls.test_like9 = Like.objects.create(user=cls.test_user_2, post=cls.test_post_3)
@@ -90,6 +122,8 @@ class DiaryAPITestCase(APITestCase):
         cls.test_like13 = Like.objects.create(
             user=cls.test_user_2, post=cls.test_post_5
         )
+
+        # User 3 likes
         cls.test_like14 = Like.objects.create(
             user=cls.test_user_3, post=cls.test_post_11
         )

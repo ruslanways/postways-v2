@@ -14,7 +14,25 @@ from .test_fixture import DiaryAPITestCase
 
 
 class PostAPITestCase(DiaryAPITestCase):
+    """
+    Test suite for Post API endpoints.
+    
+    Tests cover:
+    - Listing posts (filtering, pagination)
+    - Creating new posts
+    - Retrieving post details (including permission checks)
+    - Updating posts (PUT/PATCH)
+    - Deleting posts
+    """
     def test_post_list(self):
+        """
+        Test listing posts.
+        
+        Verifies that:
+        - Unpublished posts are excluded
+        - Results are paginated
+        - Ordering is correct
+        """
         queryset = (
             Post.objects.exclude(published=False)
             .annotate(likes=Count("like"))
@@ -33,6 +51,15 @@ class PostAPITestCase(DiaryAPITestCase):
         )
 
     def test_post_create(self):
+        """
+        Test creating a new post.
+        
+        Verifies:
+        - Unauthorized access is blocked
+        - Validation errors (missing title, invalid author)
+        - Successful creation of published/unpublished posts
+        - Author is automatically set to the request user
+        """
         # We just need to include Authorization header with our post-request below.
         # We also can use .credentials to set Authorization header with all requests:
         # self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
@@ -118,6 +145,14 @@ class PostAPITestCase(DiaryAPITestCase):
         self.assertEqual(Post.objects.get(title="New Test Post 6").published, False)
 
     def test_post_detail(self):
+        """
+        Test retrieving post details.
+        
+        Verifies:
+        - Public posts are accessible
+        - Unpublished posts are forbidden (403) for non-owners
+        - Unpublished posts are accessible (200) for owners
+        """
         # It's good idea to make a random choosing of Post object,
         # but we need to test both Post object with published Ture and False.
         # post_id = random.choice(Post.objects.all().values('id'))['id']
@@ -158,11 +193,18 @@ class PostAPITestCase(DiaryAPITestCase):
 
     def test_post_update(self):
         """
-        IMHO.
-        It's worth noting that Post objects reachable with self.test_post_*
-        only accessibe for retrieving so they don't change their state.
-        In case we need to see wether the object is changed we should retrieve it from the object manager.
+        Test updating posts via PUT and PATCH.
+        
+        Verifies:
+        - Unauthorized users cannot update
+        - Owners can update their posts
+        - Admins can update any post
+        - Partial updates work correctly
+        - Unknown fields are ignored
         """
+        # Note: Post objects reachable with self.test_post_* (fixture data)
+        # only reflect the state at creation time.
+        # To verify changes, we must retrieve fresh objects from the database manager.
 
         # Make a response just to obtain the wsgi_request for serializer to get serializer of clear Post object
         response = self.client.get("/")
@@ -314,6 +356,14 @@ class PostAPITestCase(DiaryAPITestCase):
         )
 
     def test_post_delete(self):
+        """
+        Test deleting posts.
+        
+        Verifies:
+        - Unauthorized users cannot delete
+        - Owners can delete their posts
+        - Admins can delete any post
+        """
         # Unauthorized
         response1 = self.client.delete(
             reverse("post-detail-api", args=[self.test_post_1.id])

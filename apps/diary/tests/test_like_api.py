@@ -12,8 +12,21 @@ from apps.diary.serializers import (
 from .test_fixture import DiaryAPITestCase
 
 
-class PostAPITestCase(DiaryAPITestCase):
+class LikeAPITestCase(DiaryAPITestCase):
+    """
+    Test suite for Like API endpoints.
+    
+    Tests cover:
+    - Listing likes (analytics/counts)
+    - Retrieving like details
+    - Creating and deleting likes (toggling behavior)
+    """
     def test_like_list(self):
+        """
+        Test the like list endpoint which returns analytics data.
+        
+        This endpoint aggregates likes by date and counts them.
+        """
         queryset = (
             Like.objects.values("created__date")
             .annotate(likes=Count("id"))
@@ -30,6 +43,7 @@ class PostAPITestCase(DiaryAPITestCase):
         self.assertEqual(serializer.data, response.data["results"])
 
     def test_like_detail(self):
+        """Test retrieving a single like object details."""
         response = self.client.get(
             reverse("like-detail-api", args=[self.test_like1.id])
         )
@@ -43,6 +57,13 @@ class PostAPITestCase(DiaryAPITestCase):
         self.assertEqual(serializer.data, response.data)
 
     def test_like_create_delete(self):
+        """
+        Test the like toggle functionality.
+        
+        The 'like-toggle-api' endpoint acts as a toggle:
+        - If the user hasn't liked the post -> Create Like (HTTP 201)
+        - If the user has already liked the post -> Delete Like (HTTP 204)
+        """
         count = self.test_post_11.like_set.count()
 
         # Unauthorized

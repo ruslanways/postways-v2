@@ -12,8 +12,28 @@ from apps.diary.serializers import (
 from .test_fixture import DiaryAPITestCase
 
 
-class PostAPITestCase(DiaryAPITestCase):
+class UserAPITestCase(DiaryAPITestCase):
+    """
+    Test suite for User API endpoints.
+    
+    Tests cover:
+    - User listing (admin only)
+    - User registration/creation
+    - User profile retrieval
+    - User profile update restrictions (must use specific endpoints)
+    - Account deletion
+    - Password change
+    - Username change (including cooldown logic)
+    """
     def test_user_list(self):
+        """
+        Test user listing endpoint.
+        
+        Verifies:
+        - Unauthorized access is blocked
+        - Regular users are forbidden
+        - Admins can list all users
+        """
         # Unauthorized
         response1 = self.client.get(reverse("user-list-create-api"))
         self.assertEqual(response1.status_code, status.HTTP_401_UNAUTHORIZED)
@@ -39,6 +59,19 @@ class PostAPITestCase(DiaryAPITestCase):
         self.assertEqual(response_usernames, expected_usernames)
 
     def test_user_create(self):
+        """
+        Test user registration.
+        
+        Verifies:
+        - Authenticated users cannot register (must be anonymous)
+        - Successful registration with valid data
+        - Validation errors:
+            - Missing fields (password2, email)
+            - Invalid email format
+            - Password mismatch
+            - Password similarity to username
+            - Unknown fields are ignored/rejected based on configuration
+        """
         # Authorized
         response1 = self.client.post(
             reverse("user-list-create-api"),
@@ -167,6 +200,15 @@ class PostAPITestCase(DiaryAPITestCase):
         self.assertEqual(serializer8.data, response8.data)
 
     def test_user_detail(self):
+        """
+        Test user profile retrieval.
+        
+        Verifies:
+        - Owner can access their own profile
+        - Admin can access any profile
+        - Other users are forbidden
+        - Unauthenticated access is blocked
+        """
         def compare_user_data(serializer_data, response_data):
             """Compare user data excluding last_request (updated by middleware after response)."""
             s_data = {k: v for k, v in serializer_data.items() if k != "last_request"}
@@ -212,9 +254,10 @@ class PostAPITestCase(DiaryAPITestCase):
 
     def test_user_update(self):
         """
-        User detail endpoint does not support updates.
-
-        All profile updates must use dedicated endpoints:
+        Test user profile update restrictions.
+        
+        Verifies that standard PUT/PATCH methods are NOT allowed on the user detail endpoint.
+        User updates must go through dedicated endpoints for security reasons:
         - /api/v1/auth/password/change/
         - /api/v1/auth/username/change/
         - /api/v1/auth/email/change/
@@ -256,6 +299,14 @@ class PostAPITestCase(DiaryAPITestCase):
         self.assertEqual(serializer_before.data, serializer_after.data)
 
     def test_user_delete(self):
+        """
+        Test account deletion.
+        
+        Verifies:
+        - Unauthorized users cannot delete accounts
+        - Users can delete their own account
+        - Admins can delete any account
+        """
         # Unauthorized
         response = self.client.delete(
             reverse("user-detail-update-destroy-api", args=[self.test_user_2.id])
@@ -284,6 +335,16 @@ class PostAPITestCase(DiaryAPITestCase):
         )
 
     def test_password_change(self):
+        """
+        Test the dedicated password change endpoint.
+        
+        Verifies:
+        - Authentication required
+        - Old password verification
+        - New password confirmation match
+        - Password complexity requirements
+        - Successful change updates the hash
+        """
         """Test the dedicated password change endpoint."""
 
         # Unauthorized request
@@ -355,6 +416,16 @@ class PostAPITestCase(DiaryAPITestCase):
         self.assertTrue(self.test_user_1.check_password("newpassword123"))
 
     def test_username_change(self):
+        """
+        Test the dedicated username change endpoint.
+        
+        Verifies:
+        - Authentication required
+        - Password verification required
+        - Unique constraint check (case-insensitive)
+        - Successful change updates the username
+        - 30-day cooldown enforcement
+        """
         """Test the dedicated username change endpoint."""
         from datetime import timedelta
 

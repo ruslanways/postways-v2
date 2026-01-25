@@ -6,8 +6,24 @@ from apps.diary.models import CustomUser
 from .test_fixture import DiaryAPITestCase
 
 
-class PostAPITestCase(DiaryAPITestCase):
+class JwtTokenAPITestCase(DiaryAPITestCase):
+    """
+    Test suite for JWT Token authentication and management endpoints.
+    
+    Tests cover:
+    - Login (token pair generation)
+    - Token verification
+    - Token refresh
+    - Token invalidation (blacklisting is handled via rotation in this setup)
+    """
     def test_jwt_authentication(self):
+        """
+        Verify the full JWT authentication flow:
+        1. Login with correct/incorrect credentials
+        2. Verify access and refresh tokens
+        3. Refresh the token pair
+        4. Verify new tokens are valid and old tokens are invalid (blacklisted/rotated)
+        """
         # Create new user
         test_user_4 = CustomUser.objects.create_user(
             email="testuser4@ukr.net", username="TestUser4", password="fokker12345"
