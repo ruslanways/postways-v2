@@ -49,6 +49,7 @@ from ..serializers import (
     LikeSerializer,
     MyTokenRefreshSerializer,
     PasswordChangeSerializer,
+    PasswordResetSerializer,
     PostDetailSerializer,
     PostSerializer,
     TokenRecoverySerializer,
@@ -395,11 +396,15 @@ class TokenRecoveryAPIView(generics.GenericAPIView):
     This endpoint:
     1. Validates the provided email exists
     2. Blacklists all existing refresh tokens for that user
-    3. Generates a new token pair
-    4. Sends the access token to the user's email (via Celery task)
+    3. Generates a new access token
+    4. Sends the token to the user's email (via Celery task)
 
-    The user can then use the access token to update their password
-    via the UserDetailAPIView endpoint.
+    The user can then use the access token to reset their password
+    via POST /api/v1/auth/password/reset/.
+
+    Security:
+        - All existing tokens are blacklisted before sending recovery token
+        - Access token has default short lifetime (configured in SIMPLE_JWT settings)
     """
 
     serializer_class = TokenRecoverySerializer
@@ -429,15 +434,14 @@ class TokenRecoveryAPIView(generics.GenericAPIView):
 
         blacklist_user_tokens(user)
 
+        # Generate access token for password reset
         refresh = RefreshToken.for_user(user)
 
-        link_to_change_user = reverse(
-            "user-detail-update-destroy-api", request=request, args=[user.id]
-        )
+        password_reset_url = reverse("password-reset-api", request=request)
 
         # invoke celery task
         send_token_recovery_email.delay(
-            link_to_change_user, str(refresh.access_token), user.email
+            password_reset_url, str(refresh.access_token), user.email
         )
 
         return Response({"Recovery email send": "Success"}, status=status.HTTP_200_OK)
@@ -502,6 +506,66 @@ class PasswordChangeAPIView(generics.GenericAPIView):
 
         return Response(
             {"detail": "Password changed successfully."},
+            status=status.HTTP_200_OK,
+        )
+
+
+class PasswordResetAPIView(generics.GenericAPIView):
+    """
+    Reset password using a recovery token (no old password required).
+
+    This endpoint is for users who forgot their password and received a
+    recovery token via email from TokenRecoveryAPIView.
+
+    POST /api/v1/auth/password/reset/
+        - new_password: New password (required)
+        - new_password2: New password confirmation (required)
+
+    Security:
+        - Requires valid JWT access token (from recovery email)
+        - All existing tokens are blacklisted after successful reset
+        - Sessions are invalidated (by not calling update_session_auth_hash)
+
+    Flow:
+        1. User requests recovery via POST /api/v1/auth/token/recovery/
+        2. User receives email with access token
+        3. User calls this endpoint with the token in Authorization header
+        4. Password is reset and all sessions/tokens are invalidated
+    """
+
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = PasswordResetSerializer
+
+    def post(self, request, *args, **kwargs):
+        """
+        Process password reset request.
+
+        Request Body:
+            new_password: New password (validated against Django validators)
+            new_password2: New password confirmation
+
+        Headers:
+            Authorization: Bearer <access_token>
+
+        Returns:
+            200: Password reset successfully
+            400: Validation error (passwords don't match, etc.)
+            401: Invalid or expired token
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+
+        with transaction.atomic():
+            user.set_password(serializer.validated_data["new_password"])
+            user.save()
+
+            # Blacklist all JWT refresh tokens to force API re-authentication
+            blacklist_user_tokens(user)
+
+        return Response(
+            {"detail": "Password reset successfully."},
             status=status.HTTP_200_OK,
         )
 

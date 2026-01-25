@@ -59,8 +59,15 @@ All API endpoints are under `/api/v1/` and use JWT authentication (except regist
 - Password recovery via email
 - Request body: `{"email": "user@example.com"}`
 - Blacklists all existing tokens for the user
-- Generates new token pair and emails the access token (via Celery task)
-- User can then use the access token to change password via `/api/v1/auth/password/change/`
+- Generates new access token and emails it (via Celery task)
+- User can then use the access token to reset password via `/api/v1/auth/password/reset/`
+
+**`POST /api/v1/auth/password/reset/`**
+- Reset password using recovery token (no old password required)
+- Request body: `{"new_password": "...", "new_password2": "..."}`
+- Requires valid JWT access token (from recovery email)
+- New password is validated against Django password validators
+- **Security**: Logs out from ALL devices after successful reset (JWT tokens blacklisted + sessions invalidated)
 
 **`POST /api/v1/auth/password/change/`**
 - Change password for authenticated users
@@ -188,6 +195,7 @@ All API endpoints are under `/api/v1/` and use JWT authentication (except regist
 | `/api/v1/auth/token/refresh/` | POST | No | Refresh access token |
 | `/api/v1/auth/token/verify/` | POST | No | Verify token validity |
 | `/api/v1/auth/token/recovery/` | POST | No | Password recovery via email |
+| `/api/v1/auth/password/reset/` | POST | Yes | Reset password (using recovery token, no old password) |
 | `/api/v1/auth/password/change/` | POST | Yes | Change password (requires current password) |
 | `/api/v1/auth/username/change/` | POST | Yes | Change username (requires password, 30-day cooldown) |
 | `/api/v1/auth/email/change/` | POST | Yes | Initiate email change (requires password, sends verification) |
@@ -281,10 +289,11 @@ SIMPLE_JWT = {
 **Token Management**:
 1. **Token Rotation**: New refresh token issued on each refresh; old one blacklisted
 2. **Blacklisting**: Uses `rest_framework_simplejwt.token_blacklist` to invalidate tokens
-3. **Custom Recovery**: `TokenRecoveryAPIView` blacklists all user tokens, generates new pair, emails access token
-4. **Password Change**: `PasswordChangeAPIView` requires current password verification, blacklists all tokens after change
-5. **Custom Refresh Serializer**: `MyTokenRefreshSerializer` fixes a SimpleJWT limitation where rotated refresh tokens aren't tracked in `OutstandingToken` table, which would break blacklist functionality
-6. **Token Blacklist Utility**: `blacklist_user_tokens()` function (in `apps/diary/views/api.py`) blacklists all outstanding tokens for a user - used during account deletion, password recovery, and password change
+3. **Custom Recovery**: `TokenRecoveryAPIView` blacklists all user tokens, generates access token, emails it for use with `PasswordResetAPIView`
+4. **Password Reset**: `PasswordResetAPIView` allows password reset using recovery token (no old password required)
+5. **Password Change**: `PasswordChangeAPIView` requires current password verification, blacklists all tokens after change
+6. **Custom Refresh Serializer**: `MyTokenRefreshSerializer` fixes a SimpleJWT limitation where rotated refresh tokens aren't tracked in `OutstandingToken` table, which would break blacklist functionality
+7. **Token Blacklist Utility**: `blacklist_user_tokens()` function (in `apps/diary/views/api.py`) blacklists all outstanding tokens for a user - used during account deletion, password recovery, password reset, and password change
 
 **Custom Login View** (`MyTokenObtainPairView`):
 - Returns access token in response body (for JavaScript storage)

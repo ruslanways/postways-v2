@@ -60,15 +60,20 @@ def process_post_image(post_id):
 
 
 @shared_task
-def send_token_recovery_email(link_to_change_user, token, user_email):
-    """Sends a token recovery email to the user."""
+def send_token_recovery_email(password_reset_url, token, user_email):
+    """Sends a password reset token email to the user."""
     send_mail(
-        "Postways token recovery",
-        f"Here are your new access token expires in 5 min."
-        f"\n\n'access': {token}\n\n"
-        "You can use it to change password by Post-request to: "
-        f"{link_to_change_user}"
-        "\n\nTherefore you could obtain new tokens pair by logging.",
+        "Postways Password Reset",
+        f"Here is your password reset token (expires in 5 minutes):"
+        f"\n\n{token}\n\n"
+        "To reset your password, send a POST request to:\n"
+        f"{password_reset_url}\n\n"
+        "With headers:\n"
+        "  Authorization: Bearer <token>\n"
+        "  Content-Type: application/json\n\n"
+        "And body:\n"
+        '  {"new_password": "your_new_password", "new_password2": "your_new_password"}\n\n'
+        "After resetting, you can log in with your new password to obtain fresh tokens.",
         None,
         [user_email],
     )

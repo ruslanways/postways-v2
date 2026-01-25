@@ -28,6 +28,7 @@ from .views import (
     MyTokenRefreshView,
     PasswordChangeAPIView,
     PasswordReset,
+    PasswordResetAPIView,
     # Posts API
     PostAPIView,
     PostCreateView,
@@ -121,6 +122,11 @@ api_v1_patterns = [
         "auth/password/change/",
         PasswordChangeAPIView.as_view(),
         name="password-change-api",
+    ),
+    path(
+        "auth/password/reset/",
+        PasswordResetAPIView.as_view(),
+        name="password-reset-api",
     ),
     path(
         "auth/username/change/",

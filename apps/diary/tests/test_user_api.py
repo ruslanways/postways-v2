@@ -2,6 +2,7 @@ from django.core.exceptions import FieldError
 
 from rest_framework import status
 from rest_framework.reverse import reverse
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.diary.models import CustomUser
 from apps.diary.serializers import (
@@ -516,3 +517,115 @@ class UserAPITestCase(DiaryAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.test_user_1.refresh_from_db()
         self.assertEqual(self.test_user_1.username, "AnotherUsername")
+
+    def test_password_reset_flow(self):
+        """
+        Test the complete password reset (recovery) flow.
+
+        Verifies:
+        - Token recovery endpoint returns success
+        - Password reset endpoint works with valid password_reset token
+        - Password is actually changed and user can log in with new password
+
+        Note: Email sending is handled by Celery task which doesn't run
+        synchronously in tests, so we test the token generation directly.
+        """
+        # Create a fresh user for this test
+        test_user = CustomUser.objects.create_user(
+            email="resettest@ukr.net", username="ResetTestUser", password="oldpassword123"
+        )
+
+        # Step 1: Request token recovery (email sent via Celery, not tested here)
+        response = self.client.post(
+            reverse("token-recovery-api"),
+            {"email": test_user.email},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Step 2: Generate an access token (simulating what recovery provides)
+        reset_token = RefreshToken.for_user(test_user).access_token
+
+        # Step 3: Reset password with valid token
+        response = self.client.post(
+            reverse("password-reset-api"),
+            {
+                "new_password": "newpassword456",
+                "new_password2": "newpassword456",
+            },
+            HTTP_AUTHORIZATION=f"Bearer {str(reset_token)}",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("detail", response.data)
+
+        # Step 4: Verify password was actually changed
+        test_user.refresh_from_db()
+        self.assertTrue(test_user.check_password("newpassword456"))
+        self.assertFalse(test_user.check_password("oldpassword123"))
+
+        # Step 5: Verify user can log in with new password
+        response = self.client.post(
+            reverse("login-api"),
+            {
+                "username": test_user.username,
+                "password": "newpassword456",
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("access", response.data)
+
+    def test_password_reset_validation(self):
+        """
+        Test password reset validation rules.
+
+        Verifies:
+        - Passwords must match
+        - Password complexity requirements are enforced
+        - Authentication is required
+        """
+        reset_token = RefreshToken.for_user(self.test_user_1).access_token
+
+        # Passwords don't match
+        response = self.client.post(
+            reverse("password-reset-api"),
+            {
+                "new_password": "newpassword123",
+                "new_password2": "differentpassword123",
+            },
+            HTTP_AUTHORIZATION=f"Bearer {str(reset_token)}",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("new_password2", response.data)
+
+        # Password too simple
+        response = self.client.post(
+            reverse("password-reset-api"),
+            {
+                "new_password": "123",
+                "new_password2": "123",
+            },
+            HTTP_AUTHORIZATION=f"Bearer {str(reset_token)}",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # No authentication
+        response = self.client.post(
+            reverse("password-reset-api"),
+            {
+                "new_password": "validpassword123",
+                "new_password2": "validpassword123",
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_token_recovery_nonexistent_email(self):
+        """
+        Test token recovery with non-existent email.
+
+        Verifies proper error response for unknown emails.
+        """
+        response = self.client.post(
+            reverse("token-recovery-api"),
+            {"email": "nonexistent@example.com"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIn("error", response.data)

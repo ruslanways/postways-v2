@@ -83,7 +83,8 @@ The project uses SimpleJWT with custom enhancements for secure token management:
 | `MyTokenObtainPairView` | `api.py` | Custom login with httponly cookie for refresh token |
 | `MyTokenRefreshSerializer` | `serializers.py` | Fixes OutstandingToken tracking for rotated tokens |
 | `MyTokenRefreshView` | `api.py` | Uses custom serializer for proper blacklist support |
-| `TokenRecoveryAPIView` | `api.py` | Password recovery via email with token blacklisting |
+| `TokenRecoveryAPIView` | `api.py` | Password recovery: blacklists tokens, emails access token for reset |
+| `PasswordResetAPIView` | `api.py` | Reset password using recovery token (no old password required) |
 | `PasswordChangeAPIView` | `api.py` | Secure password change requiring current password |
 | `UsernameChangeAPIView` | `api.py` | Secure username change with password verification and 30-day cooldown |
 | `EmailChangeAPIView` | `api.py` | Initiate email change with password verification and verification email |
@@ -94,7 +95,7 @@ The project uses SimpleJWT with custom enhancements for secure token management:
 1. **Token Blacklisting Utility** (`blacklist_user_tokens()`):
    - Finds all `OutstandingToken` entries for a user
    - Creates `BlacklistedToken` entries for each (with `ignore_conflicts=True`)
-   - Used by: account deletion (API + HTML), password recovery, password change
+   - Used by: account deletion (API + HTML), password recovery, password reset, password change
 
 2. **Custom Token Refresh Serializer** (`MyTokenRefreshSerializer`):
    - **Problem**: Default SimpleJWT `TokenRefreshSerializer` doesn't add rotated refresh tokens to `OutstandingToken` table
@@ -446,7 +447,7 @@ CELERY_RESULT_BACKEND = f"redis://{REDIS_HOST}:{REDIS_PORT}/1"
 
 **On-demand task** - called in `apps/diary/views/api.py` (`TokenRecoveryAPIView`):
 ```python
-send_token_recovery_email.delay(link_to_change_user, str(refresh.access_token), user.email)
+send_token_recovery_email.delay(password_reset_url, str(refresh.access_token), user.email)
 ```
 The `.delay()` method sends the task to the queue for async execution.
 

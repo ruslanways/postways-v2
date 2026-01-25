@@ -558,6 +558,52 @@ class PasswordChangeSerializer(serializers.Serializer):
         return data
 
 
+class PasswordResetSerializer(serializers.Serializer):
+    """
+    Serializer for password reset (recovery flow).
+
+    Used for POST /api/v1/auth/password/reset/ to reset password after receiving
+    a recovery token via email. Does NOT require the old password since the user
+    forgot it (that's why they're using recovery).
+
+    Fields:
+        - new_password: New password (required, validated against Django validators)
+        - new_password2: New password confirmation (required, must match new_password)
+    """
+
+    new_password = serializers.CharField(
+        style={"input_type": "password"},
+        write_only=True,
+    )
+    new_password2 = serializers.CharField(
+        style={"input_type": "password"},
+        write_only=True,
+    )
+
+    def validate(self, data):
+        """
+        Validate new password against Django validators and confirm match.
+
+        Args:
+            data: Dictionary containing new_password, new_password2
+
+        Returns:
+            dict: Validated data
+
+        Raises:
+            ValidationError: If passwords don't match or fail validation
+        """
+        if data["new_password"] != data["new_password2"]:
+            raise serializers.ValidationError(
+                {"new_password2": "New passwords must match."}
+            )
+
+        user = self.context["request"].user
+        validate_password(password=data["new_password"], user=user)
+
+        return data
+
+
 class UsernameChangeSerializer(serializers.Serializer):
     """
     Serializer for authenticated username change.
