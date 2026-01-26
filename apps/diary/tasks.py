@@ -122,6 +122,28 @@ def send_email_verification(verification_link, new_email):
     )
 
 
+@shared_task(bind=True, max_retries=3)
+def delete_media_files(self, file_paths):
+    """
+    Delete media files from storage (works with local and S3).
+
+    Uses Django's default_storage abstraction, so it works with any
+    configured storage backend. Includes retries for S3 transient failures.
+
+    Args:
+        file_paths: List of file paths relative to MEDIA_ROOT
+    """
+    from django.core.files.storage import default_storage
+
+    for path in file_paths:
+        try:
+            if default_storage.exists(path):
+                default_storage.delete(path)
+        except Exception as exc:
+            # Retry on failure (useful for S3 transient errors)
+            self.retry(exc=exc, countdown=60)
+
+
 @shared_task
 def send_password_reset_email(user_email, reset_url, username, site_name="Postways"):
     """

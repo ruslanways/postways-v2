@@ -60,6 +60,10 @@ uv sync
 - `Post` - Blog posts with async image processing via Celery (resizing, thumbnail generation, EXIF orientation fix)
 - `Like` - Post likes with unique constraint per user/post
 
+**Signals** (`apps/diary/signals.py`):
+- `log_user_login` - Logs user login events for monitoring/audit
+- `queue_post_image_deletion` - Queues async deletion of post images (image + thumbnail) when a post is deleted. Uses `pre_delete` signal to capture file paths before deletion, then `transaction.on_commit()` to ensure the Celery task only runs if the deletion succeeds. Works with both local storage and S3.
+
 **Authentication**:
 - Session-based for HTML views
 - JWT (SimpleJWT) for API with token rotation and blacklisting
@@ -439,6 +443,7 @@ CELERY_RESULT_BACKEND = f"redis://{REDIS_HOST}:{REDIS_PORT}/1"
 | Task | Purpose | Trigger |
 |------|---------|---------|
 | `process_post_image` | Resizes image (max 2000x2000), generates thumbnail (300x300), fixes EXIF orientation | On-demand via `Post.save()` |
+| `delete_media_files` | Deletes media files from storage (local or S3) with retries | On-demand via `pre_delete` signal on `Post` |
 | `send_token_recovery_email` | Emails password recovery token | On-demand via `.delay()` |
 | `send_email_verification` | Emails verification link for email change | On-demand via `.delay()` |
 | `send_week_report` | Emails weekly stats (users, posts, likes) | Scheduled: Saturday 10:00 |
