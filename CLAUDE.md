@@ -57,7 +57,7 @@ uv sync
 
 **Models** (`apps/diary/models.py`):
 - `CustomUser` - Extended user model with `last_request` tracking, `username_changed_at` for rate-limiting username changes, and email verification fields (`pending_email`, `email_verification_token`, `email_verification_expires`)
-- `Post` - Blog posts with async image processing via Celery (resizing, thumbnail generation, EXIF orientation fix)
+- `Post` - Blog posts with async image processing via Celery (resizing, thumbnail generation, EXIF orientation fix). Also handles media cleanup when images are cleared or replaced during edit (queues deletion via Celery).
 - `Like` - Post likes with unique constraint per user/post
 
 **Signals** (`apps/diary/signals.py`):

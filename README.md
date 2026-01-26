@@ -367,7 +367,7 @@ WebSocket connections use Django Channels' `AuthMiddlewareStack` (`config/asgi.p
 
 - User authentication (session-based for HTML views, JWT for API)
 - Post management with async image processing (resizing, thumbnails, EXIF orientation fix)
-- Automatic media cleanup when posts are deleted (async via Celery, works with local storage and S3)
+- Automatic media cleanup when posts are deleted or images are cleared/replaced (async via Celery, works with local storage and S3)
 - Real-time like updates via WebSocket
 - Background task processing with Celery
 - Secure password change with current password verification

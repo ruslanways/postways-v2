@@ -141,22 +141,42 @@ class Post(models.Model):
 
     def save(self, *args, **kwargs):
         """
-        Override save to trigger async image processing.
+        Override save to trigger async image processing and cleanup.
 
         When a new image is uploaded, saves the model and triggers
         a Celery task to resize the image and generate a thumbnail.
+        When an image is cleared or replaced, queues deletion of old files.
         """
-        # Track if this is a new image upload
+        # Track old image info for cleanup and new image detection
         is_new_image = False
+        old_image = None
+        old_thumbnail = None
+
         if self.pk:
-            old_image = (
-                Post.objects.filter(pk=self.pk).values_list("image", flat=True).first()
-            )
-            is_new_image = self.image and self.image.name != old_image
+            old_data = Post.objects.filter(pk=self.pk).values("image", "thumbnail").first()
+            if old_data:
+                old_image = old_data["image"]
+                old_thumbnail = old_data["thumbnail"]
+                # New image if uploading and different from old
+                is_new_image = self.image and self.image.name != old_image
         elif self.image:
             is_new_image = True
 
         super().save(*args, **kwargs)
+
+        # Queue deletion of old files if image was cleared or replaced
+        if old_image:
+            image_cleared = not self.image
+            image_replaced = self.image and self.image.name != old_image
+            if image_cleared or image_replaced:
+                from django.db import transaction
+
+                from .tasks import delete_media_files
+
+                paths = [old_image]
+                if old_thumbnail:
+                    paths.append(old_thumbnail)
+                transaction.on_commit(lambda: delete_media_files.delay(paths))
 
         # Trigger async processing for new images
         if is_new_image:
