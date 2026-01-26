@@ -125,7 +125,7 @@ Authorization: Bearer <access_token>
 - **Note**: 
   - Blacklists all existing refresh tokens for the user
   - Generates new token pair and emails the access token via Celery task
-  - User can use the access token to change password via `POST /api/v1/auth/password/change/`
+  - User can use the access token to reset password via `POST /api/v1/auth/password/reset/`
 
 #### `POST /api/v1/auth/password/change/`
 - **Authentication**: Required
@@ -149,6 +149,35 @@ Authorization: Bearer <access_token>
   - **Security**: Logs out from ALL devices after successful change:
     - All JWT refresh tokens are blacklisted (forces API re-authentication)
     - All sessions are invalidated (forces HTML re-login)
+
+#### `POST /api/v1/auth/password/reset/`
+- **Authentication**: Required (uses recovery token from email)
+- **Request Body**:
+  ```json
+  {
+    "new_password": "new_secure_password",
+    "new_password2": "new_secure_password"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "detail": "Password reset successfully."
+  }
+  ```
+- **Note**:
+  - This is for users who forgot their password and received a recovery token via `POST /api/v1/auth/token/recovery/`
+  - Does NOT require the old password (user forgot it)
+  - Requires valid JWT access token from recovery email in `Authorization: Bearer <token>` header
+  - New password is validated against Django's password validators
+  - **Security**: Logs out from ALL devices after successful reset:
+    - All JWT refresh tokens are blacklisted (forces API re-authentication)
+    - All sessions are invalidated (forces HTML re-login)
+  - **Flow**:
+    1. User requests recovery via `POST /api/v1/auth/token/recovery/`
+    2. User receives email with access token
+    3. User calls this endpoint with the token in Authorization header
+    4. Password is reset and all sessions/tokens are invalidated
 
 #### `POST /api/v1/auth/username/change/`
 - **Authentication**: Required
@@ -822,6 +851,7 @@ HTML endpoints use session-based authentication. Users must be logged in via `/l
 | `/api/v1/auth/token/verify/` | POST | No | Token verification |
 | `/api/v1/auth/token/recovery/` | POST | No | Password recovery |
 | `/api/v1/auth/password/change/` | POST | Yes | Change password (requires current password) |
+| `/api/v1/auth/password/reset/` | POST | Yes* | Reset password (uses recovery token, no old password) |
 | `/api/v1/auth/username/change/` | POST | Yes | Change username (requires password, 30-day cooldown) |
 | `/api/v1/auth/email/change/` | POST | Yes | Initiate email change (requires password, sends verification) |
 | `/api/v1/auth/email/verify/` | POST/GET | No | Verify email change token |
