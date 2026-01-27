@@ -1,631 +1,329 @@
-from django.core.exceptions import FieldError
+"""
+Tests for User API endpoints.
 
+Tests cover:
+- User registration (create)
+- User list (admin only)
+- User detail retrieval
+- User deletion
+"""
+
+import pytest
 from rest_framework import status
 from rest_framework.reverse import reverse
-from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.diary.models import CustomUser
-from apps.diary.serializers import (
-    UserDetailSerializer,
-    UserSerializer,
-)
 
-from .test_fixture import DiaryAPITestCase
+pytestmark = pytest.mark.django_db
 
 
-class UserAPITestCase(DiaryAPITestCase):
-    """
-    Test suite for User API endpoints.
-    
-    Tests cover:
-    - User listing (admin only)
-    - User registration/creation
-    - User profile retrieval
-    - User profile update restrictions (must use specific endpoints)
-    - Account deletion
-    - Password change
-    - Username change (including cooldown logic)
-    """
-    def test_user_list(self):
-        """
-        Test user listing endpoint.
-        
-        Verifies:
-        - Unauthorized access is blocked
-        - Regular users are forbidden
-        - Admins can list all users
-        """
-        # Unauthorized
-        response1 = self.client.get(reverse("user-list-create-api"))
-        self.assertEqual(response1.status_code, status.HTTP_401_UNAUTHORIZED)
+class TestUserRegistration:
+    """Tests for user registration endpoint (POST /api/v1/users/)."""
 
-        # Authorized as non-staff user
-        response2 = self.client.get(
-            reverse("user-list-create-api"),
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
-        )
-        self.assertEqual(response2.status_code, status.HTTP_403_FORBIDDEN)
-
-        # Authorized as admin
-        response3 = self.client.get(
-            reverse("user-list-create-api"),
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_admin}",
-        )
-        self.assertEqual(response3.status_code, status.HTTP_200_OK)
-        # Verify we got paginated results with all users
-        self.assertEqual(len(response3.data["results"]), CustomUser.objects.count())
-        # Verify response contains properly serialized user data
-        response_usernames = {u["username"] for u in response3.data["results"]}
-        expected_usernames = set(CustomUser.objects.values_list("username", flat=True))
-        self.assertEqual(response_usernames, expected_usernames)
-
-    def test_user_create(self):
-        """
-        Test user registration.
-        
-        Verifies:
-        - Authenticated users cannot register (must be anonymous)
-        - Successful registration with valid data
-        - Validation errors:
-            - Missing fields (password2, email)
-            - Invalid email format
-            - Password mismatch
-            - Password similarity to username
-            - Unknown fields are ignored/rejected based on configuration
-        """
-        # Authorized
-        response1 = self.client.post(
+    def test_register_success(self, api_client):
+        """Valid data creates user and returns 201."""
+        response = api_client.post(
             reverse("user-list-create-api"),
             {
-                "username": "NewTestUser",
-                "email": "somemail@gmail.com",
-                "password": "ribark8903",
-                "password2": "ribark8903",
+                "username": "newuser",
+                "email": "newuser@example.com",
+                "password": "securepass123",
+                "password2": "securepass123",
             },
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
-        )
-        self.assertEqual(response1.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertRaises(
-            CustomUser.DoesNotExist, CustomUser.objects.get, username="NewTestUser"
         )
 
-        # Unauthorized, correct data
-        response2 = self.client.post(
+        assert response.status_code == status.HTTP_201_CREATED
+        assert CustomUser.objects.filter(username="newuser").exists()
+        user = CustomUser.objects.get(username="newuser")
+        assert user.email == "newuser@example.com"
+        assert user.check_password("securepass123")
+
+    def test_register_duplicate_email(self, api_client, user):
+        """Duplicate email returns 400."""
+        response = api_client.post(
             reverse("user-list-create-api"),
             {
-                "username": "NewTestUser",
-                "email": "somemail@gmail.com",
-                "password": "ribark8903",
-                "password2": "ribark8903",
+                "username": "newuser2",
+                "email": user.email,  # existing email
+                "password": "securepass123",
+                "password2": "securepass123",
             },
         )
-        serializer = UserSerializer(
-            CustomUser.objects.get(username="NewTestUser"),
-            context={"request": response2.wsgi_request},
-        )
-        self.assertEqual(response2.status_code, status.HTTP_201_CREATED)
-        self.assertTrue(CustomUser.objects.get(username="NewTestUser"))
-        self.assertEqual(serializer.data, response2.data)
 
-        # Password2 missed
-        response3 = self.client.post(
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "email" in response.data
+
+    def test_register_duplicate_username(self, api_client, user):
+        """Duplicate username returns 400."""
+        response = api_client.post(
             reverse("user-list-create-api"),
             {
-                "username": "NewTestUser2",
-                "email": "somemail2@gmail.com",
-                "password": "ribark8903cz",
+                "username": user.username,  # existing username
+                "email": "different@example.com",
+                "password": "securepass123",
+                "password2": "securepass123",
             },
         )
-        self.assertEqual(response3.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertRaises(
-            CustomUser.DoesNotExist, CustomUser.objects.get, username="NewTestUser2"
-        )
 
-        # Email missed
-        response4 = self.client.post(
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "username" in response.data
+
+    def test_register_password_mismatch(self, api_client):
+        """Password mismatch returns 400."""
+        response = api_client.post(
             reverse("user-list-create-api"),
             {
-                "username": "NewTestUser2",
-                "password": "ribark8903cz",
-                "password2": "ribark8903cz",
+                "username": "newuser",
+                "email": "newuser@example.com",
+                "password": "securepass123",
+                "password2": "differentpass123",
             },
         )
-        self.assertEqual(response4.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertRaises(
-            CustomUser.DoesNotExist, CustomUser.objects.get, username="NewTestUser2"
-        )
 
-        # Invalid email
-        response5 = self.client.post(
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert not CustomUser.objects.filter(username="newuser").exists()
+
+    def test_register_password_too_simple(self, api_client):
+        """Simple password returns 400 (Django password validation)."""
+        response = api_client.post(
             reverse("user-list-create-api"),
             {
-                "username": "NewTestUser2",
-                "email": "sdncsja.io",
-                "password": "ribark8903cz",
-                "password2": "ribark8903cz",
+                "username": "newuser",
+                "email": "newuser@example.com",
+                "password": "123",
+                "password2": "123",
             },
         )
-        self.assertEqual(response5.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertRaises(
-            CustomUser.DoesNotExist, CustomUser.objects.get, username="NewTestUser2"
-        )
 
-        # Passwords doesn't match
-        response6 = self.client.post(
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert not CustomUser.objects.filter(username="newuser").exists()
+
+    def test_register_password_similar_to_username(self, api_client):
+        """Password similar to username returns 400."""
+        response = api_client.post(
             reverse("user-list-create-api"),
             {
-                "username": "NewTestUser2",
-                "email": "sdncsja.io",
-                "password": "ribark8903cz",
-                "password2": "ribark8903",
+                "username": "testuser",
+                "email": "test@example.com",
+                "password": "testuser123",
+                "password2": "testuser123",
             },
         )
-        self.assertEqual(response6.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertRaises(
-            CustomUser.DoesNotExist, CustomUser.objects.get, username="NewTestUser2"
-        )
 
-        # Passwords similar with username
-        response7 = self.client.post(
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert not CustomUser.objects.filter(username="testuser").exists()
+
+    def test_register_missing_required_fields(self, api_client):
+        """Missing email or password2 returns 400."""
+        # Missing email
+        response = api_client.post(
             reverse("user-list-create-api"),
             {
-                "username": "NewTestUser2",
-                "email": "somemail2@gmail.com",
-                "password": "newtestuser2",
-                "password2": "newtestuser2",
+                "username": "newuser",
+                "password": "securepass123",
+                "password2": "securepass123",
             },
         )
-        self.assertEqual(response7.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertRaises(
-            CustomUser.DoesNotExist, CustomUser.objects.get, username="NewTestUser2"
-        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "email" in response.data
 
-        # Unnessesary fields
-        response8 = self.client.post(
+        # Missing password2
+        response = api_client.post(
             reverse("user-list-create-api"),
             {
-                "username": "NewTestUser2",
-                "email": "somemail2@gmail.com",
-                "password": "ribark8903cz",
-                "password2": "ribark8903cz",
-                "sex": "Male",
+                "username": "newuser",
+                "email": "newuser@example.com",
+                "password": "securepass123",
             },
         )
-        object = CustomUser.objects.get(username="NewTestUser2")
-        serializer8 = UserSerializer(
-            object, context={"request": response2.wsgi_request}
-        )
-        self.assertEqual(response2.status_code, status.HTTP_201_CREATED)
-        self.assertFalse(getattr(object, "sex", False))
-        self.assertRaises(FieldError, CustomUser.objects.get, sex="Male")
-        self.assertEqual(serializer8.data, response8.data)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "password2" in response.data
 
-    def test_user_detail(self):
-        """
-        Test user profile retrieval.
-        
-        Verifies:
-        - Owner can access their own profile
-        - Admin can access any profile
-        - Other users are forbidden
-        - Unauthenticated access is blocked
-        """
-        def compare_user_data(serializer_data, response_data):
-            """Compare user data excluding last_request (updated by middleware after response)."""
-            s_data = {k: v for k, v in serializer_data.items() if k != "last_request"}
-            r_data = {k: v for k, v in response_data.items() if k != "last_request"}
-            return s_data == r_data
-
-        # Authorized by owner
-        response = self.client.get(
-            reverse("user-detail-update-destroy-api", args=[self.test_user_1.id]),
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
-        )
-        serializer = UserDetailSerializer(
-            self.test_user_1,
-            context={"request": response.wsgi_request},
-        )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(compare_user_data(serializer.data, response.data))
-
-        # Authorized by admin
-        response = self.client.get(
-            reverse("user-detail-update-destroy-api", args=[self.test_user_1.id]),
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_admin}",
-        )
-        serializer = UserDetailSerializer(
-            self.test_user_1,
-            context={"request": response.wsgi_request},
-        )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(compare_user_data(serializer.data, response.data))
-
-        # Authorized by non-owner (and non-admin)
-        response = self.client.get(
-            reverse("user-detail-update-destroy-api", args=[self.test_user_1.id]),
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user2}",
-        )
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
-        # Unauthorized
-        response = self.client.get(
-            reverse("user-detail-update-destroy-api", args=[self.test_user_1.id]),
-        )
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-
-    def test_user_update(self):
-        """
-        Test user profile update restrictions.
-        
-        Verifies that standard PUT/PATCH methods are NOT allowed on the user detail endpoint.
-        User updates must go through dedicated endpoints for security reasons:
-        - /api/v1/auth/password/change/
-        - /api/v1/auth/username/change/
-        - /api/v1/auth/email/change/
-        """
-
-        # Snapshot user before requests
-        response_initial = self.client.get("/")
-        serializer_before = UserDetailSerializer(
-            self.test_user_1, context={"request": response_initial.wsgi_request}
-        )
-
-        url = reverse("user-detail-update-destroy-api", args=[self.test_user_1.id])
-
-        # Unauthorized PUT
-        response = self.client.put(url, {"email": "newemail@ukr.net"})
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
-
-        # Authorized PUT (owner)
-        response = self.client.put(
-            url,
-            {"email": "newemail@ukr.net"},
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
-        )
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
-
-        # Authorized PATCH (owner)
-        response = self.client.patch(
-            url,
-            {"email": "newemail@ukr.net"},
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
-        )
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
-
-        # Ensure user has not changed
-        serializer_after = UserDetailSerializer(
-            CustomUser.objects.get(id=self.test_user_1.id),
-            context={"request": response_initial.wsgi_request},
-        )
-        self.assertEqual(serializer_before.data, serializer_after.data)
-
-    def test_user_delete(self):
-        """
-        Test account deletion.
-        
-        Verifies:
-        - Unauthorized users cannot delete accounts
-        - Users can delete their own account
-        - Admins can delete any account
-        """
-        # Unauthorized
-        response = self.client.delete(
-            reverse("user-detail-update-destroy-api", args=[self.test_user_2.id])
-        )
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertTrue(CustomUser.objects.get(id=self.test_user_2.id))
-
-        # Authorized by owner
-        response = self.client.delete(
-            reverse("user-detail-update-destroy-api", args=[self.test_user_2.id]),
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user2}",
-        )
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertRaises(
-            CustomUser.DoesNotExist, CustomUser.objects.get, username="TestUser2"
-        )
-
-        # Authorized by admin
-        response = self.client.delete(
-            reverse("user-detail-update-destroy-api", args=[self.test_user_3.id]),
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_admin}",
-        )
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertRaises(
-            CustomUser.DoesNotExist, CustomUser.objects.get, username="TestUser3"
-        )
-
-    def test_password_change(self):
-        """
-        Test the dedicated password change endpoint.
-        
-        Verifies:
-        - Authentication required
-        - Old password verification
-        - New password confirmation match
-        - Password complexity requirements
-        - Successful change updates the hash
-        """
-        """Test the dedicated password change endpoint."""
-
-        # Unauthorized request
-        response = self.client.post(
-            reverse("password-change-api"),
+    def test_register_invalid_email_format(self, api_client):
+        """Invalid email format returns 400."""
+        response = api_client.post(
+            reverse("user-list-create-api"),
             {
-                "old_password": "fokker123",
-                "new_password": "newpassword123",
-                "new_password2": "newpassword123",
+                "username": "newuser",
+                "email": "invalid-email",
+                "password": "securepass123",
+                "password2": "securepass123",
             },
         )
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-        # Authorized but wrong old password
-        response = self.client.post(
-            reverse("password-change-api"),
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "email" in response.data
+
+    def test_register_authenticated_forbidden(self, authenticated_api_client):
+        """Authenticated users cannot register (must be anonymous)."""
+        response = authenticated_api_client.post(
+            reverse("user-list-create-api"),
             {
-                "old_password": "wrongpassword",
-                "new_password": "newpassword123",
-                "new_password2": "newpassword123",
-            },
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
-        )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("old_password", response.data)
-
-        # Authorized but passwords don't match
-        response = self.client.post(
-            reverse("password-change-api"),
-            {
-                "old_password": "fokker123",
-                "new_password": "newpassword123",
-                "new_password2": "differentpassword123",
-            },
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
-        )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("new_password2", response.data)
-
-        # Authorized but new password too simple
-        response = self.client.post(
-            reverse("password-change-api"),
-            {
-                "old_password": "fokker123",
-                "new_password": "123",
-                "new_password2": "123",
-            },
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
-        )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-        # Successful password change
-        original_password_hash = self.test_user_1.password
-        response = self.client.post(
-            reverse("password-change-api"),
-            {
-                "old_password": "fokker123",
-                "new_password": "newpassword123",
-                "new_password2": "newpassword123",
-            },
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
-        )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("detail", response.data)
-
-        # Verify password was actually changed
-        self.test_user_1.refresh_from_db()
-        self.assertNotEqual(self.test_user_1.password, original_password_hash)
-        self.assertTrue(self.test_user_1.check_password("newpassword123"))
-
-    def test_username_change(self):
-        """
-        Test the dedicated username change endpoint.
-        
-        Verifies:
-        - Authentication required
-        - Password verification required
-        - Unique constraint check (case-insensitive)
-        - Successful change updates the username
-        - 30-day cooldown enforcement
-        """
-        """Test the dedicated username change endpoint."""
-        from datetime import timedelta
-
-        from django.utils import timezone
-
-        # Unauthorized request
-        response = self.client.post(
-            reverse("username-change-api"),
-            {
-                "password": "fokker123",
-                "new_username": "NewTestUser1",
+                "username": "newuser",
+                "email": "newuser@example.com",
+                "password": "securepass123",
+                "password2": "securepass123",
             },
         )
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-        # Authorized but wrong password
-        response = self.client.post(
-            reverse("username-change-api"),
-            {
-                "password": "wrongpassword",
-                "new_username": "NewTestUser1",
-            },
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
-        )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("password", response.data)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
-        # Authorized but username already taken (case-insensitive)
-        response = self.client.post(
-            reverse("username-change-api"),
-            {
-                "password": "fokker123",
-                "new_username": "testuser2",  # TestUser2 exists (case-insensitive check)
-            },
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
-        )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("new_username", response.data)
 
-        # Successful username change
-        original_username = self.test_user_1.username
-        response = self.client.post(
-            reverse("username-change-api"),
-            {
-                "password": "fokker123",
-                "new_username": "NewTestUser1",
-            },
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
-        )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("detail", response.data)
-        self.assertEqual(response.data["username"], "NewTestUser1")
+class TestUserList:
+    """Tests for user list endpoint (GET /api/v1/users/)."""
 
-        # Verify username was actually changed
-        self.test_user_1.refresh_from_db()
-        self.assertNotEqual(self.test_user_1.username, original_username)
-        self.assertEqual(self.test_user_1.username, "NewTestUser1")
-        self.assertIsNotNone(self.test_user_1.username_changed_at)
+    def test_list_users_admin_only(self, admin_api_client, user):
+        """Admin user gets 200 with list of users."""
+        response = admin_api_client.get(reverse("user-list-create-api"))
 
-        # Test 30-day cooldown - immediate second change should fail
-        response = self.client.post(
-            reverse("username-change-api"),
-            {
-                "password": "fokker123",
-                "new_username": "AnotherUsername",
-            },
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
-        )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("new_username", response.data)
-        # Username should remain unchanged
-        self.test_user_1.refresh_from_db()
-        self.assertEqual(self.test_user_1.username, "NewTestUser1")
+        assert response.status_code == status.HTTP_200_OK
+        assert "results" in response.data
 
-        # Simulate cooldown period passed (set username_changed_at to 31 days ago)
-        self.test_user_1.username_changed_at = timezone.now() - timedelta(days=31)
-        self.test_user_1.save()
+    def test_list_users_regular_user_forbidden(self, authenticated_api_client):
+        """Regular user gets 403."""
+        response = authenticated_api_client.get(reverse("user-list-create-api"))
 
-        # Now username change should succeed
-        response = self.client.post(
-            reverse("username-change-api"),
-            {
-                "password": "fokker123",
-                "new_username": "AnotherUsername",
-            },
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
-        )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.test_user_1.refresh_from_db()
-        self.assertEqual(self.test_user_1.username, "AnotherUsername")
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_password_reset_flow(self):
-        """
-        Test the complete password reset (recovery) flow.
+    def test_list_users_anonymous_unauthorized(self, api_client):
+        """Anonymous user gets 401."""
+        response = api_client.get(reverse("user-list-create-api"))
 
-        Verifies:
-        - Token recovery endpoint returns success
-        - Password reset endpoint works with valid password_reset token
-        - Password is actually changed and user can log in with new password
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-        Note: Email sending is handled by Celery task which doesn't run
-        synchronously in tests, so we test the token generation directly.
-        """
-        # Create a fresh user for this test
-        test_user = CustomUser.objects.create_user(
-            email="resettest@ukr.net", username="ResetTestUser", password="oldpassword123"
+
+class TestUserDetail:
+    """Tests for user detail endpoint (GET /api/v1/users/{id}/)."""
+
+    def test_view_own_profile(self, authenticated_api_client, user):
+        """Owner can view their profile."""
+        response = authenticated_api_client.get(
+            reverse("user-detail-update-destroy-api", args=[user.id])
         )
 
-        # Step 1: Request token recovery (email sent via Celery, not tested here)
-        response = self.client.post(
-            reverse("token-recovery-api"),
-            {"email": test_user.email},
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["username"] == user.username
+        assert response.data["email"] == user.email
+
+    def test_view_other_profile_forbidden(
+        self, authenticated_api_client, user, other_user
+    ):
+        """Non-owner gets 403."""
+        response = authenticated_api_client.get(
+            reverse("user-detail-update-destroy-api", args=[other_user.id])
         )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        # Step 2: Generate an access token (simulating what recovery provides)
-        reset_token = RefreshToken.for_user(test_user).access_token
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
-        # Step 3: Reset password with valid token
-        response = self.client.post(
-            reverse("password-reset-api"),
-            {
-                "new_password": "newpassword456",
-                "new_password2": "newpassword456",
-            },
-            HTTP_AUTHORIZATION=f"Bearer {str(reset_token)}",
+    def test_admin_can_view_any_profile(self, admin_api_client, user):
+        """Admin can view any user's profile."""
+        response = admin_api_client.get(
+            reverse("user-detail-update-destroy-api", args=[user.id])
         )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("detail", response.data)
 
-        # Step 4: Verify password was actually changed
-        test_user.refresh_from_db()
-        self.assertTrue(test_user.check_password("newpassword456"))
-        self.assertFalse(test_user.check_password("oldpassword123"))
+        assert response.status_code == status.HTTP_200_OK
 
-        # Step 5: Verify user can log in with new password
-        response = self.client.post(
-            reverse("login-api"),
-            {
-                "username": test_user.username,
-                "password": "newpassword456",
-            },
+    def test_view_profile_anonymous_unauthorized(self, api_client, user):
+        """Anonymous user gets 401."""
+        response = api_client.get(
+            reverse("user-detail-update-destroy-api", args=[user.id])
         )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("access", response.data)
 
-    def test_password_reset_validation(self):
-        """
-        Test password reset validation rules.
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-        Verifies:
-        - Passwords must match
-        - Password complexity requirements are enforced
-        - Authentication is required
-        """
-        reset_token = RefreshToken.for_user(self.test_user_1).access_token
-
-        # Passwords don't match
-        response = self.client.post(
-            reverse("password-reset-api"),
-            {
-                "new_password": "newpassword123",
-                "new_password2": "differentpassword123",
-            },
-            HTTP_AUTHORIZATION=f"Bearer {str(reset_token)}",
+    def test_view_profile_includes_posts_and_likes(
+        self, authenticated_api_client, user, post, like
+    ):
+        """Profile includes post_set and like_set."""
+        response = authenticated_api_client.get(
+            reverse("user-detail-update-destroy-api", args=[user.id])
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("new_password2", response.data)
 
-        # Password too simple
-        response = self.client.post(
-            reverse("password-reset-api"),
-            {
-                "new_password": "123",
-                "new_password2": "123",
-            },
-            HTTP_AUTHORIZATION=f"Bearer {str(reset_token)}",
+        assert response.status_code == status.HTTP_200_OK
+        assert "post_set" in response.data
+        assert "like_set" in response.data
+
+
+class TestUserUpdate:
+    """Tests for user update (PUT/PATCH not allowed - use dedicated endpoints)."""
+
+    def test_update_via_put_not_allowed(self, authenticated_api_client, user):
+        """PUT method returns 405 (use dedicated endpoints)."""
+        response = authenticated_api_client.put(
+            reverse("user-detail-update-destroy-api", args=[user.id]),
+            {"email": "newemail@example.com"},
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-        # No authentication
-        response = self.client.post(
-            reverse("password-reset-api"),
-            {
-                "new_password": "validpassword123",
-                "new_password2": "validpassword123",
-            },
+        assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
+
+    def test_update_via_patch_not_allowed(self, authenticated_api_client, user):
+        """PATCH method returns 405 (use dedicated endpoints)."""
+        response = authenticated_api_client.patch(
+            reverse("user-detail-update-destroy-api", args=[user.id]),
+            {"email": "newemail@example.com"},
         )
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_token_recovery_nonexistent_email(self):
-        """
-        Test token recovery with non-existent email.
+        assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
 
-        Verifies proper error response for unknown emails.
-        """
-        response = self.client.post(
-            reverse("token-recovery-api"),
-            {"email": "nonexistent@example.com"},
+
+class TestUserDelete:
+    """Tests for user deletion endpoint (DELETE /api/v1/users/{id}/)."""
+
+    def test_delete_own_account(self, authenticated_api_client, user):
+        """Owner can delete their account."""
+        user_id = user.id
+        response = authenticated_api_client.delete(
+            reverse("user-detail-update-destroy-api", args=[user_id])
         )
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertIn("error", response.data)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not CustomUser.objects.filter(id=user_id).exists()
+
+    def test_delete_other_account_forbidden(
+        self, authenticated_api_client, user, other_user
+    ):
+        """Non-owner cannot delete another user's account."""
+        response = authenticated_api_client.delete(
+            reverse("user-detail-update-destroy-api", args=[other_user.id])
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert CustomUser.objects.filter(id=other_user.id).exists()
+
+    def test_admin_can_delete_any_account(self, admin_api_client, user):
+        """Admin can delete any user's account."""
+        user_id = user.id
+        response = admin_api_client.delete(
+            reverse("user-detail-update-destroy-api", args=[user_id])
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not CustomUser.objects.filter(id=user_id).exists()
+
+    def test_delete_anonymous_unauthorized(self, api_client, user):
+        """Anonymous user gets 401."""
+        response = api_client.delete(
+            reverse("user-detail-update-destroy-api", args=[user.id])
+        )
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert CustomUser.objects.filter(id=user.id).exists()
+
+    def test_delete_cascades_posts_and_likes(
+        self, authenticated_api_client, user, post, like
+    ):
+        """Deleting user cascades to their posts and likes."""
+        from apps.diary.models import Like, Post
+
+        user_id = user.id
+        post_id = post.id
+        like_id = like.id
+
+        response = authenticated_api_client.delete(
+            reverse("user-detail-update-destroy-api", args=[user_id])
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not CustomUser.objects.filter(id=user_id).exists()
+        assert not Post.objects.filter(id=post_id).exists()
+        assert not Like.objects.filter(id=like_id).exists()

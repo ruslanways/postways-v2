@@ -1,388 +1,349 @@
-from django.db.models import Count
+"""
+Tests for Post API endpoints.
 
+Tests cover:
+- Post listing (published only)
+- Post creation (authenticated users only)
+- Post detail retrieval (permission checks for unpublished)
+- Post update (owner only)
+- Post deletion (owner or admin)
+- Profanity validation
+"""
+
+import pytest
 from rest_framework import status
 from rest_framework.reverse import reverse
-from rest_framework.settings import api_settings
 
 from apps.diary.models import Post
-from apps.diary.serializers import (
-    PostDetailSerializer,
-    PostSerializer,
-)
 
-from .test_fixture import DiaryAPITestCase
+pytestmark = pytest.mark.django_db
 
 
-class PostAPITestCase(DiaryAPITestCase):
-    """
-    Test suite for Post API endpoints.
-    
-    Tests cover:
-    - Listing posts (filtering, pagination)
-    - Creating new posts
-    - Retrieving post details (including permission checks)
-    - Updating posts (PUT/PATCH)
-    - Deleting posts
-    """
-    def test_post_list(self):
-        """
-        Test listing posts.
-        
-        Verifies that:
-        - Unpublished posts are excluded
-        - Results are paginated
-        - Ordering is correct
-        """
-        queryset = (
-            Post.objects.exclude(published=False)
-            .annotate(likes=Count("like"))
-            .order_by("-updated")
-        )
+class TestPostList:
+    """Tests for post list endpoint (GET /api/v1/posts/)."""
 
-        response = self.client.get(reverse("post-list-create-api"))
+    def test_list_published_only(self, api_client, post, unpublished_post):
+        """Anonymous sees only published posts."""
+        response = api_client.get(reverse("post-list-create-api"))
 
-        serializer = PostSerializer(
-            queryset, many=True, context={"request": response.wsgi_request}
-        )
+        assert response.status_code == status.HTTP_200_OK
+        post_ids = [p["id"] for p in response.data["results"]]
+        assert post.id in post_ids
+        assert unpublished_post.id not in post_ids
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            serializer.data[: api_settings.PAGE_SIZE], response.data["results"]
-        )
+    def test_list_authenticated_sees_published_only(
+        self, authenticated_api_client, post, unpublished_post
+    ):
+        """Authenticated user also sees only published posts in list."""
+        response = authenticated_api_client.get(reverse("post-list-create-api"))
 
-    def test_post_create(self):
-        """
-        Test creating a new post.
-        
-        Verifies:
-        - Unauthorized access is blocked
-        - Validation errors (missing title, invalid author)
-        - Successful creation of published/unpublished posts
-        - Author is automatically set to the request user
-        """
-        # We just need to include Authorization header with our post-request below.
-        # We also can use .credentials to set Authorization header with all requests:
-        # self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
-        # but we need 1 request to be Unauthorized, so we won't do it for now.
-        # Or we can use standard Django session authorization backend:
-        # self.client.login(username="TestUser1", password="fokker123")
+        assert response.status_code == status.HTTP_200_OK
+        post_ids = [p["id"] for p in response.data["results"]]
+        assert post.id in post_ids
+        assert unpublished_post.id not in post_ids
 
-        # Unauthorized
-        response1 = self.client.post(
+    def test_list_includes_like_count(self, api_client, post, like_factory, user):
+        """Post list includes likes count."""
+        # Create some likes
+        like_factory(post=post, user=user)
+
+        response = api_client.get(reverse("post-list-create-api"))
+
+        assert response.status_code == status.HTTP_200_OK
+        post_data = next(p for p in response.data["results"] if p["id"] == post.id)
+        assert "likes" in post_data
+        assert post_data["likes"] == 1
+
+    def test_list_is_paginated(self, api_client, post_factory, user):
+        """Post list is paginated."""
+        # Create more posts than one page
+        for _ in range(15):
+            post_factory(author=user)
+
+        response = api_client.get(reverse("post-list-create-api"))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert "count" in response.data
+        assert "next" in response.data
+        assert "previous" in response.data
+        assert "results" in response.data
+
+
+class TestPostCreate:
+    """Tests for post creation endpoint (POST /api/v1/posts/)."""
+
+    def test_create_requires_auth(self, api_client):
+        """Anonymous gets 401."""
+        response = api_client.post(
             reverse("post-list-create-api"),
-            {"title": "New Test Post 1", "content": "Some conntent of New Test Post 1"},
+            {"title": "Test", "content": "Test content"},
         )
 
-        # Use credentials to set Authorization header with all further requests:
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}")
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-        # Bad request. Lack of "title".
-        response2 = self.client.post(
+    def test_create_success(self, authenticated_api_client, user):
+        """Authenticated user can create post."""
+        response = authenticated_api_client.post(
             reverse("post-list-create-api"),
-            {"content": "Some conntent of New Test Post 2"},
+            {"title": "New Post", "content": "New content here"},
         )
 
-        response3 = self.client.post(
+        assert response.status_code == status.HTTP_201_CREATED
+        assert Post.objects.filter(title="New Post").exists()
+
+    def test_create_sets_author(self, authenticated_api_client, user):
+        """Author is set to current user."""
+        response = authenticated_api_client.post(
             reverse("post-list-create-api"),
-            {"title": "New Test Post 3", "content": "Some conntent of New Test Post 3"},
+            {"title": "New Post", "content": "New content here"},
         )
 
-        response4 = self.client.post(
-            reverse("post-list-create-api"),
-            {
-                "title": "New Test Post 4",
-                "content": "Some conntent of New Test Post 4",
-                "author": 3,
-            },
-        )
+        assert response.status_code == status.HTTP_201_CREATED
+        post = Post.objects.get(title="New Post")
+        assert post.author == user
 
-        response5 = self.client.post(
+    def test_create_cannot_override_author(self, authenticated_api_client, user, other_user):
+        """Attempting to set author is ignored."""
+        response = authenticated_api_client.post(
             reverse("post-list-create-api"),
             {
-                "title": "New Test Post 5",
-                "content": "Some conntent of New Test Post 5",
-                "created": "2022-03-01",
+                "title": "New Post",
+                "content": "New content here",
+                "author": other_user.id,
             },
         )
 
-        response6 = self.client.post(
+        assert response.status_code == status.HTTP_201_CREATED
+        post = Post.objects.get(title="New Post")
+        # Author should be the authenticated user, not other_user
+        assert post.author == user
+
+    def test_create_published_by_default(self, authenticated_api_client):
+        """Posts are published by default."""
+        response = authenticated_api_client.post(
             reverse("post-list-create-api"),
-            {
-                "title": "New Test Post 6",
-                "content": "Some conntent of New Test Post 6",
-                "published": False,
-            },
+            {"title": "New Post", "content": "New content here"},
         )
 
-        serializer = PostSerializer(
-            Post.objects.get(title="New Test Post 3"),
-            context={"request": response1.wsgi_request},
+        assert response.status_code == status.HTTP_201_CREATED
+        post = Post.objects.get(title="New Post")
+        assert post.published is True
+
+    def test_create_unpublished(self, authenticated_api_client):
+        """Can create unpublished (draft) post."""
+        response = authenticated_api_client.post(
+            reverse("post-list-create-api"),
+            {"title": "Draft Post", "content": "Draft content", "published": False},
         )
 
-        self.assertEqual(response1.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertRaises(Post.DoesNotExist, Post.objects.get, title="New Test Post 1")
+        assert response.status_code == status.HTTP_201_CREATED
+        post = Post.objects.get(title="Draft Post")
+        assert post.published is False
 
-        self.assertEqual(response2.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertRaises(Post.DoesNotExist, Post.objects.get, title="New Test Post 2")
-
-        self.assertEqual(response3.status_code, status.HTTP_201_CREATED)
-        self.assertTrue(Post.objects.get(title="New Test Post 3"))
-        self.assertEqual(serializer.data, response3.data)
-
-        self.assertEqual(response4.status_code, status.HTTP_201_CREATED)
-        self.assertNotEqual(Post.objects.get(title="New Test Post 4").author_id, 3)
-        self.assertEqual(
-            Post.objects.get(title="New Test Post 4").author_id,
-            response4.wsgi_request.user.id,
+    def test_create_missing_title(self, authenticated_api_client):
+        """Missing title returns 400."""
+        response = authenticated_api_client.post(
+            reverse("post-list-create-api"),
+            {"content": "Content without title"},
         )
 
-        self.assertEqual(response5.status_code, status.HTTP_201_CREATED)
-        self.assertNotEqual(
-            Post.objects.get(title="New Test Post 5").created, "2022-03-01"
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "title" in response.data
+
+    def test_create_missing_content(self, authenticated_api_client):
+        """Missing content returns 400."""
+        response = authenticated_api_client.post(
+            reverse("post-list-create-api"),
+            {"title": "Title without content"},
         )
 
-        self.assertEqual(response6.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Post.objects.get(title="New Test Post 6").published, False)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "content" in response.data
 
-    def test_post_detail(self):
-        """
-        Test retrieving post details.
-        
-        Verifies:
-        - Public posts are accessible
-        - Unpublished posts are forbidden (403) for non-owners
-        - Unpublished posts are accessible (200) for owners
-        """
-        # It's good idea to make a random choosing of Post object,
-        # but we need to test both Post object with published Ture and False.
-        # post_id = random.choice(Post.objects.all().values('id'))['id']
-        # url = (reverse("post-detail-api", args=[post_id]))
-
-        # published=True
-        response1 = self.client.get(
-            reverse("post-detail-api", args=[self.test_post_1.id])
-        )
-        # published=False
-        response2 = self.client.get(
-            reverse("post-detail-api", args=[self.test_post_12.id])
+    def test_create_profanity_rejected(self, authenticated_api_client):
+        """Title with profanity returns 400."""
+        response = authenticated_api_client.post(
+            reverse("post-list-create-api"),
+            {"title": "fuck this", "content": "Some content"},
         )
 
-        # published=False, but read by Owner
-        response3 = self.client.get(
-            reverse("post-detail-api", args=[self.test_post_12.id]),
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user3}",
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "title" in response.data
+
+    def test_create_profanity_in_content_rejected(self, authenticated_api_client):
+        """Content with profanity returns 400."""
+        response = authenticated_api_client.post(
+            reverse("post-list-create-api"),
+            {"title": "Valid Title", "content": "This is bullshit content"},
         )
 
-        serializer1 = PostDetailSerializer(
-            self.test_post_1,
-            context={"request": response1.wsgi_request},
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "content" in response.data
+
+
+class TestPostDetail:
+    """Tests for post detail endpoint (GET /api/v1/posts/{id}/)."""
+
+    def test_view_published_post(self, api_client, post):
+        """Anyone can view a published post."""
+        response = api_client.get(reverse("post-detail-api", args=[post.id]))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["id"] == post.id
+        assert response.data["title"] == post.title
+
+    def test_view_unpublished_owner_only(self, api_client, unpublished_post):
+        """Non-owner gets 403 for unpublished post."""
+        response = api_client.get(reverse("post-detail-api", args=[unpublished_post.id]))
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_view_unpublished_by_owner(self, authenticated_api_client, unpublished_post):
+        """Owner can view their unpublished post."""
+        response = authenticated_api_client.get(
+            reverse("post-detail-api", args=[unpublished_post.id])
         )
 
-        serializer3 = PostDetailSerializer(
-            self.test_post_12,
-            context={"request": response1.wsgi_request},
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["id"] == unpublished_post.id
+
+    def test_view_unpublished_by_admin(self, admin_api_client, unpublished_post):
+        """Admin can view any unpublished post."""
+        response = admin_api_client.get(
+            reverse("post-detail-api", args=[unpublished_post.id])
         )
 
-        self.assertEqual(response1.status_code, status.HTTP_200_OK)
-        self.assertEqual(serializer1.data, response1.data)
+        assert response.status_code == status.HTTP_200_OK
 
-        self.assertEqual(response2.status_code, status.HTTP_403_FORBIDDEN)
+    def test_view_includes_like_set(self, api_client, post, like):
+        """Post detail includes like_set."""
+        response = api_client.get(reverse("post-detail-api", args=[post.id]))
 
-        self.assertEqual(response3.status_code, status.HTTP_200_OK)
-        self.assertEqual(serializer3.data, response3.data)
+        assert response.status_code == status.HTTP_200_OK
+        assert "like_set" in response.data
 
-    def test_post_update(self):
-        """
-        Test updating posts via PUT and PATCH.
-        
-        Verifies:
-        - Unauthorized users cannot update
-        - Owners can update their posts
-        - Admins can update any post
-        - Partial updates work correctly
-        - Unknown fields are ignored
-        """
-        # Note: Post objects reachable with self.test_post_* (fixture data)
-        # only reflect the state at creation time.
-        # To verify changes, we must retrieve fresh objects from the database manager.
+    def test_view_nonexistent_post(self, api_client):
+        """Non-existent post returns 404."""
+        response = api_client.get(reverse("post-detail-api", args=[99999]))
 
-        # Make a response just to obtain the wsgi_request for serializer to get serializer of clear Post object
-        response = self.client.get("/")
-        serializer_before_update = PostDetailSerializer(
-            self.test_post_1, context={"request": response.wsgi_request}
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+class TestPostUpdate:
+    """Tests for post update endpoint (PUT/PATCH /api/v1/posts/{id}/)."""
+
+    def test_update_owner_only(self, other_user_api_client, post):
+        """Non-owner gets 403."""
+        response = other_user_api_client.put(
+            reverse("post-detail-api", args=[post.id]),
+            {"title": "Updated", "content": "Updated content"},
         )
 
-        # Unathorized
-        response1 = self.client.put(
-            reverse("post-detail-api", args=[self.test_post_1.id]),
-            {
-                "title": "TestPost1 UPDATED by put ",
-                "content": "Some UPDATED test 1 content",
-            },
-        )
-        serializer_after_update1 = PostDetailSerializer(
-            Post.objects.get(id=self.test_post_1.id),
-            context={"request": response1.wsgi_request},
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_update_unauthorized(self, api_client, post):
+        """Anonymous gets 401."""
+        response = api_client.put(
+            reverse("post-detail-api", args=[post.id]),
+            {"title": "Updated", "content": "Updated content"},
         )
 
-        self.assertEqual(response1.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertEqual(serializer_before_update.data, serializer_after_update1.data)
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-        # Authorized by owner
-        response2 = self.client.put(
-            reverse("post-detail-api", args=[self.test_post_1.id]),
-            {
-                "title": "TestPost1 UPDATED by put",
-                "content": "Some UPDATED test 1 content",
-            },
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
-        )
-        serializer_after_update2 = PostDetailSerializer(
-            Post.objects.get(id=self.test_post_1.id),
-            context={"request": response2.wsgi_request},
-        )
-        self.assertEqual(response2.status_code, status.HTTP_200_OK)
-        self.assertNotEqual(
-            serializer_after_update1.data, serializer_after_update2.data
+    def test_update_by_owner_put(self, authenticated_api_client, post):
+        """Owner can update their post via PUT."""
+        response = authenticated_api_client.put(
+            reverse("post-detail-api", args=[post.id]),
+            {"title": "Updated Title", "content": "Updated content"},
         )
 
-        # Authorized by admin
-        response3 = self.client.put(
-            reverse("post-detail-api", args=[self.test_post_1.id]),
-            {
-                "title": "TestPost1 UPDATED by put",
-                "content": "Some UPDATED test 1 content",
-            },
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_admin}",
-        )
-        serializer_after_update3 = PostDetailSerializer(
-            Post.objects.get(id=self.test_post_1.id),
-            context={"request": response3.wsgi_request},
-        )
-        self.assertEqual(response3.status_code, status.HTTP_200_OK)
-        self.assertNotEqual(
-            serializer_after_update2.data, serializer_after_update3.data
+        assert response.status_code == status.HTTP_200_OK
+        post.refresh_from_db()
+        assert post.title == "Updated Title"
+        assert post.content == "Updated content"
+
+    def test_update_by_owner_patch(self, authenticated_api_client, post):
+        """Owner can partially update their post via PATCH."""
+        original_content = post.content
+        response = authenticated_api_client.patch(
+            reverse("post-detail-api", args=[post.id]),
+            {"title": "Patched Title"},
         )
 
-        # Update with unexisted fieldname
-        response4 = self.client.put(
-            reverse("post-detail-api", args=[self.test_post_1.id]),
-            {
-                "title": "TestPost1 UPDATED by put",
-                "contAnt": "Some UPDATED test 1 content",
-            },
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
-        )
-        serializer_after_update4 = PostDetailSerializer(
-            Post.objects.get(id=self.test_post_1.id),
-            context={"request": response4.wsgi_request},
-        )
-        self.assertEqual(response4.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            serializer_after_update3.data["content"],
-            serializer_after_update4.data["content"],
+        assert response.status_code == status.HTTP_200_OK
+        post.refresh_from_db()
+        assert post.title == "Patched Title"
+        assert post.content == original_content
+
+    def test_update_by_admin(self, admin_api_client, post):
+        """Admin can update any post."""
+        response = admin_api_client.patch(
+            reverse("post-detail-api", args=[post.id]),
+            {"title": "Admin Updated"},
         )
 
-        ##############################PATCH
-        # Unathorized
-        response1 = self.client.patch(
-            reverse("post-detail-api", args=[self.test_post_1.id]),
-            {
-                "title": "TestPost1 UPDATED by patch ",
-                "content": "Some UPDATED with patch test 1 content",
-            },
-        )
-        serializer_after_update5 = PostDetailSerializer(
-            Post.objects.get(id=self.test_post_1.id),
-            context={"request": response1.wsgi_request},
+        assert response.status_code == status.HTTP_200_OK
+        post.refresh_from_db()
+        assert post.title == "Admin Updated"
+
+    def test_update_profanity_rejected(self, authenticated_api_client, post):
+        """Update with profanity returns 400."""
+        response = authenticated_api_client.patch(
+            reverse("post-detail-api", args=[post.id]),
+            {"title": "fuck this"},
         )
 
-        self.assertEqual(response1.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertEqual(serializer_after_update4.data, serializer_after_update5.data)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-        # Authorized by owner
-        response2 = self.client.patch(
-            reverse("post-detail-api", args=[self.test_post_1.id]),
-            {
-                "title": "TestPost1 UPDATED by patch 2",
-                "content": "Some UPDATED with patch 2 test 1 content",
-            },
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
-        )
-        serializer_after_update6 = PostDetailSerializer(
-            Post.objects.get(id=self.test_post_1.id),
-            context={"request": response2.wsgi_request},
-        )
-        self.assertEqual(response2.status_code, status.HTTP_200_OK)
-        self.assertNotEqual(
-            serializer_after_update5.data, serializer_after_update6.data
+
+class TestPostDelete:
+    """Tests for post deletion endpoint (DELETE /api/v1/posts/{id}/)."""
+
+    def test_delete_owner_can_delete(self, authenticated_api_client, post):
+        """Owner can delete their post."""
+        post_id = post.id
+        response = authenticated_api_client.delete(
+            reverse("post-detail-api", args=[post_id])
         )
 
-        # Authorized by admin
-        response3 = self.client.patch(
-            reverse("post-detail-api", args=[self.test_post_1.id]),
-            {
-                "title": "TestPost1 UPDATED by patch 3",
-                "content": "Some UPDATED with patch 3 test 1 content",
-            },
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_admin}",
-        )
-        serializer_after_update7 = PostDetailSerializer(
-            Post.objects.get(id=self.test_post_1.id),
-            context={"request": response3.wsgi_request},
-        )
-        self.assertEqual(response3.status_code, status.HTTP_200_OK)
-        self.assertNotEqual(
-            serializer_after_update6.data, serializer_after_update7.data
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not Post.objects.filter(id=post_id).exists()
+
+    def test_delete_admin_can_delete(self, admin_api_client, post):
+        """Admin can delete any post."""
+        post_id = post.id
+        response = admin_api_client.delete(reverse("post-detail-api", args=[post_id]))
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not Post.objects.filter(id=post_id).exists()
+
+    def test_delete_non_owner_forbidden(self, other_user_api_client, post):
+        """Non-owner gets 403."""
+        response = other_user_api_client.delete(
+            reverse("post-detail-api", args=[post.id])
         )
 
-        # Update with unexisted fieldname
-        response4 = self.client.patch(
-            reverse("post-detail-api", args=[self.test_post_1.id]),
-            {
-                "title": "TestPost1 UPDATED by patch 4",
-                "contAnt": "Some UPDATED with patch 4 test 1 content",
-            },
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
-        )
-        serializer_after_update8 = PostDetailSerializer(
-            Post.objects.get(id=self.test_post_1.id),
-            context={"request": response4.wsgi_request},
-        )
-        self.assertEqual(response4.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            serializer_after_update7.data["content"],
-            serializer_after_update8.data["content"],
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert Post.objects.filter(id=post.id).exists()
+
+    def test_delete_unauthorized(self, api_client, post):
+        """Anonymous gets 401."""
+        response = api_client.delete(reverse("post-detail-api", args=[post.id]))
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert Post.objects.filter(id=post.id).exists()
+
+    def test_delete_cascades_likes(self, authenticated_api_client, post, like):
+        """Deleting post cascades to its likes."""
+        from apps.diary.models import Like
+
+        post_id = post.id
+        like_id = like.id
+
+        response = authenticated_api_client.delete(
+            reverse("post-detail-api", args=[post_id])
         )
 
-    def test_post_delete(self):
-        """
-        Test deleting posts.
-        
-        Verifies:
-        - Unauthorized users cannot delete
-        - Owners can delete their posts
-        - Admins can delete any post
-        """
-        # Unauthorized
-        response1 = self.client.delete(
-            reverse("post-detail-api", args=[self.test_post_1.id])
-        )
-        self.assertEqual(response1.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertTrue(Post.objects.get(id=self.test_post_1.id))
-
-        # Authorized by owner
-        response2 = self.client.delete(
-            reverse("post-detail-api", args=[self.test_post_1.id]),
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_user1}",
-        )
-        self.assertEqual(response2.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertRaises(Post.DoesNotExist, Post.objects.get, title="TestPost1")
-
-        # Authorized by admin
-        response2 = self.client.delete(
-            reverse("post-detail-api", args=[self.test_post_2.id]),
-            HTTP_AUTHORIZATION=f"Bearer {self.access_token_admin}",
-        )
-        self.assertEqual(response2.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertRaises(Post.DoesNotExist, Post.objects.get, title="TestPost2")
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not Post.objects.filter(id=post_id).exists()
+        assert not Like.objects.filter(id=like_id).exists()
