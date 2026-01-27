@@ -107,25 +107,25 @@ class TestHomeView:
         assert post_in_context.like__count == 1
 
 
-class TestHomeViewLikeOrdered:
-    """Tests for the like-ordered home page view."""
+class TestHomeViewPopular:
+    """Tests for the popular home page view."""
 
-    def test_like_ordered_renders_template(self, client):
-        """GET /like_ordered/ returns 200."""
-        response = client.get(reverse("home-like-ordering"))
+    def test_popular_renders_template(self, client):
+        """GET /popular/ returns 200."""
+        response = client.get(reverse("home-popular"))
 
         assert response.status_code == 200
         template_names = [t.name for t in response.templates]
         assert "diary/index.html" in template_names
 
-    def test_like_ordered_context_indicator(self, client, post):
+    def test_popular_context_indicator(self, client, post):
         """Context ordering is 'popular'."""
-        response = client.get(reverse("home-like-ordering"))
+        response = client.get(reverse("home-popular"))
 
         assert response.status_code == 200
         assert response.context["ordering"] == "popular"
 
-    def test_like_ordered_sorts_by_likes(
+    def test_popular_sorts_by_likes(
         self, client, post_factory, like_factory, user
     ):
         """Posts are ordered by like count descending."""
@@ -140,7 +140,7 @@ class TestHomeViewLikeOrdered:
         for _ in range(2):
             like_factory(post=post_few_likes)
 
-        response = client.get(reverse("home-like-ordering"))
+        response = client.get(reverse("home-popular"))
 
         assert response.status_code == 200
         posts = list(response.context["object_list"])
@@ -154,9 +154,9 @@ class TestHomeViewLikeOrdered:
         assert many_idx < few_idx
         assert few_idx < no_idx
 
-    def test_like_ordered_shows_published_only(self, client, post, unpublished_post):
-        """Like-ordered view also filters unpublished posts."""
-        response = client.get(reverse("home-like-ordering"))
+    def test_popular_shows_published_only(self, client, post, unpublished_post):
+        """Popular view also filters unpublished posts."""
+        response = client.get(reverse("home-popular"))
 
         assert response.status_code == 200
         posts_in_context = list(response.context["object_list"])
@@ -174,7 +174,7 @@ class TestHomeViewSwitching:
         assert response.context["ordering"] == "new"
 
         # Switch to popular
-        response = client.get(reverse("home-like-ordering"))
+        response = client.get(reverse("home-popular"))
         assert response.context["ordering"] == "popular"
 
         # Back to new

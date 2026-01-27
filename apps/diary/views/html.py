@@ -5,7 +5,7 @@ This module contains traditional Django class-based views for HTML rendering
 with session-based authentication.
 
 Views:
-    - HomeView, HomeViewLikeOrdered: Public post listing with pagination
+    - HomeView, HomeViewPopular: Public post listing with pagination
     - SignUp, Login, PasswordReset: Authentication views
     - AuthorListView, AuthorDetailView: User management (staff only)
     - PostCreateView, PostDetailView, PostUpdateView, PostDeleteView: Post CRUD
@@ -82,9 +82,9 @@ class HomeView(ListView):
         return context
 
 
-class HomeViewLikeOrdered(HomeView):
+class HomeViewPopular(HomeView):
     """
-    Alternative homepage with posts ordered by most liked.
+    Alternative homepage with posts ordered by popularity.
 
     Inherits from HomeView but changes the ordering to prioritize
     posts with the highest like counts, then by most recently updated.

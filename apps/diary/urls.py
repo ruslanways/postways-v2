@@ -17,7 +17,7 @@ from .views import (
     EmailVerifyView,
     # Home
     HomeView,
-    HomeViewLikeOrdered,
+    HomeViewPopular,
     # Likes API
     LikeAPIView,
     LikeBatchAPIView,
@@ -57,7 +57,7 @@ from .views import (
 html_patterns = [
     # Home
     path("", HomeView.as_view(), name="home"),
-    path("like_ordered/", HomeViewLikeOrdered.as_view(), name="home-like-ordering"),
+    path("popular/", HomeViewPopular.as_view(), name="home-popular"),
     # Authors
     path("authors/", AuthorListView.as_view(), name="author-list"),
     path("authors/<sortfield>/", AuthorListView.as_view(), name="author-list"),

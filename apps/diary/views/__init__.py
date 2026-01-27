@@ -38,7 +38,7 @@ from .html import (
     EmailChangeView,
     EmailVerifyView,
     HomeView,
-    HomeViewLikeOrdered,
+    HomeViewPopular,
     Login,
     PasswordReset,
     PostCreateView,
@@ -56,7 +56,7 @@ from .html import (
 __all__ = [
     # HTML views
     "HomeView",
-    "HomeViewLikeOrdered",
+    "HomeViewPopular",
     "SignUp",
     "Login",
     "PasswordReset",
