@@ -26,15 +26,22 @@ class TestHomeView:
         template_names = [t.name for t in response.templates]
         assert "diary/index.html" in template_names
 
-    def test_home_shows_published_only(self, client, post, unpublished_post):
-        """Unpublished posts not in context."""
+    def test_home_shows_published_only(self, client, admin_client, post, unpublished_post):
+        """Unpublished posts not in context for any user, including admins."""
         response = client.get(reverse("home"))
 
         # Check the full queryset (all pages), not just the current paginated page
         # This ensures we test filtering regardless of which page the post appears on
-        all_published_posts = list(response.context["paginator"].object_list)
-        assert post in all_published_posts
-        assert unpublished_post not in all_published_posts
+        all_posts = list(response.context["paginator"].object_list)
+        assert post in all_posts
+        assert unpublished_post not in all_posts
+        
+        # Admins also only see published posts on home page
+        admin_response = admin_client.get(reverse("home"))
+        admin_all_posts = list(admin_response.context["paginator"].object_list)
+        assert post in admin_all_posts
+        assert unpublished_post not in admin_all_posts
+        
 
     def test_home_pagination(self, client, post_factory, user):
         """Page 2 works with ?page=2."""
