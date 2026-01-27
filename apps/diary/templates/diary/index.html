@@ -1,22 +1,24 @@
-{% extends 'diary/base.html' %} 
-
-{% block title %} postways {% endblock %}
-
-{% block content %}
+{% extends 'diary/base.html' %} {% block title %} Postways {% endblock %} {%
+block content %}
 
 <div class="filter-tabs">
-  <a href="{% url 'home' %}" class="{% if ordering == 'new' %}selected{% endif %}">
+  <a
+    href="{% url 'home' %}"
+    class="{% if ordering == 'new' %}selected{% endif %}"
+  >
     New
   </a>
-  <a href="{% url 'home-popular' %}" class="{% if ordering == 'popular' %}selected{% endif %}">
+  <a
+    href="{% url 'home-popular' %}"
+    class="{% if ordering == 'popular' %}selected{% endif %}"
+  >
     Popular
   </a>
 </div>
 
 <div class="posts-grid">
-  {% for post in object_list %}
-    {% include "diary/_post_card.html" with post=post liked_by_user=liked_by_user %}
-  {% endfor %}
+  {% for post in object_list %} {% include "diary/_post_card.html" with
+  post=post liked_by_user=liked_by_user %} {% endfor %}
 </div>
 
 {% endblock %}
