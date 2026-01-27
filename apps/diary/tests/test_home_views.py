@@ -26,8 +26,14 @@ class TestHomeView:
         template_names = [t.name for t in response.templates]
         assert "diary/index.html" in template_names
 
-    def test_home_shows_published_only(self, client, admin_client, post, unpublished_post):
+    @pytest.mark.parametrize(
+        "client_fixture_name", ["client", "user_client", "admin_client"]
+    )
+    def test_home_shows_published_only(
+        self, request, client_fixture_name, post, unpublished_post
+    ):
         """Unpublished posts not in context for any user, including admins."""
+        client = request.getfixturevalue(client_fixture_name)
         response = client.get(reverse("home"))
 
         # Check the full queryset (all pages), not just the current paginated page
@@ -35,13 +41,6 @@ class TestHomeView:
         all_posts = list(response.context["paginator"].object_list)
         assert post in all_posts
         assert unpublished_post not in all_posts
-        
-        # Admins also only see published posts on home page
-        admin_response = admin_client.get(reverse("home"))
-        admin_all_posts = list(admin_response.context["paginator"].object_list)
-        assert post in admin_all_posts
-        assert unpublished_post not in admin_all_posts
-        
 
     def test_home_pagination(self, client, post_factory, user):
         """Page 2 works with ?page=2."""
@@ -132,9 +131,7 @@ class TestHomeViewPopular:
         assert response.status_code == 200
         assert response.context["ordering"] == "popular"
 
-    def test_popular_sorts_by_likes(
-        self, client, post_factory, like_factory, user
-    ):
+    def test_popular_sorts_by_likes(self, client, post_factory, like_factory, user):
         """Posts are ordered by like count descending."""
         # Create posts with different like counts
         post_many_likes = post_factory(author=user)
@@ -161,8 +158,14 @@ class TestHomeViewPopular:
         assert many_idx < few_idx
         assert few_idx < no_idx
 
-    def test_popular_shows_published_only(self, client, post, unpublished_post):
+    @pytest.mark.parametrize(
+        "client_fixture_name", ["client", "user_client", "admin_client"]
+    )
+    def test_popular_shows_published_only(
+        self, request, client_fixture_name, post, unpublished_post
+    ):
         """Popular view also filters unpublished posts."""
+        client = request.getfixturevalue(client_fixture_name)
         response = client.get(reverse("home-popular"))
 
         assert response.status_code == 200

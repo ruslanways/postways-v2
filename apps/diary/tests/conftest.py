@@ -132,6 +132,12 @@ def other_user(user_password):
     """Create and return another regular user (for permission tests)."""
     return UserFactory(password=user_password)
 
+@pytest.fixture
+def user_client(client, user):
+    """Return a Django test client authenticated as user."""
+    client.force_login(user)
+    return client
+
 
 @pytest.fixture
 def post(user):
