@@ -93,9 +93,9 @@ class HomeViewLikeOrdered(HomeView):
     ordering = ["-like__count", "-updated"]
 
     def get_context_data(self, **kwargs):
-        """Set ordering indicator to 'liked' for template toggle link."""
+        """Set ordering indicator to 'popular' for template toggle link."""
         context = super().get_context_data(**kwargs)
-        context["ordering"] = "liked"
+        context["ordering"] = "popular"
         return context
 
 

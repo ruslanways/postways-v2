@@ -119,11 +119,11 @@ class TestHomeViewLikeOrdered:
         assert "diary/index.html" in template_names
 
     def test_like_ordered_context_indicator(self, client, post):
-        """Context ordering is 'liked'."""
+        """Context ordering is 'popular'."""
         response = client.get(reverse("home-like-ordering"))
 
         assert response.status_code == 200
-        assert response.context["ordering"] == "liked"
+        assert response.context["ordering"] == "popular"
 
     def test_like_ordered_sorts_by_likes(
         self, client, post_factory, like_factory, user
@@ -165,17 +165,17 @@ class TestHomeViewLikeOrdered:
 
 
 class TestHomeViewSwitching:
-    """Tests for switching between new and liked ordering."""
+    """Tests for switching between new and popular ordering."""
 
     def test_switch_between_orderings(self, client, post):
-        """Can switch between new and liked ordering."""
+        """Can switch between new and popular ordering."""
         # Start with new
         response = client.get(reverse("home"))
         assert response.context["ordering"] == "new"
 
-        # Switch to liked
+        # Switch to popular
         response = client.get(reverse("home-like-ordering"))
-        assert response.context["ordering"] == "liked"
+        assert response.context["ordering"] == "popular"
 
         # Back to new
         response = client.get(reverse("home"))
