@@ -67,11 +67,11 @@ class HomeView(ListView):
         Add ordering indicator and liked posts set to context.
 
         Context additions:
-            ordering: Current sort mode ("fresh" for this view)
+            ordering: Current sort mode ("new" for this view)
             liked_by_user: Set of post IDs the user has liked (authenticated only)
         """
         context = super().get_context_data(**kwargs)
-        context["ordering"] = "fresh"
+        context["ordering"] = "new"
         if self.request.user.is_authenticated:
             page_post_ids = [post.id for post in context["object_list"]]
             context["liked_by_user"] = set(

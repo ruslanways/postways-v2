@@ -5,7 +5,7 @@
 {% block content %}
 
 <div class="filter-tabs">
-  <a href="{% url 'home' %}" class="{% if ordering == 'fresh' %}selected{% endif %}">
+  <a href="{% url 'home' %}" class="{% if ordering == 'new' %}selected{% endif %}">
     New
   </a>
   <a href="{% url 'home-like-ordering' %}" class="{% if ordering == 'liked' %}selected{% endif %}">

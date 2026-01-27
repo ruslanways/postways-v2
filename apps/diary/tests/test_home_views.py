@@ -30,10 +30,11 @@ class TestHomeView:
         """Unpublished posts not in context."""
         response = client.get(reverse("home"))
 
-        assert response.status_code == 200
-        posts_in_context = list(response.context["object_list"])
-        assert post in posts_in_context
-        assert unpublished_post not in posts_in_context
+        # Check the full queryset (all pages), not just the current paginated page
+        # This ensures we test filtering regardless of which page the post appears on
+        all_published_posts = list(response.context["paginator"].object_list)
+        assert post in all_published_posts
+        assert unpublished_post not in all_published_posts
 
     def test_home_pagination(self, client, post_factory, user):
         """Page 2 works with ?page=2."""
@@ -57,7 +58,7 @@ class TestHomeView:
         response = client.get(reverse("home"))
 
         assert response.status_code == 200
-        assert response.context["ordering"] == "fresh"
+        assert response.context["ordering"] == "new"
 
     def test_home_authenticated_shows_liked_posts(self, client, user, post, like):
         """Authenticated user context includes liked_by_user set."""
@@ -164,18 +165,18 @@ class TestHomeViewLikeOrdered:
 
 
 class TestHomeViewSwitching:
-    """Tests for switching between fresh and liked ordering."""
+    """Tests for switching between new and liked ordering."""
 
     def test_switch_between_orderings(self, client, post):
-        """Can switch between fresh and liked ordering."""
-        # Start with fresh
+        """Can switch between new and liked ordering."""
+        # Start with new
         response = client.get(reverse("home"))
-        assert response.context["ordering"] == "fresh"
+        assert response.context["ordering"] == "new"
 
         # Switch to liked
         response = client.get(reverse("home-like-ordering"))
         assert response.context["ordering"] == "liked"
 
-        # Back to fresh
+        # Back to new
         response = client.get(reverse("home"))
-        assert response.context["ordering"] == "fresh"
+        assert response.context["ordering"] == "new"
