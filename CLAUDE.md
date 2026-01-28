@@ -27,8 +27,8 @@ docker compose -f docker/docker-compose.yml exec web python manage.py seed_demo_
 # Create superuser
 docker compose -f docker/docker-compose.yml exec web python manage.py createsuperuser
 
-# Run tests
-docker compose -f docker/docker-compose.yml exec web python manage.py test
+# Run tests (see Testing section below for more options)
+docker compose -f docker/docker-compose.yml exec web pytest
 
 # Install dependencies (uses uv)
 uv sync
@@ -481,6 +481,82 @@ Environment variables loaded from `config/.env`:
 - `DJANGO_SECRET_KEY`, `DEBUG`, `DATABASE_URL`
 - `REDIS_HOST`, `REDIS_PORT`
 - Email settings: `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `DEFAULT_FROM_EMAIL`, `WEEKLY_RECIPIENTS`
+
+## Testing
+
+The project uses **pytest** with pytest-django, pytest-factoryboy, pytest-xdist, and pytest-cov. All test commands run inside the Docker container.
+
+### Basic Test Commands
+
+```bash
+# Run all tests
+docker compose -f docker/docker-compose.yml exec web pytest
+
+# Run tests with verbose output
+docker compose -f docker/docker-compose.yml exec web pytest -v
+
+# Run a specific test file
+docker compose -f docker/docker-compose.yml exec web pytest apps/diary/tests/test_user_api.py
+
+# Run a specific test class or function
+docker compose -f docker/docker-compose.yml exec web pytest apps/diary/tests/test_user_api.py::TestUserList
+docker compose -f docker/docker-compose.yml exec web pytest apps/diary/tests/test_user_api.py::TestUserList::test_list_users_as_admin
+
+# Run tests matching a keyword expression
+docker compose -f docker/docker-compose.yml exec web pytest -k "user and not delete"
+```
+
+### Parallel Execution (pytest-xdist)
+
+```bash
+# Run tests in parallel using all available CPU cores
+docker compose -f docker/docker-compose.yml exec web pytest -n auto
+
+# Run tests using a specific number of workers
+docker compose -f docker/docker-compose.yml exec web pytest -n 4
+```
+
+### Code Coverage (pytest-cov)
+
+```bash
+# Run tests with coverage report (terminal output)
+docker compose -f docker/docker-compose.yml exec web pytest --cov=apps
+
+# Run tests with coverage and show missing lines
+docker compose -f docker/docker-compose.yml exec web pytest --cov=apps --cov-report=term-missing
+
+# Generate HTML coverage report (output to var/coverage/htmlcov/)
+docker compose -f docker/docker-compose.yml exec web pytest --cov=apps --cov-report=html
+
+# Combined: parallel + coverage + missing lines
+docker compose -f docker/docker-compose.yml exec web pytest -n auto --cov=apps --cov-report=term-missing
+```
+
+### Coverage Configuration
+
+Coverage settings are in `pyproject.toml`:
+- **Data file**: `var/coverage/.coverage`
+- **HTML report**: `var/coverage/htmlcov/`
+- **Omitted paths**: migrations, management commands, consumers, routing, tasks, templatetags
+
+### Test Fixtures
+
+Test fixtures are defined in `apps/diary/tests/conftest.py`:
+
+| Fixture | Description |
+|---------|-------------|
+| `user` | Regular user created via UserFactory |
+| `admin_user` | Staff user created via AdminUserFactory |
+| `other_user` | Another regular user (for permission tests) |
+| `user_client` | Django test client logged in as `user` |
+| `api_client` | Unauthenticated DRF APIClient |
+| `authenticated_api_client` | APIClient with JWT auth as `user` |
+| `admin_api_client` | APIClient with JWT auth as `admin_user` |
+| `other_user_api_client` | APIClient with JWT auth as `other_user` |
+| `post` | Published post owned by `user` |
+| `unpublished_post` | Unpublished post owned by `user` |
+| `other_user_post` | Published post owned by `other_user` |
+| `like` | Like from `user` on `post` |
 
 ## Interaction Rules
 

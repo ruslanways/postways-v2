@@ -544,7 +544,7 @@ HTML endpoints use session-based authentication. Users must be logged in via `/l
 - **Query Parameters**: Standard pagination (`page`)
 - **Response**: HTML page with paginated posts ordered by most recently updated
 
-#### `GET /like_ordered/`
+#### `GET /popular/`
 - **Authentication**: Not required
 - **Purpose**: Alternative homepage with posts ordered by most liked
 - **Query Parameters**: Standard pagination (`page`)
@@ -876,7 +876,7 @@ HTML endpoints use session-based authentication. Users must be logged in via `/l
 | Endpoint | Method | Auth Required | Notes |
 |----------|--------|---------------|-------|
 | `/` | GET | No | Public homepage |
-| `/like_ordered/` | GET | No | Homepage (liked ordering) |
+| `/popular/` | GET | No | Homepage (liked ordering) |
 | `/signup/` | GET/POST | No | Registration |
 | `/login/` | GET/POST | No | Login |
 | `/logout/` | GET/POST | Yes | Logout |

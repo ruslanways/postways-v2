@@ -20,9 +20,62 @@ docker compose -f docker/docker-compose.yml exec web python manage.py seed_demo_
 # Create superuser
 docker compose -f docker/docker-compose.yml exec web python manage.py createsuperuser
 
-# Run tests with coverage
-docker compose -f docker/docker-compose.yml exec web pytest --cov=apps --cov-report=term-missing -n auto
+# Run tests (basic)
+docker compose -f docker/docker-compose.yml exec web pytest
+
+# Run tests with coverage and missing lines
+docker compose -f docker/docker-compose.yml exec web pytest --cov=apps --cov-report=term-missing
+
+# Run tests in parallel with coverage
+docker compose -f docker/docker-compose.yml exec web pytest -n auto --cov=apps --cov-report=term-missing
 ```
+
+## Testing
+
+The project uses **pytest** with several plugins for comprehensive testing.
+
+### Quick Reference
+
+| Command | Description |
+|---------|-------------|
+| `pytest` | Run all tests |
+| `pytest -v` | Verbose output |
+| `pytest -n auto` | Parallel execution (all CPUs) |
+| `pytest -n 4` | Parallel execution (4 workers) |
+| `pytest --cov=apps` | With coverage report |
+| `pytest --cov=apps --cov-report=term-missing` | Coverage + missing lines |
+| `pytest --cov=apps --cov-report=html` | Generate HTML coverage report |
+| `pytest -k "keyword"` | Run tests matching keyword |
+
+All commands should be prefixed with:
+```bash
+docker compose -f docker/docker-compose.yml exec web
+```
+
+### Examples
+
+```bash
+# Run a specific test file
+docker compose -f docker/docker-compose.yml exec web pytest apps/diary/tests/test_user_api.py
+
+# Run a specific test class
+docker compose -f docker/docker-compose.yml exec web pytest apps/diary/tests/test_user_api.py::TestUserList
+
+# Run tests matching a pattern
+docker compose -f docker/docker-compose.yml exec web pytest -k "user and not delete"
+
+# Full CI-style run: parallel + coverage + missing lines
+docker compose -f docker/docker-compose.yml exec web pytest -n auto --cov=apps --cov-report=term-missing
+
+# Generate HTML coverage report (view at var/coverage/htmlcov/index.html)
+docker compose -f docker/docker-compose.yml exec web pytest --cov=apps --cov-report=html
+```
+
+### Test Configuration
+
+- **Config file**: `pyproject.toml` (pytest and coverage settings)
+- **Fixtures**: `apps/diary/tests/conftest.py` (factories and fixtures)
+- **Coverage output**: `var/coverage/` (data file and HTML reports)
 
 ## API Endpoints
 
