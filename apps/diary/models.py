@@ -199,9 +199,11 @@ class Post(models.Model):
 
     def _process_new_image(self):
         """Trigger async image processing for new images."""
+        from django.db import transaction
+
         from .tasks import process_post_image
 
-        process_post_image.delay(self.pk)
+        transaction.on_commit(lambda: process_post_image.delay(self.pk))
 
 
 class Like(models.Model):

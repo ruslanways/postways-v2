@@ -313,10 +313,10 @@ class TestPostImageHandling:
         # Cleanup called with old values (empty string for no previous image)
         mock_cleanup.assert_called_once()
 
-    @patch("apps.diary.tasks.process_post_image.delay")
-    @patch("apps.diary.tasks.delete_media_files.delay")
+    @patch("apps.diary.models.Post._process_new_image")
+    @patch("apps.diary.models.Post._cleanup_old_images")
     def test_update_replace_image_triggers_cleanup_and_processing(
-        self, mock_delete_task, mock_process_task, user
+        self, mock_cleanup, mock_process, user
     ):
         """Replacing an image triggers both cleanup and processing tasks."""
         # Create post with initial image
@@ -324,8 +324,8 @@ class TestPostImageHandling:
         post = Post.objects.create(
             title="Test", content="Content", author=user, image=image1
         )
-        mock_process_task.reset_mock()
-        mock_delete_task.reset_mock()
+        mock_process.reset_mock()
+        mock_cleanup.reset_mock()
 
         # Replace with new image
         image2 = self._create_test_image("image2.jpg")
@@ -333,13 +333,14 @@ class TestPostImageHandling:
         post.save()
 
         # Should trigger processing for new image
-        mock_process_task.assert_called_once_with(post.pk)
-        # Should queue deletion of old image (cleanup happens on transaction commit in tests)
+        mock_process.assert_called_once()
+        # Should trigger cleanup for old image
+        mock_cleanup.assert_called_once()
 
-    @patch("apps.diary.tasks.process_post_image.delay")
-    @patch("apps.diary.tasks.delete_media_files.delay")
+    @patch("apps.diary.models.Post._process_new_image")
+    @patch("apps.diary.models.Post._cleanup_old_images")
     def test_clear_image_triggers_cleanup_only(
-        self, mock_delete_task, mock_process_task, user
+        self, mock_cleanup, mock_process, user
     ):
         """Clearing an image triggers cleanup but not processing."""
         # Create post with image
@@ -347,15 +348,17 @@ class TestPostImageHandling:
         post = Post.objects.create(
             title="Test", content="Content", author=user, image=image
         )
-        mock_process_task.reset_mock()
-        mock_delete_task.reset_mock()
+        mock_process.reset_mock()
+        mock_cleanup.reset_mock()
 
         # Clear the image
         post.image = ""
         post.save()
 
         # Should NOT trigger processing (no new image)
-        mock_process_task.assert_not_called()
+        mock_process.assert_not_called()
+        # Should trigger cleanup for old image
+        mock_cleanup.assert_called_once()
 
     @patch("apps.diary.models.Post._process_new_image")
     @patch("apps.diary.models.Post._cleanup_old_images")
