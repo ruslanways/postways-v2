@@ -6,6 +6,7 @@ Tests cover:
 - Published posts filtering
 - Pagination
 - Like-ordered view
+- has_liked annotation
 """
 
 from django.urls import reverse
@@ -59,47 +60,46 @@ class TestHomeView:
         assert response.status_code == 200
         assert len(response.context["object_list"]) == 4  # remaining posts
 
-    def test_home_includes_ordering_context(self, client, post):
-        """Context includes ordering indicator."""
-        response = client.get(reverse("home"))
-
-        assert response.status_code == 200
-        assert response.context["ordering"] == "new"
-
-    def test_home_authenticated_shows_liked_posts(self, client, user, post, like):
-        """Authenticated user context includes liked_by_user set."""
+    def test_home_authenticated_has_liked_true(self, client, user, post, like):
+        """Authenticated user sees has_liked=True for posts they liked."""
         client.force_login(user)
 
         response = client.get(reverse("home"))
 
         assert response.status_code == 200
-        assert "liked_by_user" in response.context
-        assert post.id in response.context["liked_by_user"]
+        post_in_context = next(
+            p for p in response.context["object_list"] if p.id == post.id
+        )
+        assert hasattr(post_in_context, "has_liked")
+        assert post_in_context.has_liked is True
 
-    def test_home_authenticated_unliked_post(
+    def test_home_authenticated_has_liked_false(
         self, client, user, post_factory, other_user
     ):
-        """Post not in liked_by_user if user hasn't liked it."""
+        """Authenticated user sees has_liked=False for posts they haven't liked."""
         unliked_post = post_factory(author=other_user)
         client.force_login(user)
 
         response = client.get(reverse("home"))
 
         assert response.status_code == 200
-        assert unliked_post.id not in response.context.get("liked_by_user", set())
+        post_in_context = next(
+            p for p in response.context["object_list"] if p.id == unliked_post.id
+        )
+        assert post_in_context.has_liked is False
 
-    def test_home_anonymous_liked_by_user_empty(self, client, post):
-        """Anonymous user gets empty liked_by_user in template context."""
+    def test_home_anonymous_has_liked_false(self, client, post):
+        """Anonymous user sees has_liked=False for all posts."""
         response = client.get(reverse("home"))
 
         assert response.status_code == 200
-        # For anonymous users, liked_by_user is empty (not a set of liked post IDs)
-        # The template may still include it for convenience
-        liked = response.context.get("liked_by_user", set())
-        assert liked == "" or liked == set()
+        post_in_context = next(
+            p for p in response.context["object_list"] if p.id == post.id
+        )
+        assert post_in_context.has_liked is False
 
     def test_home_posts_include_like_count(self, client, post, like_factory, user):
-        """Posts have like__count annotation."""
+        """Posts have like_count annotation."""
         # Create likes
         like_factory(post=post, user=user)
 
@@ -109,8 +109,8 @@ class TestHomeView:
         post_in_context = next(
             p for p in response.context["object_list"] if p.id == post.id
         )
-        assert hasattr(post_in_context, "like__count")
-        assert post_in_context.like__count == 1
+        assert hasattr(post_in_context, "like_count")
+        assert post_in_context.like_count == 1
 
 
 class TestHomeViewPopular:
@@ -123,13 +123,6 @@ class TestHomeViewPopular:
         assert response.status_code == 200
         template_names = [t.name for t in response.templates]
         assert "diary/index.html" in template_names
-
-    def test_popular_context_indicator(self, client, post):
-        """Context ordering is 'popular'."""
-        response = client.get(reverse("home-popular"))
-
-        assert response.status_code == 200
-        assert response.context["ordering"] == "popular"
 
     def test_popular_sorts_by_likes(self, client, post_factory, like_factory, user):
         """Posts are ordered by like count descending."""
@@ -172,21 +165,3 @@ class TestHomeViewPopular:
         posts_in_context = list(response.context["object_list"])
         assert post in posts_in_context
         assert unpublished_post not in posts_in_context
-
-
-class TestHomeViewSwitching:
-    """Tests for switching between new and popular ordering."""
-
-    def test_switch_between_orderings(self, client, post):
-        """Can switch between new and popular ordering."""
-        # Start with new
-        response = client.get(reverse("home"))
-        assert response.context["ordering"] == "new"
-
-        # Switch to popular
-        response = client.get(reverse("home-popular"))
-        assert response.context["ordering"] == "popular"
-
-        # Back to new
-        response = client.get(reverse("home"))
-        assert response.context["ordering"] == "new"

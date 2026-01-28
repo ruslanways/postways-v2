@@ -7,13 +7,13 @@
 <div class="filter-tabs">
   <a
     href="{% url 'home' %}"
-    class="{% if ordering == 'new' %}selected{% endif %}"
+    class="{% if request.resolver_match.url_name == 'home' %}selected{% endif %}"
   >
     New
   </a>
   <a
     href="{% url 'home-popular' %}"
-    class="{% if ordering == 'popular' %}selected{% endif %}"
+    class="{% if request.resolver_match.url_name == 'home-popular' %}selected{% endif %}"
   >
     Popular
   </a>
@@ -21,7 +21,7 @@
 
 <div class="posts-grid">
   {% for post in object_list %}
-    {% include "diary/_post_card.html" with post=post liked_by_user=liked_by_user %}
+    {% include "diary/_post_card.html" with post=post %}
   {% endfor %}
 </div>
 

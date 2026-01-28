@@ -5,15 +5,14 @@ This module provides custom template tags and filters for rendering
 like indicators and modifying URL links in templates.
 
 Best Practices:
-    - For list views (multiple posts): Use the `liked_by_user` set from context
-      instead of the `like_or_unlike` template tag to avoid N+1 query problems.
-      The views provide this set via bulk queries for efficiency.
+    - For list views (multiple posts): Use the `has_liked` annotation on post
+      objects instead of the `like_or_unlike` template tag to avoid N+1 query
+      problems. Views annotate posts with `has_liked` (boolean) via subquery.
 
-    - For single post views: Either approach works, but using `liked_by_user` set
-      is preferred for consistency and performance.
+    - For single post views: Use `post.has_liked` annotation for consistency.
 
-    - The `like_or_unlike` tag is available for edge cases where the set is not
-      provided, but should be avoided in loops.
+    - The `like_or_unlike` tag is available for edge cases where the annotation
+      is not available, but should be avoided in loops.
 """
 
 import os

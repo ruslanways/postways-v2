@@ -6,7 +6,7 @@
 
 <div class="posts-grid">
   {% for post in object_list %}
-    {% include "diary/_post_card.html" with post=post liked_by_user=liked_by_user %}
+    {% include "diary/_post_card.html" with post=post %}
   {% endfor %}
 </div>
 

@@ -21,7 +21,7 @@ from django.contrib.auth.views import (
     PasswordResetConfirmView,
     PasswordResetView,
 )
-from django.db.models import Count
+from django.db.models import BooleanField, Count, Exists, OuterRef, Value
 from django.shortcuts import redirect, resolve_url
 from django.urls import reverse, reverse_lazy
 from django.utils.encoding import force_bytes
@@ -50,36 +50,46 @@ class HomeView(ListView):
     Public homepage displaying published posts.
 
     Posts are ordered by most recently updated, with like counts annotated.
-    Authenticated users see which posts they've liked.
+    Authenticated users see which posts they've liked via has_liked annotation.
     """
 
     paginate_by = 6
     template_name = "diary/index.html"
-    queryset = (
-        Post.objects.annotate(Count("like"))
-        .select_related("author")
-        .filter(published=True)
-    )
-    ordering = ["-updated", "-like__count"]
+    ordering = ["-updated", "-like_count"]
 
-    def get_context_data(self, **kwargs):
+    def get_queryset(self):
         """
-        Add ordering indicator and liked posts set to context.
+        Build queryset with like_count and has_liked annotations.
 
-        Context additions:
-            ordering: Current sort mode ("new" for this view)
-            liked_by_user: Set of post IDs the user has liked (authenticated only)
+        Annotations:
+            like_count: Number of likes on the post
+            has_liked: Boolean indicating if current user liked the post
         """
-        context = super().get_context_data(**kwargs)
-        context["ordering"] = "new"
-        if self.request.user.is_authenticated:
-            page_post_ids = [post.id for post in context["object_list"]]
-            context["liked_by_user"] = set(
-                Like.objects.filter(
-                    user=self.request.user, post_id__in=page_post_ids
-                ).values_list("post_id", flat=True)
+        qs = (
+            Post.objects.filter(published=True)
+            .select_related("author")
+            .annotate(like_count=Count("like"))
+        )
+
+        user = self.request.user
+        if user.is_authenticated:
+            qs = qs.annotate(
+                has_liked=Exists(
+                    Like.objects.filter(
+                        post_id=OuterRef("pk"),
+                        user_id=user.id,
+                    )
+                )
             )
-        return context
+        else:
+            qs = qs.annotate(has_liked=Value(False, output_field=BooleanField()))
+
+        # Apply ordering (must be done after annotations are available)
+        ordering = self.get_ordering()
+        if ordering:
+            qs = qs.order_by(*ordering)
+
+        return qs
 
 
 class HomeViewPopular(HomeView):
@@ -90,13 +100,7 @@ class HomeViewPopular(HomeView):
     posts with the highest like counts, then by most recently updated.
     """
 
-    ordering = ["-like__count", "-updated"]
-
-    def get_context_data(self, **kwargs):
-        """Set ordering indicator to 'popular' for template toggle link."""
-        context = super().get_context_data(**kwargs)
-        context["ordering"] = "popular"
-        return context
+    ordering = ["-like_count", "-updated"]
 
 
 class SignUp(CreateView):
@@ -416,7 +420,7 @@ class AuthorDetailView(UserPassesTestMixin, DetailView, MultipleObjectMixin):
     User profile page showing user details and their posts.
 
     Access restricted to authenticated users.
-    Displays paginated list of user's posts with like counts.
+    Displays paginated list of user's posts with like counts and has_liked.
     """
 
     template_name = "diary/customuser_detail.html"
@@ -436,30 +440,29 @@ class AuthorDetailView(UserPassesTestMixin, DetailView, MultipleObjectMixin):
 
     def get_context_data(self, **kwargs):
         """
-        Add paginated post list and liked posts set to context.
+        Add paginated post list with like_count and has_liked annotations.
 
         Context additions:
-            object_list: Paginated list of user's posts with like counts
-            liked_by_user: Set of post IDs the user has liked (authenticated only)
+            object_list: Paginated list of user's posts with like_count and has_liked
         """
+        user = self.request.user
         object_list = (
             self.object.post_set.all()
-            .annotate(Count("like"))
-            .order_by("-updated", "-like__count")
-        )
-        context = super().get_context_data(object_list=object_list, **kwargs)
-        if self.request.user.is_authenticated:
-            # Get post IDs from the paginated object list
-            page_post_ids = [post.id for post in context["object_list"]]
-            context["liked_by_user"] = set(
-                Like.objects.filter(
-                    user=self.request.user, post_id__in=page_post_ids
-                ).values_list("post_id", flat=True)
+            .annotate(like_count=Count("like"))
+            .annotate(
+                has_liked=Exists(
+                    Like.objects.filter(
+                        post_id=OuterRef("pk"),
+                        user_id=user.id,
+                    )
+                )
             )
-        return context
+            .order_by("-updated", "-like_count")
+        )
+        return super().get_context_data(object_list=object_list, **kwargs)
 
 
-class PostListView(StaffRequiredMixin, HomeView, ListView):
+class PostListView(StaffRequiredMixin, ListView):
     """
     Staff-only view listing all posts (including unpublished).
 
@@ -467,8 +470,37 @@ class PostListView(StaffRequiredMixin, HomeView, ListView):
     of published status, allowing staff to moderate or review drafts.
     """
 
+    paginate_by = 6
     template_name = "diary/post_list.html"
-    queryset = Post.objects.annotate(Count("like")).select_related("author")
+    ordering = ["-updated", "-like_count"]
+
+    def get_queryset(self):
+        """
+        Build queryset with like_count and has_liked annotations for all posts.
+
+        Unlike HomeView, this includes unpublished posts for staff review.
+        """
+        qs = Post.objects.select_related("author").annotate(like_count=Count("like"))
+
+        user = self.request.user
+        if user.is_authenticated:
+            qs = qs.annotate(
+                has_liked=Exists(
+                    Like.objects.filter(
+                        post_id=OuterRef("pk"),
+                        user_id=user.id,
+                    )
+                )
+            )
+        else:
+            qs = qs.annotate(has_liked=Value(False, output_field=BooleanField()))
+
+        # Apply ordering (must be done after annotations are available)
+        ordering = self.get_ordering()
+        if ordering:
+            qs = qs.order_by(*ordering)
+
+        return qs
 
 
 class PostCreateView(LoginRequiredMixin, CreateView):
@@ -485,23 +517,34 @@ class PostCreateView(LoginRequiredMixin, CreateView):
 
 
 class PostDetailView(DetailView):
-    """Public view for a single post with like count and status."""
+    """Public view for a single post with like_count and has_liked annotations."""
 
     template_name = "diary/post_detail.html"
-    queryset = Post.objects.annotate(Count("like")).select_related("author")
 
-    def get_context_data(self, **kwargs):
-        """Add liked_by_user set for authenticated users."""
-        context = super().get_context_data(**kwargs)
-        if self.request.user.is_authenticated:
-            context["liked_by_user"] = (
-                {self.object.id}
-                if Like.objects.filter(
-                    user=self.request.user, post=self.object
-                ).exists()
-                else set()
+    def get_queryset(self):
+        """
+        Build queryset with like_count and has_liked annotations.
+
+        Annotations:
+            like_count: Number of likes on the post
+            has_liked: Boolean indicating if current user liked the post
+        """
+        qs = Post.objects.select_related("author").annotate(like_count=Count("like"))
+
+        user = self.request.user
+        if user.is_authenticated:
+            qs = qs.annotate(
+                has_liked=Exists(
+                    Like.objects.filter(
+                        post_id=OuterRef("pk"),
+                        user_id=user.id,
+                    )
+                )
             )
-        return context
+        else:
+            qs = qs.annotate(has_liked=Value(False, output_field=BooleanField()))
+
+        return qs
 
 
 class PostOwnerOrStaffMixin(UserPassesTestMixin):
