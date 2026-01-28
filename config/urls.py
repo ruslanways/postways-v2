@@ -5,6 +5,10 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
+admin.site.site_header = "Postways administration"
+admin.site.site_title = "Postways site admin"
+admin.site.index_title = "Site administration"
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", include("apps.diary.urls")),
