@@ -5,8 +5,12 @@ Tests cover:
 - Unique constraints (email, like)
 - Cascade delete behavior
 - Model field validation
+- Post image handling (save logic)
 """
 
+from unittest.mock import patch
+
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError
 
 import pytest
@@ -256,3 +260,174 @@ class TestUsernameChangeFields:
 
         user.refresh_from_db()
         assert user.username_changed_at is not None
+
+
+class TestPostImageHandling:
+    """Tests for Post model image handling in save()."""
+
+    @staticmethod
+    def _create_test_image(name="test.jpg"):
+        """Create a simple test image file for testing."""
+        # Simple bytes that pass as an image file
+        content = b"fake image content for testing"
+        return SimpleUploadedFile(name, content, content_type="image/jpeg")
+
+    @patch("apps.diary.models.Post._process_new_image")
+    @patch("apps.diary.models.Post._cleanup_old_images")
+    def test_new_post_with_image_triggers_processing(
+        self, mock_cleanup, mock_process, user
+    ):
+        """Creating a new post with an image triggers image processing."""
+        image = self._create_test_image()
+        post = Post(title="Test", content="Content", author=user, image=image)
+        post.save()
+
+        mock_process.assert_called_once()
+        mock_cleanup.assert_called_once_with(None, None)
+
+    @patch("apps.diary.models.Post._process_new_image")
+    @patch("apps.diary.models.Post._cleanup_old_images")
+    def test_new_post_without_image_no_processing(
+        self, mock_cleanup, mock_process, user
+    ):
+        """Creating a new post without an image does not trigger processing."""
+        post = Post(title="Test", content="Content", author=user)
+        post.save()
+
+        mock_process.assert_not_called()
+        mock_cleanup.assert_called_once_with(None, None)
+
+    @patch("apps.diary.models.Post._process_new_image")
+    @patch("apps.diary.models.Post._cleanup_old_images")
+    def test_update_add_image_triggers_processing(
+        self, mock_cleanup, mock_process, user
+    ):
+        """Adding an image to an existing post triggers processing."""
+        post = Post.objects.create(title="Test", content="Content", author=user)
+        mock_cleanup.reset_mock()
+        mock_process.reset_mock()
+
+        image = self._create_test_image()
+        post.image = image
+        post.save()
+
+        mock_process.assert_called_once()
+        # Cleanup called with old values (empty string for no previous image)
+        mock_cleanup.assert_called_once()
+
+    @patch("apps.diary.tasks.process_post_image.delay")
+    @patch("apps.diary.tasks.delete_media_files.delay")
+    def test_update_replace_image_triggers_cleanup_and_processing(
+        self, mock_delete_task, mock_process_task, user
+    ):
+        """Replacing an image triggers both cleanup and processing tasks."""
+        # Create post with initial image
+        image1 = self._create_test_image("image1.jpg")
+        post = Post.objects.create(
+            title="Test", content="Content", author=user, image=image1
+        )
+        old_image_name = post.image.name
+        mock_process_task.reset_mock()
+        mock_delete_task.reset_mock()
+
+        # Replace with new image
+        image2 = self._create_test_image("image2.jpg")
+        post.image = image2
+        post.save()
+
+        # Should trigger processing for new image
+        mock_process_task.assert_called_once_with(post.pk)
+        # Should queue deletion of old image (cleanup happens on transaction commit in tests)
+
+    @patch("apps.diary.tasks.process_post_image.delay")
+    @patch("apps.diary.tasks.delete_media_files.delay")
+    def test_clear_image_triggers_cleanup_only(
+        self, mock_delete_task, mock_process_task, user
+    ):
+        """Clearing an image triggers cleanup but not processing."""
+        # Create post with image
+        image = self._create_test_image()
+        post = Post.objects.create(
+            title="Test", content="Content", author=user, image=image
+        )
+        mock_process_task.reset_mock()
+        mock_delete_task.reset_mock()
+
+        # Clear the image
+        post.image = ""
+        post.save()
+
+        # Should NOT trigger processing (no new image)
+        mock_process_task.assert_not_called()
+
+    @patch("apps.diary.models.Post._process_new_image")
+    @patch("apps.diary.models.Post._cleanup_old_images")
+    def test_update_without_image_change_no_tasks(
+        self, mock_cleanup, mock_process, user
+    ):
+        """Updating post without touching image doesn't trigger image tasks."""
+        post = Post.objects.create(title="Test", content="Content", author=user)
+        mock_cleanup.reset_mock()
+        mock_process.reset_mock()
+
+        # Update only title
+        post.title = "Updated Title"
+        post.save()
+
+        mock_process.assert_not_called()
+        mock_cleanup.assert_called_once_with("", "")  # Called but with empty values
+
+
+class TestPostTrackImageChanges:
+    """Tests for Post._track_image_changes() method."""
+
+    @staticmethod
+    def _create_test_image(name="test.jpg"):
+        """Create a simple test image file for testing."""
+        content = b"fake image content for testing"
+        return SimpleUploadedFile(name, content, content_type="image/jpeg")
+
+    def test_new_post_with_image(self, user):
+        """New post with image returns (None, None, True)."""
+        image = self._create_test_image()
+        post = Post(title="Test", content="Content", author=user, image=image)
+
+        old_image, old_thumbnail, is_new = post._track_image_changes()
+
+        assert old_image is None
+        assert old_thumbnail is None
+        assert is_new is True
+
+    def test_new_post_without_image(self, user):
+        """New post without image returns (None, None, False)."""
+        post = Post(title="Test", content="Content", author=user)
+
+        old_image, old_thumbnail, is_new = post._track_image_changes()
+
+        assert old_image is None
+        assert old_thumbnail is None
+        assert is_new is False
+
+    @patch("apps.diary.tasks.process_post_image.delay")
+    def test_existing_post_no_change(self, mock_task, user):
+        """Existing post without image change returns correct values."""
+        post = Post.objects.create(title="Test", content="Content", author=user)
+
+        old_image, old_thumbnail, is_new = post._track_image_changes()
+
+        assert old_image == ""
+        assert old_thumbnail == ""  # Empty string, not None (DB stores empty string)
+        assert is_new is False
+
+    @patch("apps.diary.tasks.process_post_image.delay")
+    def test_existing_post_adding_image(self, mock_task, user):
+        """Adding image to existing post returns is_new=True."""
+        post = Post.objects.create(title="Test", content="Content", author=user)
+        image = self._create_test_image()
+        post.image = image
+
+        old_image, old_thumbnail, is_new = post._track_image_changes()
+
+        assert old_image == ""
+        assert old_thumbnail == ""  # Empty string, not None (DB stores empty string)
+        assert is_new is True

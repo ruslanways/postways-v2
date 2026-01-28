@@ -149,46 +149,59 @@ class Post(models.Model):
         a Celery task to resize the image and generate a thumbnail.
         When an image is cleared or replaced, queues deletion of old files.
         """
-        # Track old image info for cleanup and new image detection
-        is_new_image = False
-        old_image = None
-        old_thumbnail = None
-
-        if self.pk:
-            old_data = Post.objects.filter(pk=self.pk).values("image", "thumbnail").first()
-            if old_data:
-                old_image = old_data["image"]
-                old_thumbnail = old_data["thumbnail"]
-                # New image if uploading and different from old
-                is_new_image = self.image and self.image.name != old_image
-        elif self.image:
-            is_new_image = True
-
+        old_image, old_thumbnail, is_new_image = self._track_image_changes()
         super().save(*args, **kwargs)
-
-        # Queue deletion of old files if image was cleared or replaced
-        if old_image:
-            image_cleared = not self.image
-            image_replaced = self.image and self.image.name != old_image
-            if image_cleared or image_replaced:
-                from django.db import transaction
-
-                from .tasks import delete_media_files
-
-                paths = [old_image]
-                if old_thumbnail:
-                    paths.append(old_thumbnail)
-                transaction.on_commit(lambda: delete_media_files.delay(paths))
-
-        # Trigger async processing for new images
+        self._cleanup_old_images(old_image, old_thumbnail)
         if is_new_image:
-            from .tasks import process_post_image
-
-            process_post_image.delay(self.pk)
+            self._process_new_image()
 
     def get_absolute_url(self):
         """Return the absolute URL for this post."""
         return reverse("post-detail", kwargs={"pk": self.id})
+
+    def _track_image_changes(self):
+        """
+        Track image changes before save.
+
+        Returns:
+            tuple: (old_image, old_thumbnail, is_new_image)
+        """
+        if not self.pk:
+            return None, None, bool(self.image)
+
+        old_data = Post.objects.filter(pk=self.pk).values("image", "thumbnail").first()
+        if not old_data:
+            return None, None, bool(self.image)
+
+        old_image = old_data["image"]
+        old_thumbnail = old_data["thumbnail"]
+        is_new_image = bool(self.image and self.image.name != old_image)
+        return old_image, old_thumbnail, is_new_image
+
+    def _cleanup_old_images(self, old_image, old_thumbnail):
+        """Queue deletion of old image files if they were cleared or replaced."""
+        if not old_image:
+            return
+
+        image_cleared = not self.image
+        image_replaced = self.image and self.image.name != old_image
+        if not (image_cleared or image_replaced):
+            return
+
+        from django.db import transaction
+
+        from .tasks import delete_media_files
+
+        paths = [old_image]
+        if old_thumbnail:
+            paths.append(old_thumbnail)
+        transaction.on_commit(lambda: delete_media_files.delay(paths))
+
+    def _process_new_image(self):
+        """Trigger async image processing for new images."""
+        from .tasks import process_post_image
+
+        process_post_image.delay(self.pk)
 
 
 class Like(models.Model):
