@@ -1,0 +1,363 @@
+{% load i18n static %}<!DOCTYPE html>
+{% get_current_language as LANGUAGE_CODE %}{% get_current_language_bidi as LANGUAGE_BIDI %}
+<html lang="{{ LANGUAGE_CODE|default:"en-us" }}" dir="{{ LANGUAGE_BIDI|yesno:'rtl,ltr,auto' }}">
+<head>
+<title>{% block title %}{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'diary/style.css' %}">
+<link rel="stylesheet" href="{% block stylesheet %}{% static "admin/css/base.css" %}{% endblock %}">
+{% block dark-mode-vars %}
+  <link rel="stylesheet" href="{% static "admin/css/dark_mode.css" %}">
+  <script src="{% static "admin/js/theme.js" %}"></script>
+{% endblock %}
+{% if not is_popup and is_nav_sidebar_enabled %}
+  <link rel="stylesheet" href="{% static "admin/css/nav_sidebar.css" %}">
+  <script src="{% static 'admin/js/nav_sidebar.js' %}" defer></script>
+{% endif %}
+{% block extrastyle %}{% endblock %}
+{% if LANGUAGE_BIDI %}<link rel="stylesheet" href="{% block stylesheet_rtl %}{% static "admin/css/rtl.css" %}{% endblock %}">{% endif %}
+{% block extrahead %}{% endblock %}
+{% block responsive %}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{% static "admin/css/responsive.css" %}">
+    {% if LANGUAGE_BIDI %}<link rel="stylesheet" href="{% static "admin/css/responsive_rtl.css" %}">{% endif %}
+{% endblock %}
+{% block blockbots %}<meta name="robots" content="NONE,NOARCHIVE">{% endblock %}
+<link rel="apple-touch-icon" sizes="180x180" href="{% static 'diary/images/favicon/apple-touch-icon.png' %}">
+<link rel="icon" type="image/png" sizes="32x32" href="{% static 'diary/images/favicon/favicon-32x32.png' %}">
+<link rel="icon" type="image/png" sizes="16x16" href="{% static 'diary/images/favicon/favicon-16x16.png' %}">
+<style>
+  /* Fix body layout to match main site */
+  body {
+    padding-top: 0 !important;
+    min-height: 100vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    font-family: var(--font-family-base) !important;
+    font-size: 1rem !important;
+    line-height: 1.5 !important;
+    color: var(--color-text-primary) !important;
+    background-color: var(--color-bg-primary) !important;
+  }
+
+  /* Admin-specific layout overrides */
+  header { position: relative !important; }
+  #container { margin-top: 0 !important; flex: 1 !important; }
+  .site-footer { margin-top: auto !important; }
+
+  /* Fix navbar styles overridden by admin CSS */
+  .navbar {
+    margin-bottom: 0 !important;
+    padding: 1rem 2rem !important;
+    min-height: auto !important;
+    line-height: normal !important;
+  }
+  .navbar-nav {
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .navbar-nav li {
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .navbar-nav li::before,
+  .navbar-nav li::marker {
+    content: none !important;
+    display: none !important;
+  }
+
+  /* Fix dropdown styles to match main site exactly */
+  .user-menu {
+    position: relative !important;
+  }
+  .user-dropdown-toggle {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    padding: 0.5rem 1rem !important;
+    background: none !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: 0.5rem !important;
+    font-family: var(--font-family-base) !important;
+    font-size: 0.875rem !important;
+    font-weight: 500 !important;
+    color: var(--color-text-secondary) !important;
+    cursor: pointer !important;
+    transition: all 150ms ease !important;
+    line-height: 1.5 !important;
+  }
+  .user-dropdown-toggle:hover {
+    background-color: var(--color-bg-tertiary) !important;
+    color: var(--color-text-primary) !important;
+  }
+  .user-dropdown-menu {
+    display: none;
+    position: absolute !important;
+    top: calc(100% + 0.5rem) !important;
+    right: 0 !important;
+    min-width: 200px !important;
+    background-color: var(--color-bg-primary) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: 0.5rem !important;
+    box-shadow: var(--shadow-lg) !important;
+    padding: 0.5rem !important;
+    z-index: 1000 !important;
+  }
+  .user-dropdown-menu.active {
+    display: block !important;
+  }
+  .user-dropdown-menu .dropdown-item {
+    display: block !important;
+    padding: 0.5rem 1rem !important;
+    color: var(--color-text-primary) !important;
+    border-radius: 0.25rem !important;
+    background: none !important;
+    text-decoration: none !important;
+    transition: background-color 150ms ease !important;
+    font-size: 1rem !important;
+    font-family: var(--font-family-base) !important;
+    line-height: 1.5 !important;
+  }
+  .user-dropdown-menu .dropdown-item:hover {
+    background-color: var(--color-bg-tertiary) !important;
+    color: var(--color-text-primary) !important;
+  }
+  .user-dropdown-menu .dropdown-item.active {
+    background-color: var(--color-bg-tertiary) !important;
+    color: var(--color-text-primary) !important;
+    font-weight: 500 !important;
+  }
+  .user-dropdown-menu form {
+    margin: 0 !important;
+  }
+  .user-dropdown-menu button.dropdown-item {
+    width: 100% !important;
+    text-align: left !important;
+    background: none !important;
+    border: none !important;
+    font-family: var(--font-family-base) !important;
+    font-size: 1rem !important;
+    cursor: pointer !important;
+    line-height: 1.5 !important;
+  }
+
+  /* Ensure admin content has proper spacing */
+  .main#main { padding-top: 20px !important; }
+
+  /* Fix footer link colors overridden by admin CSS */
+  .site-footer .footer-links a {
+    color: var(--color-text-muted) !important;
+  }
+  .site-footer .footer-links a:hover {
+    color: var(--color-text-primary) !important;
+  }
+</style>
+</head>
+
+<body class="{% if is_popup %}popup {% endif %}{% block bodyclass %}{% endblock %}"
+  data-admin-utc-offset="{% now "Z" %}"
+  data-authenticated="{% if user.is_authenticated %}true{% else %}false{% endif %}">
+<a href="#content-start" class="skip-to-content-link">{% translate 'Skip to main content' %}</a>
+
+{% if not is_popup %}
+<!-- Site Header -->
+<header>
+  <nav class="navbar">
+    <a class="navbar-brand" href="{% url 'home' %}">
+      <img alt="logo" src="{% static 'diary/images/logo-3.png' %}">
+    </a>
+
+    <button class="menu-toggle" type="button" aria-label="Toggle menu" aria-expanded="false" onclick="toggleMobileMenu()">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
+    <ul class="navbar-nav desktop-only">
+      {% if request.user.is_authenticated %}
+        <li class="user-menu">
+          <button class="user-dropdown-toggle" onclick="toggleUserDropdown()">
+            {{ user.username }}
+          </button>
+          <div class="user-dropdown-menu" id="userDropdown">
+            <a class="dropdown-item" href="{% url 'author-detail' user.pk %}">Profile</a>
+            {% if user.is_staff %}
+              <a class="dropdown-item" href="{% url 'author-list' %}">All Users</a>
+              <a class="dropdown-item" href="{% url 'post-list' %}">All Posts</a>
+              <a class="dropdown-item active" href="{% url 'admin:index' %}">Admin Site</a>
+            {% endif %}
+            <form method="post" action="{% url 'logout' %}">
+              {% csrf_token %}
+              <button type="submit" class="dropdown-item">Log out &nbsp; <strong>⏻</strong></button>
+            </form>
+          </div>
+        </li>
+      {% else %}
+        <li>
+          <div class="auth-buttons">
+            <a href="{% url 'signup' %}" class="btn btn-secondary">Sign up</a>
+            <a href="{% url 'login' %}" class="btn btn-primary">Log in</a>
+          </div>
+        </li>
+      {% endif %}
+    </ul>
+
+    <div class="mobile-menu" id="mobileMenu">
+      {% if request.user.is_authenticated %}
+        <div class="nav-item mobile-username">
+          <span class="nav-link text-muted">{{ user.username }}</span>
+        </div>
+        <div class="nav-item">
+          <a class="nav-link" href="{% url 'author-detail' user.pk %}">Profile</a>
+        </div>
+        {% if user.is_staff %}
+          <div class="nav-item">
+            <a class="nav-link" href="{% url 'author-list' %}">All Users</a>
+          </div>
+          <div class="nav-item">
+            <a class="nav-link" href="{% url 'post-list' %}">All Posts</a>
+          </div>
+          <div class="nav-item">
+            <a class="nav-link active" href="{% url 'admin:index' %}">Admin Site</a>
+          </div>
+        {% endif %}
+        <div class="nav-item">
+          <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="nav-link" style="width: 100%; text-align: right; background: none; border: none; cursor: pointer; font-size: inherit; font-family: inherit;">Log out &nbsp; <strong>⏻</strong></button>
+          </form>
+        </div>
+      {% else %}
+        <div class="nav-item">
+          <a href="{% url 'signup' %}" class="nav-link">Sign up</a>
+        </div>
+        <div class="nav-item">
+          <a href="{% url 'login' %}" class="nav-link">Log in</a>
+        </div>
+      {% endif %}
+    </div>
+  </nav>
+</header>
+<!-- END Site Header -->
+{% endif %}
+
+<!-- Container -->
+<div id="container">
+
+    {% if not is_popup %}
+    {% block nav-breadcrumbs %}
+      <nav aria-label="{% translate 'Breadcrumbs' %}">
+        {% block breadcrumbs %}
+          <div class="breadcrumbs">
+            <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+            {% if title %} &rsaquo; {{ title }}{% endif %}
+          </div>
+        {% endblock %}
+      </nav>
+    {% endblock %}
+    {% endif %}
+
+    <div class="main" id="main">
+      {% if not is_popup and is_nav_sidebar_enabled %}
+        {% block nav-sidebar %}
+          {% include "admin/nav_sidebar.html" %}
+        {% endblock %}
+      {% endif %}
+      <main id="content-start" class="content" tabindex="-1">
+        {% block messages %}
+          {% if messages %}
+            <ul class="messagelist">{% for message in messages %}
+              <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message|capfirst }}</li>
+            {% endfor %}</ul>
+          {% endif %}
+        {% endblock messages %}
+        <!-- Content -->
+        <div id="content" class="{% block coltype %}colM{% endblock %}">
+          {% block pretitle %}{% endblock %}
+          {% block content_title %}{% if title %}<h1>{{ title }}</h1>{% endif %}{% endblock %}
+          {% block content_subtitle %}{% if subtitle %}<h2>{{ subtitle }}</h2>{% endif %}{% endblock %}
+          {% block content %}
+            {% block object-tools %}{% endblock %}
+            {{ content }}
+          {% endblock %}
+          {% block sidebar %}{% endblock %}
+          <br class="clear">
+        </div>
+        <!-- END Content -->
+      </main>
+    </div>
+</div>
+<!-- END Container -->
+
+{% if not is_popup %}
+<!-- Site Footer -->
+<footer class="site-footer">
+  <div class="footer-content">
+    <span class="footer-copyright">&copy; {% now "Y" %} Postways</span>
+    <div class="footer-links">
+      <a href="https://instagram.com/ruslanways" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+      </a>
+      <a href="https://t.me/ruslanways" target="_blank" rel="noopener noreferrer" aria-label="Telegram">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"></path><path d="M22 2L15 22L11 13L2 9L22 2Z"></path></svg>
+      </a>
+      <a href="mailto:admin@postways.net" aria-label="Email">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+      </a>
+    </div>
+  </div>
+</footer>
+<!-- END Site Footer -->
+{% endif %}
+
+<!-- SVGs -->
+<svg xmlns="http://www.w3.org/2000/svg" class="base-svgs">
+  <symbol viewBox="0 0 24 24" width="1.5rem" height="1.5rem" id="icon-auto"><path d="M0 0h24v24H0z" fill="currentColor"/><path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm0-2V4a8 8 0 1 0 0 16z"/></symbol>
+  <symbol viewBox="0 0 24 24" width="1.5rem" height="1.5rem" id="icon-moon"><path d="M0 0h24v24H0z" fill="currentColor"/><path d="M10 7a7 7 0 0 0 12 4.9v.1c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2h.1A6.979 6.979 0 0 0 10 7zm-6 5a8 8 0 0 0 15.062 3.762A9 9 0 0 1 8.238 4.938 7.999 7.999 0 0 0 4 12z"/></symbol>
+  <symbol viewBox="0 0 24 24" width="1.5rem" height="1.5rem" id="icon-sun"><path d="M0 0h24v24H0z" fill="currentColor"/><path d="M12 18a6 6 0 1 1 0-12 6 6 0 0 1 0 12zm0-2a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM11 1h2v3h-2V1zm0 19h2v3h-2v-3zM3.515 4.929l1.414-1.414L7.05 5.636 5.636 7.05 3.515 4.93zM16.95 18.364l1.414-1.414 2.121 2.121-1.414 1.414-2.121-2.121zm2.121-14.85l1.414 1.415-2.121 2.121-1.414-1.414 2.121-2.121zM5.636 16.95l1.414 1.414-2.121 2.121-1.414-1.414 2.121-2.121zM23 11v2h-3v-2h3zM4 11v2H1v-2h3z"/></symbol>
+</svg>
+<!-- END SVGs -->
+
+<script>
+  function toggleMobileMenu() {
+    const menu = document.getElementById('mobileMenu');
+    const toggle = document.querySelector('.menu-toggle');
+    const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+
+    toggle.setAttribute('aria-expanded', !isExpanded);
+    menu.classList.toggle('active');
+  }
+
+  function toggleUserDropdown() {
+    const dropdown = document.getElementById('userDropdown');
+    dropdown.classList.toggle('active');
+  }
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function(event) {
+    const dropdown = document.getElementById('userDropdown');
+    const toggle = document.querySelector('.user-dropdown-toggle');
+
+    if (dropdown && toggle && !dropdown.contains(event.target) && !toggle.contains(event.target)) {
+      dropdown.classList.remove('active');
+    }
+
+    // Close mobile menu when clicking outside
+    const mobileMenu = document.getElementById('mobileMenu');
+    const menuToggle = document.querySelector('.menu-toggle');
+
+    if (mobileMenu && menuToggle && !mobileMenu.contains(event.target) && !menuToggle.contains(event.target)) {
+      mobileMenu.classList.remove('active');
+      if (menuToggle) {
+        menuToggle.setAttribute('aria-expanded', 'false');
+      }
+    }
+  });
+</script>
+{% block extrabody %}{% endblock extrabody %}
+</body>
+</html>

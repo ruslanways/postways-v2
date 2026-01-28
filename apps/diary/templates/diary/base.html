@@ -54,6 +54,7 @@
               {% if user.is_staff %}
                 <a class="dropdown-item {% if view.template_name == 'diary/customuser_list.html' %}active{% endif %}" href="{% url 'author-list' %}">All Users</a>
                 <a class="dropdown-item {% if view.template_name == 'diary/post_list.html' %}active{% endif %}" href="{% url 'post-list' %}">All Posts</a>
+                <a class="dropdown-item" href="{% url 'admin:index' %}">Admin Site</a>
               {% endif %}
               <form method="post" action="{% url 'logout' %}">
                 {% csrf_token %}
@@ -85,6 +86,9 @@
             </div>
             <div class="nav-item">
               <a class="nav-link {% if view.template_name == 'diary/post_list.html' %}active{% endif %}" href="{% url 'post-list' %}">All Posts</a>
+            </div>
+            <div class="nav-item">
+              <a class="nav-link" href="{% url 'admin:index' %}">Admin Site</a>
             </div>
           {% endif %}
           <div class="nav-item">
