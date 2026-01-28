@@ -174,36 +174,36 @@ class TestLikeModel:
 class TestModelRelationships:
     """Tests for model relationships and related managers."""
 
-    def test_user_post_set(self, user, post_factory):
-        """User.post_set contains all user's posts."""
+    def test_user_posts(self, user, post_factory):
+        """User.posts contains all user's posts."""
         posts = [post_factory(author=user) for _ in range(3)]
 
-        user_posts = list(user.post_set.all())
+        user_posts = list(user.posts.all())
         for p in posts:
             assert p in user_posts
 
-    def test_user_like_set(self, user, post_factory, like_factory):
-        """User.like_set contains all user's likes."""
+    def test_user_likes(self, user, post_factory, like_factory):
+        """User.likes contains all user's likes."""
         posts = [post_factory() for _ in range(3)]
         likes = [like_factory(user=user, post=p) for p in posts]
 
-        user_likes = list(user.like_set.all())
+        user_likes = list(user.likes.all())
         for like in likes:
             assert like in user_likes
 
-    def test_post_like_set(self, post, user_factory, like_factory):
-        """Post.like_set contains all likes on the post."""
+    def test_post_likes(self, post, user_factory, like_factory):
+        """Post.likes contains all likes on the post."""
         users = [user_factory() for _ in range(3)]
         likes = [like_factory(user=u, post=post) for u in users]
 
-        post_likes = list(post.like_set.all())
+        post_likes = list(post.likes.all())
         for like in likes:
             assert like in post_likes
 
     def test_post_author_relationship(self, post):
         """Post.author returns the correct user."""
         assert post.author is not None
-        assert post in post.author.post_set.all()
+        assert post in post.author.posts.all()
 
 
 class TestEmailVerificationFields:

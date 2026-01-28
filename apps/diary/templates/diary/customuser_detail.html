@@ -15,7 +15,7 @@
         Member since {{ object.date_joined|date:"M Y" }}
       </p>
       <p class="profile-posts">
-        {% with post_count=object.post_set.count %}
+        {% with post_count=object.posts.count %}
           {% if post_count == 0 %}No posts yet{% elif post_count == 1 %}1 post{% else %}{{ post_count }} posts{% endif %}
         {% endwith %}
       </p>

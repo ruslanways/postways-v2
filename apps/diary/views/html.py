@@ -68,7 +68,7 @@ class HomeView(ListView):
         qs = (
             Post.objects.filter(published=True)
             .select_related("author")
-            .annotate(like_count=Count("like"))
+            .annotate(like_count=Count("likes"))
         )
 
         user = self.request.user
@@ -385,9 +385,9 @@ class AuthorListView(StaffRequiredMixin, ListView):
             ordering = self.request.session.get(session_key, "id")
 
         return CustomUser.objects.annotate(
-            Count("post", distinct=True),
-            Count("like", distinct=True),
-            Count("post__like", distinct=True),
+            Count("posts", distinct=True),
+            Count("likes", distinct=True),
+            Count("posts__likes", distinct=True),
         ).order_by(ordering)
 
     def get_context_data(self, **kwargs):
@@ -435,7 +435,7 @@ class AuthorDetailView(UserPassesTestMixin, DetailView, MultipleObjectMixin):
     def get_queryset(self):
         """Annotate user with total likes received on their posts."""
         return CustomUser.objects.annotate(
-            likes_received=Count("post__like", distinct=True)
+            likes_received=Count("posts__likes", distinct=True)
         )
 
     def get_context_data(self, **kwargs):
@@ -447,8 +447,8 @@ class AuthorDetailView(UserPassesTestMixin, DetailView, MultipleObjectMixin):
         """
         user = self.request.user
         object_list = (
-            self.object.post_set.all()
-            .annotate(like_count=Count("like"))
+            self.object.posts.all()
+            .annotate(like_count=Count("likes"))
             .annotate(
                 has_liked=Exists(
                     Like.objects.filter(
@@ -480,7 +480,7 @@ class PostListView(StaffRequiredMixin, ListView):
 
         Unlike HomeView, this includes unpublished posts for staff review.
         """
-        qs = Post.objects.select_related("author").annotate(like_count=Count("like"))
+        qs = Post.objects.select_related("author").annotate(like_count=Count("likes"))
 
         user = self.request.user
         if user.is_authenticated:
@@ -529,7 +529,7 @@ class PostDetailView(DetailView):
             like_count: Number of likes on the post
             has_liked: Boolean indicating if current user liked the post
         """
-        qs = Post.objects.select_related("author").annotate(like_count=Count("like"))
+        qs = Post.objects.select_related("author").annotate(like_count=Count("likes"))
 
         user = self.request.user
         if user.is_authenticated:

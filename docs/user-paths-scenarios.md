@@ -420,7 +420,7 @@ CLIENT
   "created": "2024-01-15T10:00:00Z",
   "updated": "2024-01-15T10:00:00Z",
   "published": true,
-  "likes": 5
+  "like_count": 5
 }
 ```
 

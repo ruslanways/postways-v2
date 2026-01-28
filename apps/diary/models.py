@@ -95,12 +95,14 @@ class Post(models.Model):
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
+        related_name="posts",
     )
 
     # Image fields
     image = models.ImageField(
         upload_to="diary/images/",
         blank=True,
+        max_length=200,
         help_text="Upload an image for this post. Will be automatically resized.",
     )
     thumbnail = models.ImageField(
@@ -200,10 +202,12 @@ class Like(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
+        related_name="likes",
     )
     post = models.ForeignKey(
-        "Post",
+        Post,
         on_delete=models.CASCADE,
+        related_name="likes",
     )
 
     # Timestamps

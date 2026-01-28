@@ -313,11 +313,11 @@ Authorization: Bearer <access_token>
     "date_joined": "2024-01-01T00:00:00Z",
     "is_staff": false,
     "is_active": true,
-    "post_set": [
+    "posts": [
       "http://host/api/v1/posts/1/",
       "http://host/api/v1/posts/2/"
     ],
-    "like_set": [
+    "likes": [
       "http://host/api/v1/likes/5/",
       "http://host/api/v1/likes/6/"
     ]
@@ -370,7 +370,7 @@ Authorization: Bearer <access_token>
         "created": "2024-01-15T10:00:00Z",
         "updated": "2024-01-15T10:00:00Z",
         "published": true,
-        "likes": 5
+        "like_count": 5
       }
     ]
   }
@@ -409,7 +409,7 @@ Authorization: Bearer <access_token>
     "created": "2024-01-15T10:00:00Z",
     "updated": "2024-01-15T10:00:00Z",
     "published": true,
-    "like_set": [
+    "likes": [
       "http://host/api/v1/likes/1/",
       "http://host/api/v1/likes/2/"
     ]

@@ -43,7 +43,7 @@ class TestPostList:
         assert unpublished_post.id not in post_ids
 
     def test_list_includes_like_count(self, api_client, post, like_factory, user):
-        """Post list includes likes count."""
+        """Post list includes like_count."""
         # Create some likes
         like_factory(post=post, user=user)
 
@@ -51,8 +51,8 @@ class TestPostList:
 
         assert response.status_code == status.HTTP_200_OK
         post_data = next(p for p in response.data["results"] if p["id"] == post.id)
-        assert "likes" in post_data
-        assert post_data["likes"] == 1
+        assert "like_count" in post_data
+        assert post_data["like_count"] == 1
 
     def test_list_is_paginated(self, api_client, post_factory, user):
         """Post list is paginated."""
@@ -215,12 +215,12 @@ class TestPostDetail:
 
         assert response.status_code == status.HTTP_200_OK
 
-    def test_view_includes_like_set(self, api_client, post, like):
-        """Post detail includes like_set."""
+    def test_view_includes_likes(self, api_client, post, like):
+        """Post detail includes likes."""
         response = api_client.get(reverse("post-detail-api", args=[post.id]))
 
         assert response.status_code == status.HTTP_200_OK
-        assert "like_set" in response.data
+        assert "likes" in response.data
 
     def test_view_nonexistent_post(self, api_client):
         """Non-existent post returns 404."""

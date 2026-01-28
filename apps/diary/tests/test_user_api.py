@@ -234,14 +234,14 @@ class TestUserDetail:
     def test_view_profile_includes_posts_and_likes(
         self, authenticated_api_client, user, post, like
     ):
-        """Profile includes post_set and like_set."""
+        """Profile includes posts and likes."""
         response = authenticated_api_client.get(
             reverse("user-detail-update-destroy-api", args=[user.id])
         )
 
         assert response.status_code == status.HTTP_200_OK
-        assert "post_set" in response.data
-        assert "like_set" in response.data
+        assert "posts" in response.data
+        assert "likes" in response.data
 
 
 class TestUserUpdate:

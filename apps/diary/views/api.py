@@ -191,7 +191,7 @@ class PostAPIView(generics.ListCreateAPIView):
         """Return only published posts with like count annotation."""
         return (
             Post.objects.exclude(published=False)
-            .annotate(likes=Count("like"))
+            .annotate(like_count=Count("likes"))
             .order_by("-updated")
         )
 
@@ -360,7 +360,7 @@ class LikeBatchAPIView(generics.GenericAPIView):
         if not post_ids:
             return Response({})
 
-        posts = Post.objects.filter(id__in=post_ids).annotate(like_count=Count("like"))
+        posts = Post.objects.filter(id__in=post_ids).annotate(like_count=Count("likes"))
 
         user_liked_ids = set()
         if request.user.is_authenticated:

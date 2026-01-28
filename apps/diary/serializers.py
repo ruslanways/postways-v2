@@ -144,8 +144,8 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
         - id: User ID (read-only)
         - username: Read-only (use /api/v1/auth/username/change/ to change)
         - email: Read-only (use /api/v1/auth/email/change/ to change)
-        - post_set: Hyperlinked list of all posts by this user (read-only)
-        - like_set: Hyperlinked list of all likes by this user (read-only)
+        - posts: Hyperlinked list of all posts by this user (read-only)
+        - likes: Hyperlinked list of all likes by this user (read-only)
         - last_request, last_login, date_joined: Read-only timestamps
         - is_staff, is_active: Read-only admin flags
 
@@ -161,10 +161,10 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
         view_name="user-detail-update-destroy-api"
     )
     # Related posts and likes shown as hyperlinked relationships
-    post_set = serializers.HyperlinkedRelatedField(
+    posts = serializers.HyperlinkedRelatedField(
         many=True, read_only=True, view_name="post-detail-api"
     )
-    like_set = serializers.HyperlinkedRelatedField(
+    likes = serializers.HyperlinkedRelatedField(
         many=True, read_only=True, view_name="like-detail-api"
     )
 
@@ -180,8 +180,8 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
             "date_joined",
             "is_staff",
             "is_active",
-            "post_set",
-            "like_set",
+            "posts",
+            "likes",
         )
         read_only_fields = (
             "id",
@@ -217,7 +217,7 @@ class PostSerializer(serializers.HyperlinkedModelSerializer):
         - image: Post image file (optional)
         - created, updated: Read-only timestamps
         - published: Boolean flag (write-only, defaults to True)
-        - likes: Total number of likes (read-only, computed field)
+        - like_count: Total number of likes (read-only, computed field)
 
     Note:
         Author is set in the view using perform_create(). Alternative approaches
@@ -235,7 +235,7 @@ class PostSerializer(serializers.HyperlinkedModelSerializer):
     # Alternative approach to associate post with current user:
     # author = serializers.HiddenField(write_only=True, default=serializers.CurrentUserDefault())
     # author_id = serializers.IntegerField(read_only=True, default=serializers.CurrentUserDefault())
-    likes = serializers.IntegerField(read_only=True)
+    like_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Post
@@ -249,7 +249,7 @@ class PostSerializer(serializers.HyperlinkedModelSerializer):
             "created",
             "updated",
             "published",
-            "likes",
+            "like_count",
         )
 
 
@@ -270,14 +270,14 @@ class PostDetailSerializer(serializers.HyperlinkedModelSerializer):
         - image: Post image file (optional)
         - created, updated: Read-only timestamps
         - published: Publication status
-        - like_set: Hyperlinked list of all likes on this post (read-only)
+        - likes: Hyperlinked list of all likes on this post (read-only)
     """
 
     url = serializers.HyperlinkedIdentityField(view_name="post-detail-api")
     author = serializers.HyperlinkedRelatedField(
         read_only=True, view_name="user-detail-update-destroy-api"
     )
-    like_set = serializers.HyperlinkedRelatedField(
+    likes = serializers.HyperlinkedRelatedField(
         many=True, read_only=True, view_name="like-detail-api"
     )
 
@@ -293,7 +293,7 @@ class PostDetailSerializer(serializers.HyperlinkedModelSerializer):
             "created",
             "updated",
             "published",
-            "like_set",
+            "likes",
         )
         extra_kwargs = {
             "title": {"required": False},

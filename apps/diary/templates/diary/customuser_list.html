@@ -13,9 +13,9 @@
         <th><a href="{% url 'author-list' %}id/" class="sortable{% if current_sort == 'id' %} active {{ sort_direction }}{% endif %}">#</a></th>
         <th><a href="{% url 'author-list' %}username/" class="sortable{% if current_sort == 'username' %} active {{ sort_direction }}{% endif %}">Username</a></th>
         <th><a href="{% url 'author-list' %}date_joined/" class="sortable{% if current_sort == 'date_joined' %} active {{ sort_direction }}{% endif %}">Date joined</a></th>
-        <th class="text-center"><a href="{% url 'author-list' %}post__count/" class="sortable{% if current_sort == 'post__count' %} active {{ sort_direction }}{% endif %}">Posts</a></th>
-        <th class="text-center"><a href="{% url 'author-list' %}like__count/" class="sortable{% if current_sort == 'like__count' %} active {{ sort_direction }}{% endif %}">Likes given</a></th>
-        <th class="text-center"><a href="{% url 'author-list' %}post__like__count/" class="sortable{% if current_sort == 'post__like__count' %} active {{ sort_direction }}{% endif %}">Likes received</a></th>
+        <th class="text-center"><a href="{% url 'author-list' %}posts__count/" class="sortable{% if current_sort == 'posts__count' %} active {{ sort_direction }}{% endif %}">Posts</a></th>
+        <th class="text-center"><a href="{% url 'author-list' %}likes__count/" class="sortable{% if current_sort == 'likes__count' %} active {{ sort_direction }}{% endif %}">Likes given</a></th>
+        <th class="text-center"><a href="{% url 'author-list' %}posts__likes__count/" class="sortable{% if current_sort == 'posts__likes__count' %} active {{ sort_direction }}{% endif %}">Likes received</a></th>
       </tr>
       <tr class="summary-row">
         <td>{{ object_list.count }}</td>
@@ -32,9 +32,9 @@
         <td class="row-id">{{ author.pk }}</td>
         <td><a href="{% url 'author-detail' author.pk %}">{{ author.username }}</a></td>
         <td>{{ author.date_joined|date:"d/m/Y" }}</td>
-        <td class="text-center">{{ author.post__count }}</td>
-        <td class="text-center">{{ author.like__count }}</td>
-        <td class="text-center">{{ author.post__like__count }}</td>
+        <td class="text-center">{{ author.posts__count }}</td>
+        <td class="text-center">{{ author.likes__count }}</td>
+        <td class="text-center">{{ author.posts__likes__count }}</td>
       </tr>
       {% endfor %}
     </tbody>
