@@ -114,6 +114,7 @@ celerybeat-schedule.*
 
 # Coverage reports
 htmlcov/
+var/coverage/
 .coverage
 .coverage.*
 coverage.xml
