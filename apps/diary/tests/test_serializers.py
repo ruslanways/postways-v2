@@ -21,8 +21,8 @@ from apps.diary.serializers import (
     EmailChangeSerializer,
     LikeCreateDestroySerializer,
     PasswordChangeSerializer,
-    UserSerializer,
     UsernameChangeSerializer,
+    UserSerializer,
 )
 
 pytestmark = pytest.mark.django_db
@@ -70,7 +70,9 @@ class TestUserSerializer:
         serializer = UserSerializer(data=data)
 
         assert not serializer.is_valid()
-        assert "password" in serializer.errors or "non_field_errors" in serializer.errors
+        assert (
+            "password" in serializer.errors or "non_field_errors" in serializer.errors
+        )
 
     def test_common_password_raises_error(self):
         """Common password fails Django password validation."""

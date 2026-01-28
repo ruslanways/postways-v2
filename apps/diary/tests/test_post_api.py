@@ -102,7 +102,9 @@ class TestPostCreate:
         post = Post.objects.get(title="New Post")
         assert post.author == user
 
-    def test_create_cannot_override_author(self, authenticated_api_client, user, other_user):
+    def test_create_cannot_override_author(
+        self, authenticated_api_client, user, other_user
+    ):
         """Attempting to set author is ignored."""
         response = authenticated_api_client.post(
             reverse("post-list-create-api"),
@@ -194,11 +196,15 @@ class TestPostDetail:
 
     def test_view_unpublished_owner_only(self, api_client, unpublished_post):
         """Non-owner gets 403 for unpublished post."""
-        response = api_client.get(reverse("post-detail-api", args=[unpublished_post.id]))
+        response = api_client.get(
+            reverse("post-detail-api", args=[unpublished_post.id])
+        )
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_view_unpublished_by_owner(self, authenticated_api_client, unpublished_post):
+    def test_view_unpublished_by_owner(
+        self, authenticated_api_client, unpublished_post
+    ):
         """Owner can view their unpublished post."""
         response = authenticated_api_client.get(
             reverse("post-detail-api", args=[unpublished_post.id])

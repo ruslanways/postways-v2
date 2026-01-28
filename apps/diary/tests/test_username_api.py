@@ -118,7 +118,9 @@ class TestUsernameChange:
         user.refresh_from_db()
         assert user.username_changed_at is not None
 
-    def test_change_cooldown_enforced(self, authenticated_api_client, user, user_password):
+    def test_change_cooldown_enforced(
+        self, authenticated_api_client, user, user_password
+    ):
         """30-day cooldown prevents immediate second change."""
         # First change
         response = authenticated_api_client.post(
@@ -218,7 +220,9 @@ class TestUsernameChange:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "password" in response.data
 
-    def test_change_missing_username(self, authenticated_api_client, user, user_password):
+    def test_change_missing_username(
+        self, authenticated_api_client, user, user_password
+    ):
         """Missing new_username returns 400."""
         response = authenticated_api_client.post(
             reverse("username-change-api"),
@@ -228,7 +232,9 @@ class TestUsernameChange:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "new_username" in response.data
 
-    def test_change_username_too_long(self, authenticated_api_client, user, user_password):
+    def test_change_username_too_long(
+        self, authenticated_api_client, user, user_password
+    ):
         """Username longer than 150 chars returns 400."""
         response = authenticated_api_client.post(
             reverse("username-change-api"),

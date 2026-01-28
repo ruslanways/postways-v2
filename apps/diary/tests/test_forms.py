@@ -15,7 +15,6 @@ from django.utils import timezone
 import pytest
 
 from apps.diary.forms import EmailChangeForm, FormControlMixin, UsernameChangeForm
-from apps.diary.models import CustomUser
 
 pytestmark = pytest.mark.django_db
 

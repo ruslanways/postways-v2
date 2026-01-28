@@ -69,9 +69,7 @@ class TestPostModel:
 
     def test_post_default_published(self, user):
         """Posts are published by default."""
-        post = Post.objects.create(
-            title="Test", content="Content", author=user
-        )
+        post = Post.objects.create(title="Test", content="Content", author=user)
         assert post.published is True
 
     def test_post_absolute_url(self, post):
@@ -326,7 +324,6 @@ class TestPostImageHandling:
         post = Post.objects.create(
             title="Test", content="Content", author=user, image=image1
         )
-        old_image_name = post.image.name
         mock_process_task.reset_mock()
         mock_delete_task.reset_mock()
 

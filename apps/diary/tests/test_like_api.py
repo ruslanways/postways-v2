@@ -52,7 +52,9 @@ class TestLikeToggle:
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert not Like.objects.filter(post=post).exists()
 
-    def test_toggle_unpublished_rejected(self, authenticated_api_client, unpublished_post):
+    def test_toggle_unpublished_rejected(
+        self, authenticated_api_client, unpublished_post
+    ):
         """Cannot like unpublished post."""
         response = authenticated_api_client.post(
             reverse("like-toggle-api"),
