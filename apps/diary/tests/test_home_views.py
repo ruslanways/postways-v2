@@ -60,11 +60,10 @@ class TestHomeView:
         assert response.status_code == 200
         assert len(response.context["object_list"]) == 4  # remaining posts
 
-    def test_home_authenticated_has_liked_true(self, client, user, post, like):
+    def test_home_authenticated_has_liked_true(self, user_client, post, like):
         """Authenticated user sees has_liked=True for posts they liked."""
-        client.force_login(user)
 
-        response = client.get(reverse("home"))
+        response = user_client.get(reverse("home"))
 
         assert response.status_code == 200
         post_in_context = next(
@@ -74,13 +73,12 @@ class TestHomeView:
         assert post_in_context.has_liked is True
 
     def test_home_authenticated_has_liked_false(
-        self, client, user, post_factory, other_user
+        self, user_client, post_factory, other_user
     ):
         """Authenticated user sees has_liked=False for posts they haven't liked."""
         unliked_post = post_factory(author=other_user)
-        client.force_login(user)
 
-        response = client.get(reverse("home"))
+        response = user_client.get(reverse("home"))
 
         assert response.status_code == 200
         post_in_context = next(
