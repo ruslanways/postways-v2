@@ -163,3 +163,223 @@ class TestHomeViewPopular:
         posts_in_context = list(response.context["object_list"])
         assert post in posts_in_context
         assert unpublished_post not in posts_in_context
+
+
+class TestPostListView:
+    """Tests for the staff-only post list view."""
+
+    def test_post_list_requires_staff(self, client, user):
+        """Non-staff users are redirected."""
+        client.force_login(user)
+
+        response = client.get(reverse("post-list"))
+
+        assert response.status_code == 302
+
+    def test_post_list_accessible_to_staff(self, client, admin_user, post):
+        """Staff users can access post list."""
+        client.force_login(admin_user)
+
+        response = client.get(reverse("post-list"))
+
+        assert response.status_code == 200
+        template_names = [t.name for t in response.templates]
+        assert "diary/post_list.html" in template_names
+        assert post in response.context["object_list"]
+
+    def test_post_list_shows_unpublished(
+        self, client, admin_user, post, unpublished_post
+    ):
+        """Staff post list includes unpublished posts."""
+        client.force_login(admin_user)
+
+        response = client.get(reverse("post-list"))
+
+        assert response.status_code == 200
+        posts = list(response.context["object_list"])
+        assert post in posts
+        assert unpublished_post in posts
+
+    def test_post_list_has_liked_annotation(self, client, admin_user, post, like):
+        """Posts have has_liked annotation for authenticated users."""
+        # The like fixture creates a like from user on post
+        # admin_user is different, so has_liked should be False
+        client.force_login(admin_user)
+
+        response = client.get(reverse("post-list"))
+
+        assert response.status_code == 200
+        post_in_context = next(
+            p for p in response.context["object_list"] if p.id == post.id
+        )
+        assert hasattr(post_in_context, "has_liked")
+        # Verify like exists in DB (uses the fixture)
+        assert like.post_id == post.id
+
+
+class TestPostCreateView:
+    """Tests for post creation view."""
+
+    def test_post_create_requires_login(self, client):
+        """Unauthenticated users are redirected."""
+        response = client.get(reverse("post-add"))
+
+        assert response.status_code == 302
+        assert "login" in response.url
+
+    def test_post_create_page_renders(self, client, user):
+        """Authenticated user sees create form."""
+        client.force_login(user)
+
+        response = client.get(reverse("post-add"))
+
+        assert response.status_code == 200
+        template_names = [t.name for t in response.templates]
+        assert "diary/add-post.html" in template_names
+
+    def test_post_create_sets_author(self, client, user):
+        """Creating a post sets the author to current user."""
+        from apps.diary.models import Post
+
+        client.force_login(user)
+
+        response = client.post(
+            reverse("post-add"),
+            {
+                "title": "New Test Post",
+                "content": "Test content for the post.",
+                "published": True,
+            },
+        )
+
+        assert response.status_code == 302  # redirect on success
+        new_post = Post.objects.get(title="New Test Post")
+        assert new_post.author == user
+
+
+class TestPostDetailView:
+    """Tests for post detail view."""
+
+    def test_post_detail_renders(self, client, post):
+        """GET post detail returns 200."""
+        response = client.get(reverse("post-detail", kwargs={"pk": post.pk}))
+
+        assert response.status_code == 200
+        template_names = [t.name for t in response.templates]
+        assert "diary/post_detail.html" in template_names
+
+    def test_post_detail_has_like_count(self, client, post, like_factory, user):
+        """Post detail includes like_count annotation."""
+        like_factory(post=post, user=user)
+
+        response = client.get(reverse("post-detail", kwargs={"pk": post.pk}))
+
+        assert response.status_code == 200
+        post_in_context = response.context["object"]
+        assert hasattr(post_in_context, "like_count")
+        assert post_in_context.like_count == 1
+
+    def test_post_detail_has_liked_authenticated(self, user_client, post, like):
+        """Authenticated user sees has_liked=True for posts they liked."""
+        # Verify like exists
+        assert like.post_id == post.id
+
+        response = user_client.get(reverse("post-detail", kwargs={"pk": post.pk}))
+
+        assert response.status_code == 200
+        post_in_context = response.context["object"]
+        assert post_in_context.has_liked is True
+
+    def test_post_detail_has_liked_anonymous(self, client, post):
+        """Anonymous user sees has_liked=False."""
+        response = client.get(reverse("post-detail", kwargs={"pk": post.pk}))
+
+        assert response.status_code == 200
+        post_in_context = response.context["object"]
+        assert post_in_context.has_liked is False
+
+
+class TestPostUpdateView:
+    """Tests for post update view."""
+
+    def test_post_update_requires_auth(self, client, post):
+        """Unauthenticated users are redirected."""
+        response = client.get(reverse("post-update", kwargs={"pk": post.pk}))
+
+        assert response.status_code == 302
+
+    def test_post_update_owner_can_access(self, client, user, post):
+        """Post owner can access update page."""
+        client.force_login(user)
+
+        response = client.get(reverse("post-update", kwargs={"pk": post.pk}))
+
+        assert response.status_code == 200
+        template_names = [t.name for t in response.templates]
+        assert "diary/post-update.html" in template_names
+
+    def test_post_update_staff_can_access(self, client, admin_user, post):
+        """Staff can access update page for any post."""
+        client.force_login(admin_user)
+
+        response = client.get(reverse("post-update", kwargs={"pk": post.pk}))
+
+        assert response.status_code == 200
+
+    def test_post_update_other_user_denied(self, client, other_user, post):
+        """Non-owner non-staff cannot access update page."""
+        client.force_login(other_user)
+
+        response = client.get(reverse("post-update", kwargs={"pk": post.pk}))
+
+        assert response.status_code == 403
+
+
+class TestPostDeleteView:
+    """Tests for post delete view."""
+
+    def test_post_delete_requires_auth(self, client, post):
+        """Unauthenticated users are redirected."""
+        response = client.get(reverse("post-delete", kwargs={"pk": post.pk}))
+
+        assert response.status_code == 302
+
+    def test_post_delete_owner_can_access(self, client, user, post):
+        """Post owner can access delete confirmation page."""
+        client.force_login(user)
+
+        response = client.get(reverse("post-delete", kwargs={"pk": post.pk}))
+
+        assert response.status_code == 200
+        template_names = [t.name for t in response.templates]
+        assert "diary/post-delete.html" in template_names
+
+    def test_post_delete_staff_can_access(self, client, admin_user, post):
+        """Staff can access delete page for any post."""
+        client.force_login(admin_user)
+
+        response = client.get(reverse("post-delete", kwargs={"pk": post.pk}))
+
+        assert response.status_code == 200
+
+    def test_post_delete_other_user_denied(self, client, other_user, post):
+        """Non-owner non-staff cannot delete."""
+        client.force_login(other_user)
+
+        response = client.get(reverse("post-delete", kwargs={"pk": post.pk}))
+
+        assert response.status_code == 403
+
+    def test_post_delete_success_redirects_to_author_profile(self, client, user, post):
+        """Deleting post redirects to author's profile."""
+        from apps.diary.models import Post
+
+        client.force_login(user)
+        post_id = post.pk
+        author_id = post.author_id
+
+        response = client.post(reverse("post-delete", kwargs={"pk": post_id}))
+
+        assert response.status_code == 302
+        assert response.url == reverse("author-detail", kwargs={"pk": author_id})
+        assert not Post.objects.filter(pk=post_id).exists()

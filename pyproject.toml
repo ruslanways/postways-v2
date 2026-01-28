@@ -24,6 +24,7 @@ dev = [
     "pytest-cov>=7.0.0",
     "pytest-django>=4.11.1",
     "pytest-factoryboy>=2.8.1",
+    "pytest-xdist>=3.8.0",
     "ruff>=0.14.14",
 ]
 
@@ -41,6 +42,9 @@ omit = [
     "*/tasks.py",
     "*/templatetags/*",
 ]
+
+[tool.coverage.html]
+directory = "var/coverage/htmlcov"
 
 [tool.ruff]
 line-length = 88

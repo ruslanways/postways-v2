@@ -3,7 +3,8 @@ import traceback
 
 from django.conf import settings
 from django.core.cache import cache
-from django.http import JsonResponse
+from django.core.exceptions import PermissionDenied
+from django.http import Http404, JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
 
@@ -61,6 +62,11 @@ class UncaughtExceptionMiddleware:
         return self.get_response(request)
 
     def process_exception(self, request, exception):
+        # Let Django handle its built-in HTTP exceptions (403, 404, etc.)
+        # These should be processed by their respective handlers
+        if isinstance(exception, (PermissionDenied, Http404)):
+            return None
+
         # Only catches truly unexpected exceptions
         # Logs the full exception with traceback for debugging
         logger.error(

@@ -20,8 +20,8 @@ docker compose -f docker/docker-compose.yml exec web python manage.py seed_demo_
 # Create superuser
 docker compose -f docker/docker-compose.yml exec web python manage.py createsuperuser
 
-# Run tests
-docker compose -f docker/docker-compose.yml exec web python manage.py test
+# Run tests with coverage
+docker compose -f docker/docker-compose.yml exec web pytest --cov=apps --cov-report=term-missing -n auto
 ```
 
 ## API Endpoints
