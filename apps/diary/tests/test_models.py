@@ -339,9 +339,7 @@ class TestPostImageHandling:
 
     @patch("apps.diary.models.Post._process_new_image")
     @patch("apps.diary.models.Post._cleanup_old_images")
-    def test_clear_image_triggers_cleanup_only(
-        self, mock_cleanup, mock_process, user
-    ):
+    def test_clear_image_triggers_cleanup_only(self, mock_cleanup, mock_process, user):
         """Clearing an image triggers cleanup but not processing."""
         # Create post with image
         image = self._create_test_image()
