@@ -1,5 +1,8 @@
-{% extends 'diary/base.html' %} {% block title %} Postways {% endblock %} {%
-block content %}
+{% extends 'diary/base.html' %}
+
+{% block title %}Postways{% endblock %}
+
+{% block content %}
 
 <div class="filter-tabs">
   <a
@@ -17,8 +20,9 @@ block content %}
 </div>
 
 <div class="posts-grid">
-  {% for post in object_list %} {% include "diary/_post_card.html" with
-  post=post liked_by_user=liked_by_user %} {% endfor %}
+  {% for post in object_list %}
+    {% include "diary/_post_card.html" with post=post liked_by_user=liked_by_user %}
+  {% endfor %}
 </div>
 
 {% endblock %}
