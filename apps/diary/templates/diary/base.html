@@ -5,6 +5,10 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+          content="{% block meta_description %}Share your discovery with the world{% endblock %}">
+    <meta name="keywords"
+          content="{% block meta_keywords %}diary, blog, posts, discovery, share{% endblock %}">
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="{% url 'home' %}" />
@@ -45,9 +49,6 @@
           href="{% static 'diary/images/favicon/favicon-16x16.png' %}">
     <link rel="manifest"
           href="{% static 'diary/images/favicon/site.webmanifest' %}">
-    <link rel="mask-icon"
-          href="{% static 'diary/images/favicon/safari-pinned-tab.svg' %}"
-          color="#455458">
     <meta name="msapplication-TileColor" content="#fcfcfc">
     <meta name="theme-color" content="#ffffff">
   </head>
@@ -202,7 +203,7 @@
     </main>
     <footer class="site-footer">
       <div class="footer-content">
-        <span class="footer-copyright">&copy; {% now "Y" %} Postways</span>
+        <span class="footer-copyright">© {% now "Y" %} Postways</span>
         <div class="footer-links">
           <a href="https://instagram.com/ruslanways"
              target="_blank"
