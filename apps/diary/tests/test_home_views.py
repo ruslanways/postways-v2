@@ -298,6 +298,26 @@ class TestPostDetailView:
         post_in_context = response.context["object"]
         assert post_in_context.has_liked is False
 
+    def test_published_post_has_like_feature(self, client, post):
+        """Published post shows like button, not '*unpublished' label."""
+        response = client.get(reverse("post-detail", kwargs={"pk": post.pk}))
+
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert 'class="like' in content
+        assert "*unpublished" not in content
+
+    def test_unpublished_post_has_no_like_feature(self, user_client, unpublished_post):
+        """Unpublished post shows '*unpublished' label, not like button."""
+        response = user_client.get(
+            reverse("post-detail", kwargs={"pk": unpublished_post.pk})
+        )
+
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert 'class="like' not in content
+        assert "*unpublished" in content
+
 
 class TestPostUpdateView:
     """Tests for post update view."""

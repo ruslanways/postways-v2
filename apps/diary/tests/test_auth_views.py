@@ -642,3 +642,27 @@ class TestAuthorDetailView:
 
         assert response.status_code == 200
         assert post in response.context["object_list"]
+
+    def test_published_post_has_like_feature_in_post_card(self, client, user, post):
+        """Published post in author detail shows like button, not '*unpublished' label."""
+        client.force_login(user)
+
+        response = client.get(reverse("author-detail", args=[user.pk]))
+
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert 'class="like' in content
+        assert "*unpublished" not in content
+
+    def test_unpublished_post_has_no_like_feature_in_post_card(
+        self, client, user, unpublished_post
+    ):
+        """Unpublished post in author detail shows '*unpublished' label, not like button."""
+        client.force_login(user)
+
+        response = client.get(reverse("author-detail", args=[user.pk]))
+
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert 'class="like' not in content
+        assert "*unpublished" in content
