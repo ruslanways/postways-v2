@@ -1,59 +1,51 @@
 {% extends 'diary/base.html' %}
-
-{% block title %} post#{{object.pk}} {{ object.title }} {% endblock %}
-
+{% block title %}post#{{ object.pk }} {{ object.title }}{% endblock %}
 {% block content %}
-
-{% load diary_tags %}
-
-<article class="post-detail">
-  <div class="post-detail-header">
-    {% if user.is_authenticated and object.author == user or user.is_staff %}
-      <div class="post-detail-actions">
-        <a href="{% url 'post-update' object.id %}" class="filter-tab-button">Edit</a>
-        <a href="{% url 'post-delete' object.id %}" class="filter-tab-button">Delete</a>
+  {% load diary_tags %}
+  <article class="post-detail">
+    <div class="post-detail-header">
+      {% if user.is_authenticated and object.author == user or user.is_staff %}
+        <div class="post-detail-actions">
+          <a href="{% url 'post-update' object.id %}" class="filter-tab-button">Edit</a>
+          <a href="{% url 'post-delete' object.id %}" class="filter-tab-button">Delete</a>
+        </div>
+      {% endif %}
+      <h1 class="post-detail-title">{{ object.title }}</h1>
+      <div class="post-detail-meta">
+        <a href="{% url 'author-detail' object.author.pk %}"
+           class="post-card-author">{{ object.author.username }}</a>
+        <span class="post-card-date">{{ object.created|date }} at {{ object.created|time:"H:i" }}</span>
+        {% if object.published %}
+          {% if user.is_authenticated and object.has_liked %}
+            <a href="{% url 'like-toggle-api' %}"
+               id="{{ object.id }}"
+               class="like is-liked">
+              <span class="heart">♥</span>
+              <span class="count">{{ object.like_count }}</span>
+            </a>
+          {% elif user.is_authenticated %}
+            <a href="{% url 'like-toggle-api' %}" id="{{ object.id }}" class="like">
+              <span class="heart">♡</span>
+              <span class="count">{{ object.like_count }}</span>
+            </a>
+          {% else %}
+            <a href="{% url 'login' %}" id="{{ object.id }}" class="like">
+              <span class="heart">♡</span>
+              <span class="count">{{ object.like_count }}</span>
+            </a>
+          {% endif %}
+        {% else %}
+          <span class="text-muted">*unpublished</span>
+        {% endif %}
       </div>
-    {% endif %}
-    <h1 class="post-detail-title">{{ object.title }}</h1>
-    
-    <div class="post-detail-meta">
-      <a href="{% url 'author-detail' object.author.pk %}" class="post-card-author">
-        {{ object.author.username }}
-      </a>
-      <span class="post-card-date">
-        {{ object.created|date }} at {{ object.created|time:"H:i" }}
-      </span>
-      {% if user.is_authenticated and object.has_liked %}
-        <a href="{% url 'like-toggle-api' %}" id="{{ object.id }}" class="like is-liked">
-          <span class="heart">♥</span>
-          <span class="count">{{ object.like_count }}</span>
-        </a>
-      {% elif user.is_authenticated %}
-        <a href="{% url 'like-toggle-api' %}" id="{{ object.id }}" class="like">
-          <span class="heart">♡</span>
-          <span class="count">{{ object.like_count }}</span>
-        </a>
-      {% else %}
-        <a href="{% url 'login' %}" id="{{ object.id }}" class="like">
-          <span class="heart">♡</span>
-          <span class="count">{{ object.like_count }}</span>
-        </a>
-      {% endif %}
-      {% if not object.published %}
-        <span class="text-muted">*unpublished</span>
-      {% endif %}
     </div>
-  </div>
-
-  {% if object.image %}
-    <a href="{{ object.image.url }}">
-      <img src="{{ object.image.url }}" alt="{{ object.title }} image" class="post-detail-image">
-    </a>
-  {% endif %}
-
-  <div class="post-detail-content">
-    {{ object.content|linebreaks|urlizetrunc:40|url_target_blank }}
-  </div>
-</article>
-
+    {% if object.image %}
+      <a href="{{ object.image.url }}">
+        <img src="{{ object.image.url }}"
+             alt="{{ object.title }} image"
+             class="post-detail-image">
+      </a>
+    {% endif %}
+    <div class="post-detail-content">{{ object.content|linebreaks|urlizetrunc:40|url_target_blank }}</div>
+  </article>
 {% endblock %}

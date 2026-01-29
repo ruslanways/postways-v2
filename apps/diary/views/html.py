@@ -508,12 +508,17 @@ class PostCreateView(LoginRequiredMixin, CreateView):
 
     form_class = AddPostForm
     template_name = "diary/add-post.html"
-    success_url = reverse_lazy("home")
 
     def form_valid(self, form):
         """Set the post author to the current user before saving."""
         form.instance.author = self.request.user
         return super().form_valid(form)
+
+    def get_success_url(self):
+        """Redirect unpublished posts to profile, published to homepage."""
+        if self.object.published:
+            return reverse_lazy("home")
+        return reverse_lazy("author-detail", kwargs={"pk": self.request.user.pk})
 
 
 class PostDetailView(DetailView):
