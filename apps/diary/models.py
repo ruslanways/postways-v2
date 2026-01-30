@@ -150,7 +150,15 @@ class Post(models.Model):
         When a new image is uploaded, saves the model and triggers
         a Celery task to resize the image and generate a thumbnail.
         When an image is cleared or replaced, queues deletion of old files.
+        Skips image logic entirely if update_fields doesn't include 'image'.
         """
+        update_fields = kwargs.get("update_fields")
+
+        # Skip image logic if update_fields is provided and doesn't include image
+        if update_fields is not None and "image" not in update_fields:
+            super().save(*args, **kwargs)
+            return
+
         old_image, old_thumbnail, is_new_image = self._track_image_changes()
         super().save(*args, **kwargs)
         self._cleanup_old_images(old_image, old_thumbnail)
