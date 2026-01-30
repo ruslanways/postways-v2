@@ -41,6 +41,8 @@ class ReadForAdminCreateForAnonymous(permissions.BasePermission):
 
     def has_permission(self, request, view) -> bool:
         """Check if user has permission to access the view."""
+        if request.method == "OPTIONS":
+            return True
         if request.method == "POST":
             return request.user.is_anonymous
         return request.user.is_staff
