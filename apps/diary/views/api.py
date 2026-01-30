@@ -146,12 +146,6 @@ class UserDetailAPIView(generics.RetrieveDestroyAPIView):
     serializer_class = UserDetailSerializer
     permission_classes = (OwnerOrAdmin,)
 
-    def get_object(self):
-        """Cache the object to avoid duplicate database queries."""
-        if not hasattr(self, "_cached_object"):
-            self._cached_object = super().get_object()
-        return self._cached_object
-
     def destroy(self, request, *args, **kwargs):
         """
         Delete a user account after blacklisting all their JWT tokens.
@@ -165,7 +159,9 @@ class UserDetailAPIView(generics.RetrieveDestroyAPIView):
 
         with transaction.atomic():
             blacklist_user_tokens(user)
-            return super().destroy(request, *args, **kwargs)
+            self.perform_destroy(user)
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class PostAPIView(generics.ListCreateAPIView):
