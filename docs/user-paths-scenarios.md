@@ -417,8 +417,8 @@ CLIENT
   "author": "http://host/api/v1/users/2/",
   "image": "http://host/media/diary/images/post.jpg",
   "thumbnail": "http://host/media/diary/images/thumbnails/post.jpg",
-  "created": "2024-01-15T10:00:00Z",
-  "updated": "2024-01-15T10:00:00Z",
+  "created_at": "2024-01-15T10:00:00Z",
+  "updated_at": "2024-01-15T10:00:00Z",
   "published": true,
   "like_count": 5
 }
@@ -612,7 +612,7 @@ CLIENT (Authenticated - Owner or Staff)
   "id": 2,
   "username": "testuser",
   "email": "user@example.com",
-  "last_request": "2024-01-15T10:30:00Z",
+  "last_activity_at": "2024-01-15T10:30:00Z",
   "posts": [
     "http://host/api/v1/posts/1/",
     "http://host/api/v1/posts/2/"
@@ -766,7 +766,7 @@ CLIENT (Authenticated - Staff Only)
                 │
                 ├─ No → 403 Forbidden
                 │
-                └─ Yes → 3. Get all users, ordered by last_request DESC
+                └─ Yes → 3. Get all users, ordered by last_activity_at DESC
                            4. Paginate results
                            5. Return 200 OK with paginated user list
 ```

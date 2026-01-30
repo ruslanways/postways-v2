@@ -48,11 +48,13 @@ class CustomUser(AbstractUser):
     )
 
     # Track when user last made a request (for analytics/activity tracking)
-    last_request = models.DateTimeField(_("last request"), blank=True, null=True)
+    last_activity_at = models.DateTimeField(
+        _("last activity at"), blank=True, null=True
+    )
 
     # Track when username was last changed (for rate limiting username changes)
-    username_changed_at = models.DateTimeField(
-        _("username changed at"),
+    username_last_changed = models.DateTimeField(
+        _("username last changed"),
         blank=True,
         null=True,
         help_text=_("Timestamp of last username change. Used for rate limiting."),
@@ -115,11 +117,11 @@ class Post(models.Model):
     )
 
     # Timestamps
-    created = models.DateTimeField(
+    created_at = models.DateTimeField(
         auto_now_add=True,
         help_text="Timestamp when the post was created.",
     )
-    updated = models.DateTimeField(
+    updated_at = models.DateTimeField(
         auto_now=True,
         help_text="Timestamp when the post was last updated.",
     )
@@ -133,7 +135,7 @@ class Post(models.Model):
     class Meta:
         """Meta options for Post model."""
 
-        ordering = ["-updated"]
+        ordering = ["-updated_at"]
         verbose_name = _("Post")
         verbose_name_plural = _("Posts")
 
@@ -226,7 +228,7 @@ class Like(models.Model):
     )
 
     # Timestamps
-    created = models.DateTimeField(
+    created_at = models.DateTimeField(
         auto_now_add=True,
         help_text="Timestamp when the like was created.",
     )
@@ -242,7 +244,7 @@ class Like(models.Model):
         ]
         verbose_name = _("Like")
         verbose_name_plural = _("Likes")
-        ordering = ["-created"]
+        ordering = ["-created_at"]
 
     def __str__(self) -> str:
         """String representation of the like."""

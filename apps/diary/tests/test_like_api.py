@@ -87,7 +87,7 @@ class TestLikeToggle:
         assert "url" in response.data
         assert "user" in response.data
         assert "post" in response.data
-        assert "created" in response.data
+        assert "created_at" in response.data
 
     def test_toggle_missing_post_field(self, authenticated_api_client):
         """Missing post field returns 400."""
@@ -214,7 +214,7 @@ class TestLikeList:
         assert "results" in response.data
         # Should have aggregated data with date and count
         for result in response.data["results"]:
-            assert "created__date" in result
+            assert "created_at__date" in result
             assert "likes" in result
 
     def test_list_is_paginated(self, api_client):
@@ -239,7 +239,7 @@ class TestLikeDetail:
         assert response.data["id"] == like.id
         assert "user" in response.data
         assert "post" in response.data
-        assert "created" in response.data
+        assert "created_at" in response.data
         assert "url" in response.data
 
     def test_detail_nonexistent_like(self, api_client):

@@ -48,7 +48,7 @@ class UserSerializer(serializers.HyperlinkedModelSerializer):
         - email: Required for registration
         - password: Write-only, validated against Django password validators
         - password2: Write-only, must match password
-        - last_request, last_login, date_joined: Read-only timestamps
+        - last_activity_at, last_login, date_joined: Read-only timestamps
         - is_staff, is_active: Read-only admin flags
     """
 
@@ -64,7 +64,7 @@ class UserSerializer(serializers.HyperlinkedModelSerializer):
             "id",
             "username",
             "email",
-            "last_request",
+            "last_activity_at",
             "last_login",
             "date_joined",
             "is_staff",
@@ -81,7 +81,7 @@ class UserSerializer(serializers.HyperlinkedModelSerializer):
         read_only_fields = (
             "id",
             "is_active",
-            "last_request",
+            "last_activity_at",
             "last_login",
             "date_joined",
             "is_staff",
@@ -146,7 +146,7 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
         - email: Read-only (use /api/v1/auth/email/change/ to change)
         - posts: Hyperlinked list of all posts by this user (read-only)
         - likes: Hyperlinked list of all likes by this user (read-only)
-        - last_request, last_login, date_joined: Read-only timestamps
+        - last_activity_at, last_login, date_joined: Read-only timestamps
         - is_staff, is_active: Read-only admin flags
 
     Note:
@@ -175,7 +175,7 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
             "id",
             "username",
             "email",
-            "last_request",
+            "last_activity_at",
             "last_login",
             "date_joined",
             "is_staff",
@@ -188,7 +188,7 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
             "username",
             "email",
             "is_active",
-            "last_request",
+            "last_activity_at",
             "last_login",
             "date_joined",
             "is_staff",
@@ -215,7 +215,7 @@ class PostSerializer(serializers.HyperlinkedModelSerializer):
         - title: Post title (required)
         - content: Post content (required)
         - image: Post image file (optional)
-        - created, updated: Read-only timestamps
+        - created_at, updated_at: Read-only timestamps
         - published: Boolean flag (write-only, defaults to True)
         - like_count: Total number of likes (read-only, computed field)
 
@@ -246,8 +246,8 @@ class PostSerializer(serializers.HyperlinkedModelSerializer):
             "title",
             "content",
             "image",
-            "created",
-            "updated",
+            "created_at",
+            "updated_at",
             "published",
             "like_count",
         )
@@ -268,7 +268,7 @@ class PostDetailSerializer(serializers.HyperlinkedModelSerializer):
         - title: Post title (optional for updates)
         - content: Post content (optional for updates)
         - image: Post image file (optional)
-        - created, updated: Read-only timestamps
+        - created_at, updated_at: Read-only timestamps
         - published: Publication status
         - likes: Hyperlinked list of all likes on this post (read-only)
     """
@@ -290,8 +290,8 @@ class PostDetailSerializer(serializers.HyperlinkedModelSerializer):
             "title",
             "content",
             "image",
-            "created",
-            "updated",
+            "created_at",
+            "updated_at",
             "published",
             "likes",
         )
@@ -314,11 +314,11 @@ class LikeSerializer(serializers.Serializer):
     This is a simple serializer for read-only aggregated data, not a model serializer.
 
     Fields:
-        - created__date: Date of the aggregation (from Like.created field)
+        - created_at__date: Date of the aggregation (from Like.created_at field)
         - likes: Count of likes on that date
     """
 
-    created__date = serializers.DateField()
+    created_at__date = serializers.DateField()
     likes = serializers.IntegerField()
 
 
@@ -332,7 +332,7 @@ class LikeDetailSerializer(serializers.HyperlinkedModelSerializer):
     Fields:
         - url: Hyperlink to like detail endpoint
         - id: Like ID (read-only)
-        - created: Timestamp when like was created (read-only)
+        - created_at: Timestamp when like was created (read-only)
         - user: Hyperlink to user who created the like (read-only)
         - post: Hyperlink to the liked post (read-only)
     """
@@ -347,7 +347,7 @@ class LikeDetailSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = Like
-        fields = "url", "id", "created", "user", "post"
+        fields = "url", "id", "created_at", "user", "post"
 
 
 class LikeCreateDestroySerializer(serializers.HyperlinkedModelSerializer):
@@ -369,7 +369,7 @@ class LikeCreateDestroySerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = Like
-        fields = ("url", "id", "created", "user", "post")
+        fields = ("url", "id", "created_at", "user", "post")
 
     def validate_post(self, value):
         """
@@ -693,8 +693,8 @@ class UsernameChangeSerializer(serializers.Serializer):
         """
         user = self.context["request"].user
 
-        if user.username_changed_at:
-            cooldown_end = user.username_changed_at + timedelta(
+        if user.username_last_changed:
+            cooldown_end = user.username_last_changed + timedelta(
                 days=self.USERNAME_CHANGE_COOLDOWN_DAYS
             )
             if timezone.now() < cooldown_end:

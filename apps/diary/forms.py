@@ -302,8 +302,8 @@ class UsernameChangeForm(FormControlMixin, forms.Form):
         """
         cleaned_data = super().clean()
 
-        if self.user.username_changed_at:
-            cooldown_end = self.user.username_changed_at + timedelta(
+        if self.user.username_last_changed:
+            cooldown_end = self.user.username_last_changed + timedelta(
                 days=self.USERNAME_CHANGE_COOLDOWN_DAYS
             )
             if timezone.now() < cooldown_end:
@@ -330,7 +330,7 @@ class UsernameChangeForm(FormControlMixin, forms.Form):
             CustomUser: The updated user instance
         """
         self.user.username = self.cleaned_data["new_username"]
-        self.user.username_changed_at = timezone.now()
+        self.user.username_last_changed = timezone.now()
         self.user.save()
         return self.user
 

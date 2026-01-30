@@ -231,7 +231,7 @@ class TestUsernameChangeSerializer:
 
     def test_cooldown_period_enforced(self, user, user_password):
         """Cannot change username within 30-day cooldown."""
-        user.username_changed_at = timezone.now() - timedelta(days=10)
+        user.username_last_changed = timezone.now() - timedelta(days=10)
         user.save()
 
         request = Mock()
@@ -248,7 +248,7 @@ class TestUsernameChangeSerializer:
 
     def test_cooldown_expired_allows_change(self, user, user_password):
         """Can change username after 30-day cooldown expires."""
-        user.username_changed_at = timezone.now() - timedelta(days=31)
+        user.username_last_changed = timezone.now() - timedelta(days=31)
         user.save()
 
         request = Mock()
@@ -263,7 +263,7 @@ class TestUsernameChangeSerializer:
 
     def test_first_username_change_allowed(self, user, user_password):
         """First username change allowed (no previous change)."""
-        assert user.username_changed_at is None
+        assert user.username_last_changed is None
 
         request = Mock()
         request.user = user

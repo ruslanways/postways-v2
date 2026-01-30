@@ -244,20 +244,20 @@ class TestEmailVerificationFields:
 class TestUsernameChangeFields:
     """Tests for username change tracking fields."""
 
-    def test_username_changed_at_defaults_null(self, user):
-        """username_changed_at is null by default."""
-        assert user.username_changed_at is None
+    def test_username_last_changed_defaults_null(self, user):
+        """username_last_changed is null by default."""
+        assert user.username_last_changed is None
 
-    def test_can_set_username_changed_at(self, user):
-        """username_changed_at can be set."""
+    def test_can_set_username_last_changed(self, user):
+        """username_last_changed can be set."""
         from django.utils import timezone
 
         now = timezone.now()
-        user.username_changed_at = now
+        user.username_last_changed = now
         user.save()
 
         user.refresh_from_db()
-        assert user.username_changed_at is not None
+        assert user.username_last_changed is not None
 
 
 class TestPostImageHandling:

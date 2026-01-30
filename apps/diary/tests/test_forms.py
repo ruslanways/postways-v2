@@ -164,7 +164,7 @@ class TestUsernameChangeForm:
 
     def test_cooldown_enforced(self, user, user_password):
         """Form is invalid if changed within cooldown period."""
-        user.username_changed_at = timezone.now() - timedelta(days=10)
+        user.username_last_changed = timezone.now() - timedelta(days=10)
         user.save()
 
         form = UsernameChangeForm(
@@ -180,7 +180,7 @@ class TestUsernameChangeForm:
 
     def test_cooldown_expired(self, user, user_password):
         """Form is valid after cooldown period expires."""
-        user.username_changed_at = timezone.now() - timedelta(days=31)
+        user.username_last_changed = timezone.now() - timedelta(days=31)
         user.save()
 
         form = UsernameChangeForm(
@@ -194,7 +194,7 @@ class TestUsernameChangeForm:
 
     def test_no_cooldown_for_first_change(self, user, user_password):
         """Form is valid for users who never changed username."""
-        assert user.username_changed_at is None
+        assert user.username_last_changed is None
 
         form = UsernameChangeForm(
             user,
@@ -231,10 +231,10 @@ class TestUsernameChangeForm:
         saved_user = form.save()
 
         assert saved_user.username == "newusername"
-        assert saved_user.username_changed_at is not None
+        assert saved_user.username_last_changed is not None
 
     def test_save_sets_change_timestamp(self, user, user_password):
-        """Save method sets username_changed_at to current time."""
+        """Save method sets username_last_changed to current time."""
         before = timezone.now()
 
         form = UsernameChangeForm(
@@ -249,7 +249,7 @@ class TestUsernameChangeForm:
 
         after = timezone.now()
         user.refresh_from_db()
-        assert before <= user.username_changed_at <= after
+        assert before <= user.username_last_changed <= after
 
 
 class TestEmailChangeForm:

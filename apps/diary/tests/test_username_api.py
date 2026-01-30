@@ -102,8 +102,8 @@ class TestUsernameChange:
         assert "new_username" in response.data
 
     def test_change_sets_timestamp(self, authenticated_api_client, user, user_password):
-        """Successful change updates username_changed_at."""
-        assert user.username_changed_at is None
+        """Successful change updates username_last_changed."""
+        assert user.username_last_changed is None
 
         response = authenticated_api_client.post(
             reverse("username-change-api"),
@@ -116,7 +116,7 @@ class TestUsernameChange:
         assert response.status_code == status.HTTP_200_OK
 
         user.refresh_from_db()
-        assert user.username_changed_at is not None
+        assert user.username_last_changed is not None
 
     def test_change_cooldown_enforced(
         self, authenticated_api_client, user, user_password
@@ -153,8 +153,8 @@ class TestUsernameChange:
         self, authenticated_api_client, user, user_password
     ):
         """Change succeeds after 30-day cooldown."""
-        # Set username_changed_at to 31 days ago
-        user.username_changed_at = timezone.now() - timedelta(days=31)
+        # Set username_last_changed to 31 days ago
+        user.username_last_changed = timezone.now() - timedelta(days=31)
         user.save()
 
         response = authenticated_api_client.post(
@@ -174,10 +174,10 @@ class TestUsernameChange:
         self, authenticated_api_client, user, user_password
     ):
         """Change succeeds at exactly 30 days (cooldown has passed)."""
-        # Set username_changed_at to exactly 30 days ago
+        # Set username_last_changed to exactly 30 days ago
         # The cooldown check is `now < cooldown_end`, so at exactly 30 days
         # the check fails (now == cooldown_end), meaning cooldown has passed
-        user.username_changed_at = timezone.now() - timedelta(days=30)
+        user.username_last_changed = timezone.now() - timedelta(days=30)
         user.save()
 
         response = authenticated_api_client.post(
@@ -195,8 +195,8 @@ class TestUsernameChange:
         self, authenticated_api_client, user, user_password
     ):
         """Change fails just before 30 days (still within cooldown)."""
-        # Set username_changed_at to 29 days ago (still within cooldown)
-        user.username_changed_at = timezone.now() - timedelta(days=29)
+        # Set username_last_changed to 29 days ago (still within cooldown)
+        user.username_last_changed = timezone.now() - timedelta(days=29)
         user.save()
 
         response = authenticated_api_client.post(

@@ -5,6 +5,17 @@ from django.conf import settings
 from django.db import migrations, models
 
 
+def convert_nulls_to_empty_strings(apps, schema_editor):
+    """Convert NULL values to empty strings before removing null=True."""
+    CustomUser = apps.get_model('diary', 'CustomUser')
+    CustomUser.objects.filter(email_verification_token__isnull=True).update(
+        email_verification_token=''
+    )
+    CustomUser.objects.filter(pending_email__isnull=True).update(
+        pending_email=''
+    )
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -12,6 +23,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # First, convert NULL values to empty strings
+        migrations.RunPython(convert_nulls_to_empty_strings, migrations.RunPython.noop),
+        # Then, alter the fields to remove null=True
         migrations.AlterField(
             model_name='customuser',
             name='email_verification_token',

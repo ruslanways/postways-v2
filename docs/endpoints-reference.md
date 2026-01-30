@@ -257,7 +257,7 @@ Authorization: Bearer <access_token>
 - **Authentication**: Required (Staff only)
 - **Request Body**: None
 - **Query Parameters**: Standard pagination (page, page_size)
-- **Response**: Paginated list of users, ordered by `last_request` descending
+- **Response**: Paginated list of users, ordered by `last_activity_at` descending
 - **Example Response**:
   ```json
   {
@@ -270,7 +270,7 @@ Authorization: Bearer <access_token>
         "id": 1,
         "username": "user1",
         "email": "user1@example.com",
-        "last_request": "2024-01-15T10:00:00Z",
+        "last_activity_at": "2024-01-15T10:00:00Z",
         "last_login": "2024-01-15T09:00:00Z",
         "date_joined": "2024-01-01T00:00:00Z",
         "is_staff": false,
@@ -308,7 +308,7 @@ Authorization: Bearer <access_token>
     "id": 1,
     "username": "user1",
     "email": "user1@example.com",
-    "last_request": "2024-01-15T10:00:00Z",
+    "last_activity_at": "2024-01-15T10:00:00Z",
     "last_login": "2024-01-15T09:00:00Z",
     "date_joined": "2024-01-01T00:00:00Z",
     "is_staff": false,
@@ -367,8 +367,8 @@ Authorization: Bearer <access_token>
         "title": "My First Post",
         "content": "Post content...",
         "image": "http://host/media/diary/images/post.jpg",
-        "created": "2024-01-15T10:00:00Z",
-        "updated": "2024-01-15T10:00:00Z",
+        "created_at": "2024-01-15T10:00:00Z",
+        "updated_at": "2024-01-15T10:00:00Z",
         "published": true,
         "like_count": 5
       }
@@ -406,8 +406,8 @@ Authorization: Bearer <access_token>
     "title": "My First Post",
     "content": "Post content...",
     "image": "http://host/media/diary/images/post.jpg",
-    "created": "2024-01-15T10:00:00Z",
-    "updated": "2024-01-15T10:00:00Z",
+    "created_at": "2024-01-15T10:00:00Z",
+    "updated_at": "2024-01-15T10:00:00Z",
     "published": true,
     "likes": [
       "http://host/api/v1/likes/1/",
@@ -415,7 +415,7 @@ Authorization: Bearer <access_token>
     ]
   }
   ```
-- **Note**: 
+- **Note**:
   - Published posts: anyone can view
   - Unpublished posts: owner or admin only (returns `403 Forbidden` otherwise)
 
@@ -483,7 +483,7 @@ Authorization: Bearer <access_token>
   {
     "url": "http://host/api/v1/likes/1/",
     "id": 1,
-    "created": "2024-01-15T10:00:00Z",
+    "created_at": "2024-01-15T10:00:00Z",
     "user": "http://host/api/v1/users/2/",
     "post": "http://host/api/v1/posts/1/"
   }

@@ -146,9 +146,9 @@ class Command(BaseCommand):
 
         # Assign creation/updated dates (post dates must be after author's join date)
         for post, post_date in posts:
-            post.created = post_date
-            post.updated = post_date
-        Post.objects.bulk_update([p for p, _ in posts], ["created", "updated"])
+            post.created_at = post_date
+            post.updated_at = post_date
+        Post.objects.bulk_update([p for p, _ in posts], ["created_at", "updated_at"])
 
         self.stdout.write("Creating likes...")
         likes_to_create = []

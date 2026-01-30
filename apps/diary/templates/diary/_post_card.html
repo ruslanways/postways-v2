@@ -12,7 +12,7 @@
       <div class="post-card-meta">
         <a href="{% url 'author-detail' post.author.pk %}"
            class="post-card-author">{{ post.author.username }}</a>
-        <span class="post-card-date">{{ post.created|date }} at {{ post.created|time:"H:i" }}</span>
+        <span class="post-card-date">{{ post.created_at|date }} at {{ post.created_at|time:"H:i" }}</span>
         {% if not post.published %}
           <span class="text-muted">*unpublished</span>
         {% else %}

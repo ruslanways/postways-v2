@@ -19,11 +19,11 @@ class PostAdmin(admin.ModelAdmin):
     Provides list view with filtering and search capabilities.
     """
 
-    list_display = ("title", "author", "created", "published")
-    list_filter = ("created", "author", "published")
+    list_display = ("title", "author", "created_at", "published")
+    list_filter = ("created_at", "author", "published")
     search_fields = ("title", "content")
-    date_hierarchy = "created"
-    readonly_fields = ("created", "updated")
+    date_hierarchy = "created_at"
+    readonly_fields = ("created_at", "updated_at")
     list_editable = ("published",)
 
 
@@ -35,10 +35,10 @@ class LikeAdmin(admin.ModelAdmin):
     Provides list view with filtering capabilities.
     """
 
-    list_display = ("user", "post", "created")
-    list_filter = ("created", "user", "post")
-    date_hierarchy = "created"
-    readonly_fields = ("created",)
+    list_display = ("user", "post", "created_at")
+    list_filter = ("created_at", "user", "post")
+    date_hierarchy = "created_at"
+    readonly_fields = ("created_at",)
     search_fields = ("user__username", "post__title")
 
 
@@ -47,7 +47,7 @@ class CustomUserAdmin(UserAdmin):
     """
     Admin interface configuration for CustomUser model.
 
-    Extends Django's default UserAdmin to include the custom last_request field
+    Extends Django's default UserAdmin to include the custom last_activity_at field
     and improve the display of user information.
     """
 
@@ -56,7 +56,7 @@ class CustomUserAdmin(UserAdmin):
         "email",
         "date_joined",
         "last_login",
-        "last_request",
+        "last_activity_at",
         "is_staff",
         "is_active",
     )
@@ -65,6 +65,6 @@ class CustomUserAdmin(UserAdmin):
     date_hierarchy = "date_joined"
 
     fieldsets = UserAdmin.fieldsets + (
-        ("Additional Info", {"fields": ("last_request",)}),
+        ("Additional Info", {"fields": ("last_activity_at",)}),
     )
     add_fieldsets = UserAdmin.add_fieldsets + ((None, {"fields": ("email",)}),)

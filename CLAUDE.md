@@ -56,9 +56,9 @@ uv sync
 ### Key Components
 
 **Models** (`apps/diary/models.py`):
-- `CustomUser` - Extended user model with `last_request` tracking, `username_changed_at` for rate-limiting username changes, and email verification fields (`pending_email`, `email_verification_token`, `email_verification_expires`). Related names: `user.posts` (all posts), `user.likes` (all likes given)
-- `Post` - Blog posts with async image processing via Celery (resizing, thumbnail generation, EXIF orientation fix). Also handles media cleanup when images are cleared or replaced during edit (queues deletion via Celery). Related names: `post.author` (author user), `post.likes` (all likes on post)
-- `Like` - Post likes with unique constraint per user/post. Related names: `like.user`, `like.post`
+- `CustomUser` - Extended user model with `last_activity_at` tracking, `username_last_changed` for rate-limiting username changes, and email verification fields (`pending_email`, `email_verification_token`, `email_verification_expires`). Related names: `user.posts` (all posts), `user.likes` (all likes given)
+- `Post` - Blog posts with `created_at`/`updated_at` timestamps and async image processing via Celery (resizing, thumbnail generation, EXIF orientation fix). Also handles media cleanup when images are cleared or replaced during edit (queues deletion via Celery). Related names: `post.author` (author user), `post.likes` (all likes on post)
+- `Like` - Post likes with `created_at` timestamp and unique constraint per user/post. Related names: `like.user`, `like.post`
 
 **Signals** (`apps/diary/signals.py`):
 - `log_user_login` - Logs user login events for monitoring/audit

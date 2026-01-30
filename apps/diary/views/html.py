@@ -55,7 +55,7 @@ class HomeView(ListView):
 
     paginate_by = 6
     template_name = "diary/index.html"
-    ordering = ["-updated", "-like_count"]
+    ordering = ["-updated_at", "-like_count"]
 
     def get_queryset(self):
         """
@@ -100,7 +100,7 @@ class HomeViewPopular(HomeView):
     posts with the highest like counts, then by most recently updated.
     """
 
-    ordering = ["-like_count", "-updated"]
+    ordering = ["-like_count", "-updated_at"]
 
 
 class SignUp(CreateView):
@@ -457,7 +457,7 @@ class AuthorDetailView(UserPassesTestMixin, DetailView, MultipleObjectMixin):
                     )
                 )
             )
-            .order_by("-updated", "-like_count")
+            .order_by("-updated_at", "-like_count")
         )
         return super().get_context_data(object_list=object_list, **kwargs)
 
@@ -472,7 +472,7 @@ class PostListView(StaffRequiredMixin, ListView):
 
     paginate_by = 6
     template_name = "diary/post_list.html"
-    ordering = ["-updated", "-like_count"]
+    ordering = ["-updated_at", "-like_count"]
 
     def get_queryset(self):
         """

@@ -119,11 +119,11 @@ class UserListAPIView(generics.ListCreateAPIView):
     """
     List all users or create a new user.
 
-    GET: List users (admin only), ordered by last_request descending.
+    GET: List users (admin only), ordered by last_activity_at descending.
     POST: Create new user (anonymous only - registration endpoint).
     """
 
-    queryset = CustomUser.objects.all().order_by("-last_request")
+    queryset = CustomUser.objects.all().order_by("-last_activity_at")
     serializer_class = UserSerializer
     permission_classes = (ReadForAdminCreateForAnonymous,)
 
@@ -172,8 +172,8 @@ class PostAPIView(generics.ListCreateAPIView):
     """
     List published posts or create a new post.
 
-    GET: List published posts with like counts. Supports ordering by id/updated/created.
-    Supports filtering by author, created date, and updated date.
+    GET: List published posts with like counts. Supports ordering by id/updated_at/created_at.
+    Supports filtering by author, created_at date, and updated_at date.
     POST: Create new post (authenticated users only). Author set automatically.
     """
 
@@ -181,10 +181,10 @@ class PostAPIView(generics.ListCreateAPIView):
     filter_backends = DjangoFilterBackend, OrderingFilter
     filterset_fields = {
         "author": ["exact"],
-        "created": ["gte", "lte", "date__range"],
-        "updated": ["gte", "lte"],
+        "created_at": ["gte", "lte", "date__range"],
+        "updated_at": ["gte", "lte"],
     }
-    ordering_fields = "id", "updated", "created"
+    ordering_fields = "id", "updated_at", "created_at"
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
     def get_queryset(self):
@@ -192,7 +192,7 @@ class PostAPIView(generics.ListCreateAPIView):
         return (
             Post.objects.exclude(published=False)
             .annotate(like_count=Count("likes"))
-            .order_by("-updated")
+            .order_by("-updated_at")
         )
 
     def perform_create(self, serializer):
@@ -238,16 +238,16 @@ class LikeAPIView(generics.ListAPIView):
     """
 
     queryset = (
-        Like.objects.values("created__date")
+        Like.objects.values("created_at__date")
         .annotate(likes=Count("id"))
-        .order_by("-created__date")
+        .order_by("-created_at__date")
     )
     serializer_class = LikeSerializer
     filter_backends = DjangoFilterBackend, OrderingFilter
     filterset_fields = {
-        "created": ["gte", "lte", "date__range"],
+        "created_at": ["gte", "lte", "date__range"],
     }
-    ordering_fields = "created", "likes"
+    ordering_fields = "created_at", "likes"
 
 
 class LikeDetailAPIView(generics.RetrieveAPIView):
@@ -610,7 +610,7 @@ class UsernameChangeAPIView(generics.GenericAPIView):
 
         with transaction.atomic():
             user.username = serializer.validated_data["new_username"]
-            user.username_changed_at = timezone.now()
+            user.username_last_changed = timezone.now()
             user.save()
 
         return Response(

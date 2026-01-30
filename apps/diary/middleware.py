@@ -11,9 +11,9 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
-class UserLastRequestMiddleware:
+class UserLastActivityMiddleware:
     """
-    Updates the last_request timestamp for authenticated users.
+    Updates the last_activity_at timestamp for authenticated users.
     Uses Redis cache to throttle DB writes (at most once per UPDATE_INTERVAL_SECONDS).
     """
 
@@ -26,16 +26,16 @@ class UserLastRequestMiddleware:
         response = self.get_response(request)
 
         if request.user.is_authenticated:
-            self._update_last_request(request.user)
+            self._update_last_activity(request.user)
 
         return response
 
-    def _update_last_request(self, user):
+    def _update_last_activity(self, user):
         """
-        Update last_request only if cache key is missing (expired or first visit).
+        Update last_activity_at only if cache key is missing (expired or first visit).
         Cache acts as a "cooldown timer" - while key exists, skip DB write.
         """
-        cache_key = f"user_last_request:{user.pk}"
+        cache_key = f"user_last_activity:{user.pk}"
 
         # If key exists in cache, we updated recently - skip
         if cache.get(cache_key):
@@ -43,7 +43,7 @@ class UserLastRequestMiddleware:
 
         # Key missing = cooldown expired, time to update DB
         now = timezone.now()
-        user._meta.model.objects.filter(pk=user.pk).update(last_request=now)
+        user._meta.model.objects.filter(pk=user.pk).update(last_activity_at=now)
 
         # Set cache key with TTL = interval (key auto-expires, allowing next update)
         cache.set(cache_key, True, timeout=self.UPDATE_INTERVAL_SECONDS)

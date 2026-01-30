@@ -23,10 +23,10 @@
         <span class="heart">♥</span>
         {% if object.likes_received == 1 %}1 like{% else %}{{ object.likes_received }} likes{% endif %} received
       </p>
-      {% if object.last_request %}
+      {% if object.last_activity_at %}
         {% if user.is_staff or user.is_authenticated and user.pk == object.pk %}
           <p class="profile-activity">
-            Active {{ object.last_request|timesince }} ago
+            Active {{ object.last_activity_at|timesince }} ago
           </p>
         {% endif %}
       {% endif %}

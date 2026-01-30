@@ -14,7 +14,7 @@
       <div class="post-detail-meta">
         <a href="{% url 'author-detail' object.author.pk %}"
            class="post-card-author">{{ object.author.username }}</a>
-        <span class="post-card-date">{{ object.created|date }} at {{ object.created|time:"H:i" }}</span>
+        <span class="post-card-date">{{ object.created_at|date }} at {{ object.created_at|time:"H:i" }}</span>
         {% if object.published %}
           {% if user.is_authenticated and object.has_liked %}
             <a href="{% url 'like-toggle-api' %}"

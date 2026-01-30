@@ -157,7 +157,7 @@ All API endpoints are under `/api/v1/` and use JWT authentication (except regist
 
 **`GET /api/v1/users/`**
 - List all users (admin only)
-- Ordered by `last_request` descending
+- Ordered by `last_activity_at` descending
 
 **`POST /api/v1/users/`**
 - Create new user (anonymous/registration endpoint)
@@ -278,7 +278,7 @@ The project uses **dual authentication** - session-based for HTML views and JWT 
 **Custom User Model** (`apps/diary/models.py`):
 - Extends Django's `AbstractUser`
 - Uses `AUTH_USER_MODEL = "diary.CustomUser"` in settings
-- Adds `last_request` timestamp tracking
+- Adds `last_activity_at` timestamp tracking
 - Email is unique and required
 
 ### 2. HTML Views (Session-Based Authentication)
