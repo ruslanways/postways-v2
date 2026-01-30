@@ -15,7 +15,6 @@ from unittest.mock import Mock
 from django.utils import timezone
 
 import pytest
-from rest_framework.exceptions import ValidationError
 
 from apps.diary.serializers import (
     EmailChangeSerializer,
@@ -44,7 +43,7 @@ class TestUserSerializer:
         assert serializer.is_valid(), serializer.errors
 
     def test_password_mismatch_raises_error(self):
-        """Mismatched passwords raise validation error on create."""
+        """Mismatched passwords raise validation error during validation."""
         data = {
             "username": "newuser",
             "email": "newuser@example.com",
@@ -52,12 +51,9 @@ class TestUserSerializer:
             "password2": "DifferentPass123!",
         }
         serializer = UserSerializer(data=data)
-        assert serializer.is_valid()
-
-        with pytest.raises(ValidationError) as exc_info:
-            serializer.save()
-
-        assert "Password" in str(exc_info.value.detail)
+        assert not serializer.is_valid()
+        assert "password2" in serializer.errors
+        assert "match" in str(serializer.errors["password2"]).lower()
 
     def test_weak_password_raises_error(self):
         """Weak password fails Django password validation."""

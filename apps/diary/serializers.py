@@ -11,7 +11,6 @@ All serializers follow DRF conventions and use HyperlinkedModelSerializer
 for RESTful URL-based relationships where appropriate.
 """
 
-import copy
 from contextlib import suppress
 from datetime import timedelta
 
@@ -89,41 +88,48 @@ class UserSerializer(serializers.HyperlinkedModelSerializer):
 
     def validate(self, data):
         """
-        Validate password using Django's password validators.
+        Validate password presence, match, and Django password rules.
 
-        Args:
-            data: Dictionary containing all serializer fields including password
+        Runs Django's validate_password (length, common passwords, similarity
+        to username/email, etc.) using a temporary user built from data.
 
         Returns:
-            dict: Validated data
+            dict: Validated data.
 
         Raises:
-            ValidationError: If password doesn't meet Django's password requirements
+            ValidationError: If password/password2 missing, don't match, or
+                fail Django's password validators.
         """
-        data_without_password2 = copy.deepcopy(data)
-        del data_without_password2["password2"]
-        validate_password(
-            password=data.get("password"), user=CustomUser(**data_without_password2)
-        )
+        password = data.get("password")
+        password2 = data.get("password2")
+
+        # Explicit checks for clearer error messages (DRF may validate required earlier).
+        if not password:
+            raise serializers.ValidationError({"password": "This field is required."})
+        if not password2:
+            raise serializers.ValidationError({"password2": "This field is required."})
+
+        if password != password2:
+            raise serializers.ValidationError({"password2": "Passwords must match."})
+
+        # Temporary user instance so validate_password can run similarity and other validators.
+        user_kwargs = dict(data)
+        user_kwargs.pop("password2", None)
+        validate_password(password=password, user=CustomUser(**user_kwargs))
+
         return data
 
     def create(self, validated_data):
         """
-        Create a new user account with hashed password.
-
-        Args:
-            validated_data: Dictionary containing validated user data
+        Create a new user with hashed password via the model manager.
 
         Returns:
-            CustomUser: The newly created user instance
+            CustomUser: The newly created user instance.
 
         Raises:
-            ValidationError: If passwords don't match
+            ValidationError: If user creation fails (e.g. duplicate email or username).
         """
-        password = validated_data["password"]
-        password2 = validated_data["password2"]
-        if password != password2:
-            raise serializers.ValidationError({"Password": "Passwords must match."})
+        validated_data.pop("password2", None)
         instance = self.Meta.model._default_manager.create_user(
             email=validated_data["email"],
             username=validated_data["username"],
