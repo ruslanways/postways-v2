@@ -243,6 +243,36 @@ class TestUserDetail:
         assert "posts" in response.data
         assert "likes" in response.data
 
+    def test_owner_sees_own_unpublished_posts(
+        self, authenticated_api_client, user, unpublished_post
+    ):
+        """Profile owner can see their own unpublished posts in the API."""
+        response = authenticated_api_client.get(
+            reverse("user-detail-update-destroy-api", args=[user.id])
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        # Check that unpublished post URL is in the posts list
+        unpublished_post_url = reverse(
+            "post-detail-api", args=[unpublished_post.id]
+        )
+        assert any(unpublished_post_url in url for url in response.data["posts"])
+
+    def test_admin_sees_unpublished_posts_on_any_profile(
+        self, admin_api_client, user, unpublished_post
+    ):
+        """Admin can see unpublished posts on any user's profile."""
+        response = admin_api_client.get(
+            reverse("user-detail-update-destroy-api", args=[user.id])
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        # Check that unpublished post URL is in the posts list
+        unpublished_post_url = reverse(
+            "post-detail-api", args=[unpublished_post.id]
+        )
+        assert any(unpublished_post_url in url for url in response.data["posts"])
+
 
 class TestUserUpdate:
     """Tests for user update (PUT/PATCH not allowed - use dedicated endpoints)."""

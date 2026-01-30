@@ -666,3 +666,34 @@ class TestAuthorDetailView:
         content = response.content.decode()
         assert 'class="like' not in content
         assert "*unpublished" in content
+
+    def test_owner_sees_own_unpublished_posts(self, client, user, unpublished_post):
+        """Profile owner can see their own unpublished posts."""
+        client.force_login(user)
+
+        response = client.get(reverse("author-detail", args=[user.pk]))
+
+        assert response.status_code == 200
+        assert unpublished_post in response.context["object_list"]
+
+    def test_other_user_cannot_see_unpublished_posts(
+        self, client, user, other_user, unpublished_post
+    ):
+        """Other authenticated users cannot see unpublished posts on someone else's profile."""
+        client.force_login(other_user)
+
+        response = client.get(reverse("author-detail", args=[user.pk]))
+
+        assert response.status_code == 200
+        assert unpublished_post not in response.context["object_list"]
+
+    def test_staff_can_see_unpublished_posts_on_any_profile(
+        self, client, user, admin_user, unpublished_post
+    ):
+        """Staff users can see unpublished posts on any profile."""
+        client.force_login(admin_user)
+
+        response = client.get(reverse("author-detail", args=[user.pk]))
+
+        assert response.status_code == 200
+        assert unpublished_post in response.context["object_list"]

@@ -150,10 +150,15 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
         - id: User ID (read-only)
         - username: Read-only (use /api/v1/auth/username/change/ to change)
         - email: Read-only (use /api/v1/auth/email/change/ to change)
-        - posts: Hyperlinked list of all posts by this user (read-only)
+        - posts: Hyperlinked list of posts by this user (read-only, filtered by visibility)
         - likes: Hyperlinked list of all likes by this user (read-only)
         - last_activity_at, last_login, date_joined: Read-only timestamps
         - is_staff, is_active: Read-only admin flags
+
+    Post visibility rules:
+        - Staff sees all posts
+        - Profile owner sees all their posts
+        - Others see only published posts
 
     Note:
         Password, username, and email changes are NOT allowed via this endpoint.
@@ -166,13 +171,34 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
     url = serializers.HyperlinkedIdentityField(
         view_name="user-detail-update-destroy-api"
     )
-    # Related posts and likes shown as hyperlinked relationships
-    posts = serializers.HyperlinkedRelatedField(
-        many=True, read_only=True, view_name="post-detail-api"
-    )
+    posts = serializers.SerializerMethodField()
     likes = serializers.HyperlinkedRelatedField(
         many=True, read_only=True, view_name="like-detail-api"
     )
+
+    def get_posts(self, obj):
+        """
+        Return post URLs filtered by visibility rules.
+
+        Visibility:
+            - Staff sees all posts
+            - Profile owner sees all their posts
+            - Others see only published posts
+        """
+        request = self.context.get("request")
+        posts_qs = obj.posts.all()
+
+        # Filter unpublished posts unless user is staff or viewing own profile
+        if request and request.user:
+            if not request.user.is_staff and request.user.pk != obj.pk:
+                posts_qs = posts_qs.filter(published=True)
+        else:
+            posts_qs = posts_qs.filter(published=True)
+
+        return [
+            reverse("post-detail-api", kwargs={"pk": post.pk}, request=request)
+            for post in posts_qs
+        ]
 
     class Meta:
         model = CustomUser

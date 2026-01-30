@@ -444,11 +444,21 @@ class AuthorDetailView(UserPassesTestMixin, DetailView, MultipleObjectMixin):
 
         Context additions:
             object_list: Paginated list of user's posts with like_count and has_liked
+
+        Visibility rules for posts:
+            - Staff see all posts
+            - Profile owner sees their own posts (including unpublished)
+            - Other users see only published posts
         """
         user = self.request.user
+        posts_qs = self.object.posts.all()
+
+        # Filter unpublished posts unless user is staff or viewing own profile
+        if not user.is_staff and user.pk != self.object.pk:
+            posts_qs = posts_qs.filter(published=True)
+
         object_list = (
-            self.object.posts.all()
-            .annotate(like_count=Count("likes"))
+            posts_qs.annotate(like_count=Count("likes"))
             .annotate(
                 has_liked=Exists(
                     Like.objects.filter(
@@ -522,7 +532,13 @@ class PostCreateView(LoginRequiredMixin, CreateView):
 
 
 class PostDetailView(DetailView):
-    """Public view for a single post with like_count and has_liked annotations."""
+    """
+    Public view for a single post with like_count and has_liked annotations.
+
+    Visibility rules:
+        - Published posts: visible to everyone
+        - Unpublished posts: visible only to staff or the post author
+    """
 
     template_name = "diary/post_detail.html"
 
@@ -550,6 +566,24 @@ class PostDetailView(DetailView):
             qs = qs.annotate(has_liked=Value(False, output_field=BooleanField()))
 
         return qs
+
+    def get(self, request, *args, **kwargs):
+        """
+        Return 404 for unpublished posts unless user is staff or post author.
+        """
+        from django.http import Http404
+
+        self.object = self.get_object()
+
+        if not self.object.published:
+            user = request.user
+            if not user.is_authenticated:
+                raise Http404("Post not found.")
+            if not user.is_staff and user.pk != self.object.author_id:
+                raise Http404("Post not found.")
+
+        context = self.get_context_data(object=self.object)
+        return self.render_to_response(context)
 
 
 class PostOwnerOrStaffMixin(UserPassesTestMixin):

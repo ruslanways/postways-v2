@@ -318,6 +318,44 @@ class TestPostDetailView:
         assert 'class="like' not in content
         assert "*unpublished" in content
 
+    def test_unpublished_post_returns_404_for_anonymous(self, client, unpublished_post):
+        """Anonymous users get 404 for unpublished posts."""
+        response = client.get(
+            reverse("post-detail", kwargs={"pk": unpublished_post.pk})
+        )
+
+        assert response.status_code == 404
+
+    def test_unpublished_post_returns_404_for_other_user(
+        self, client, other_user, unpublished_post
+    ):
+        """Other authenticated users get 404 for unpublished posts."""
+        client.force_login(other_user)
+
+        response = client.get(
+            reverse("post-detail", kwargs={"pk": unpublished_post.pk})
+        )
+
+        assert response.status_code == 404
+
+    def test_unpublished_post_visible_to_owner(self, user_client, unpublished_post):
+        """Post owner can view their unpublished post."""
+        response = user_client.get(
+            reverse("post-detail", kwargs={"pk": unpublished_post.pk})
+        )
+
+        assert response.status_code == 200
+
+    def test_unpublished_post_visible_to_staff(self, client, admin_user, unpublished_post):
+        """Staff can view any unpublished post."""
+        client.force_login(admin_user)
+
+        response = client.get(
+            reverse("post-detail", kwargs={"pk": unpublished_post.pk})
+        )
+
+        assert response.status_code == 200
+
 
 class TestPostUpdateView:
     """Tests for post update view."""
