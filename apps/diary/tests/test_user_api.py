@@ -196,14 +196,22 @@ class TestUserDetail:
     """Tests for user detail endpoint (GET /api/v1/users/{id}/)."""
 
     def test_view_own_profile(self, authenticated_api_client, user):
-        """Owner can view their profile."""
+        """Owner can view their profile with all sensitive fields."""
         response = authenticated_api_client.get(
             reverse("user-detail-update-destroy-api", args=[user.id])
         )
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["username"] == user.username
+        # Owner should see all sensitive fields
         assert response.data["email"] == user.email
+        assert "last_activity_at" in response.data
+        assert "last_login" in response.data
+        assert "is_staff" in response.data
+        assert "is_active" in response.data
+        # Should have stats and links
+        assert "stats" in response.data
+        assert "links" in response.data
 
     def test_view_other_profile_allowed(
         self, authenticated_api_client, user, other_user
@@ -216,6 +224,24 @@ class TestUserDetail:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["username"] == other_user.username
 
+    def test_view_other_profile_hides_sensitive_fields(
+        self, authenticated_api_client, user, other_user
+    ):
+        """Non-owner cannot see sensitive fields on other user's profile."""
+        response = authenticated_api_client.get(
+            reverse("user-detail-update-destroy-api", args=[other_user.id])
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        # These fields should be hidden from non-owners
+        for field in ("email", "last_activity_at", "last_login", "is_staff", "is_active"):
+            assert field not in response.data
+        # These fields should still be visible
+        assert "username" in response.data
+        assert "date_joined" in response.data
+        assert "stats" in response.data
+        assert "links" in response.data
+
     def test_admin_can_view_any_profile(self, admin_api_client, user):
         """Admin can view any user's profile."""
         response = admin_api_client.get(
@@ -223,6 +249,20 @@ class TestUserDetail:
         )
 
         assert response.status_code == status.HTTP_200_OK
+
+    def test_admin_can_see_sensitive_fields_on_any_profile(self, admin_api_client, user):
+        """Admin can see all sensitive fields on any user's profile."""
+        response = admin_api_client.get(
+            reverse("user-detail-update-destroy-api", args=[user.id])
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        # Admin should see all sensitive fields
+        assert response.data["email"] == user.email
+        assert "last_activity_at" in response.data
+        assert "last_login" in response.data
+        assert "is_staff" in response.data
+        assert "is_active" in response.data
 
     def test_view_profile_anonymous_unauthorized(self, api_client, user):
         """Anonymous user gets 401."""
@@ -232,56 +272,93 @@ class TestUserDetail:
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_view_profile_includes_posts_and_likes(
+    def test_view_profile_includes_stats_and_links(
         self, authenticated_api_client, user, post, like
     ):
-        """Profile includes posts and likes."""
+        """Profile includes stats (counts) and links to related resources."""
         response = authenticated_api_client.get(
             reverse("user-detail-update-destroy-api", args=[user.id])
         )
 
         assert response.status_code == status.HTTP_200_OK
-        assert "posts" in response.data
-        assert "likes" in response.data
+        # Check stats (like is on user's own post, so likes_received = 1)
+        assert "stats" in response.data
+        assert response.data["stats"]["posts_count"] == 1
+        assert response.data["stats"]["likes_received"] == 1
+        # Check links
+        assert "links" in response.data
+        assert "self" in response.data["links"]
+        assert "posts" in response.data["links"]
 
-    def test_owner_sees_own_unpublished_posts(
+    def test_owner_sees_own_unpublished_posts_in_count(
         self, authenticated_api_client, user, unpublished_post
     ):
-        """Profile owner can see their own unpublished posts in the API."""
+        """Profile owner's posts_count includes their unpublished posts."""
         response = authenticated_api_client.get(
             reverse("user-detail-update-destroy-api", args=[user.id])
         )
 
         assert response.status_code == status.HTTP_200_OK
-        # Check that unpublished post URL is in the posts list
-        unpublished_post_url = reverse("post-detail-api", args=[unpublished_post.id])
-        assert any(unpublished_post_url in url for url in response.data["posts"])
+        # Owner should see unpublished post in their count
+        assert response.data["stats"]["posts_count"] == 1
 
-    def test_admin_sees_unpublished_posts_on_any_profile(
+    def test_admin_sees_unpublished_posts_in_count(
         self, admin_api_client, user, unpublished_post
     ):
-        """Admin can see unpublished posts on any user's profile."""
+        """Admin sees unpublished posts in posts_count on any user's profile."""
         response = admin_api_client.get(
             reverse("user-detail-update-destroy-api", args=[user.id])
         )
 
         assert response.status_code == status.HTTP_200_OK
-        # Check that unpublished post URL is in the posts list
-        unpublished_post_url = reverse("post-detail-api", args=[unpublished_post.id])
-        assert any(unpublished_post_url in url for url in response.data["posts"])
+        # Admin should see unpublished post in the count
+        assert response.data["stats"]["posts_count"] == 1
 
-    def test_non_owner_cannot_see_unpublished_posts(
+    def test_non_owner_cannot_see_unpublished_posts_in_count(
         self, other_user_api_client, user, unpublished_post
     ):
-        """Non-owner cannot see unpublished posts on another user's profile."""
+        """Non-owner's view of posts_count excludes unpublished posts."""
         response = other_user_api_client.get(
             reverse("user-detail-update-destroy-api", args=[user.id])
         )
 
         assert response.status_code == status.HTTP_200_OK
-        # Check that unpublished post URL is NOT in the posts list
-        unpublished_post_url = reverse("post-detail-api", args=[unpublished_post.id])
-        assert not any(unpublished_post_url in url for url in response.data["posts"])
+        # Non-owner should NOT see unpublished post in the count
+        assert response.data["stats"]["posts_count"] == 0
+
+    def test_likes_received_includes_likes_on_unpublished_for_owner(
+        self, authenticated_api_client, user, unpublished_post, other_user
+    ):
+        """Owner sees likes_received including likes on their unpublished posts."""
+        from apps.diary.models import Like
+
+        # other_user likes the unpublished post
+        Like.objects.create(user=other_user, post=unpublished_post)
+
+        response = authenticated_api_client.get(
+            reverse("user-detail-update-destroy-api", args=[user.id])
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        # Owner should see the like on their unpublished post
+        assert response.data["stats"]["likes_received"] == 1
+
+    def test_likes_received_excludes_likes_on_unpublished_for_non_owner(
+        self, other_user_api_client, user, unpublished_post, other_user
+    ):
+        """Non-owner's likes_received excludes likes on unpublished posts."""
+        from apps.diary.models import Like
+
+        # other_user likes the unpublished post
+        Like.objects.create(user=other_user, post=unpublished_post)
+
+        response = other_user_api_client.get(
+            reverse("user-detail-update-destroy-api", args=[user.id])
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        # Non-owner should NOT see likes on unpublished posts
+        assert response.data["stats"]["likes_received"] == 0
 
 
 class TestUserUpdate:

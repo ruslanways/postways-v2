@@ -143,22 +143,21 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
     Serializer for user detail and delete operations.
 
     Used for GET/DELETE /api/v1/users/{id}/.
-    Includes related posts and likes as hyperlinked relationships.
+    Returns user info with stats and links to related resources.
 
     Fields:
-        - url: Hyperlink to user detail endpoint
         - id: User ID (read-only)
         - username: Read-only (use /api/v1/auth/username/change/ to change)
         - email: Read-only (use /api/v1/auth/email/change/ to change)
-        - posts: Hyperlinked list of posts by this user (read-only, filtered by visibility)
-        - likes: Hyperlinked list of all likes by this user (read-only)
-        - last_activity_at, last_login, date_joined: Read-only timestamps
-        - is_staff, is_active: Read-only admin flags
+        - date_joined: Read-only timestamp
+        - last_login, last_activity_at: Read-only timestamps (owner/staff only)
+        - is_staff, is_active: Read-only admin flags (owner/staff only)
+        - stats: Object with posts_count and likes_received
+        - links: Object with self and posts URLs
 
-    Post visibility rules:
-        - Staff sees all posts
-        - Profile owner sees all their posts
-        - Others see only published posts
+    Stats visibility rules:
+        - posts_count: Staff/owner see all posts, others see only published
+        - likes_received: Staff/owner see likes on all posts, others only on published
 
     Note:
         Password, username, and email changes are NOT allowed via this endpoint.
@@ -168,63 +167,102 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
         - Email: /api/v1/auth/email/change/
     """
 
-    url = serializers.HyperlinkedIdentityField(
-        view_name="user-detail-update-destroy-api"
-    )
-    posts = serializers.SerializerMethodField()
-    likes = serializers.HyperlinkedRelatedField(
-        many=True, read_only=True, view_name="like-detail-api"
-    )
+    stats = serializers.SerializerMethodField()
+    links = serializers.SerializerMethodField()
 
-    def get_posts(self, obj):
-        """
-        Return post URLs filtered by visibility rules.
-
-        Visibility:
-            - Staff sees all posts
-            - Profile owner sees all their posts
-            - Others see only published posts
-        """
+    def _is_owner_or_staff(self, obj):
+        """Check if request user is profile owner or staff."""
         request = self.context.get("request")
-        posts_qs = obj.posts.all()
+        return (
+            request
+            and request.user
+            and request.user.is_authenticated
+            and (request.user.pk == obj.pk or request.user.is_staff)
+        )
 
-        # Filter unpublished posts unless user is staff or viewing own profile
-        if request and request.user:
-            if not request.user.is_staff and request.user.pk != obj.pk:
-                posts_qs = posts_qs.filter(published=True)
+    def get_stats(self, obj):
+        """
+        Return post count and likes received.
+
+        Visibility for non-owner/non-staff:
+            - posts_count: only published posts
+            - likes_received: only likes on published posts
+
+        Visibility for owner/staff:
+            - posts_count: all posts (including unpublished)
+            - likes_received: likes on all posts
+        """
+        if self._is_owner_or_staff(obj):
+            posts_qs = obj.posts.all()
         else:
-            posts_qs = posts_qs.filter(published=True)
+            posts_qs = obj.posts.filter(published=True)
 
-        return [
-            reverse("post-detail-api", kwargs={"pk": post.pk}, request=request)
-            for post in posts_qs
-        ]
+        posts_count = posts_qs.count()
+        likes_received = Like.objects.filter(post__in=posts_qs).count()
+
+        return {
+            "posts_count": posts_count,
+            "likes_received": likes_received,
+        }
+
+    def get_links(self, obj):
+        """Return hypermedia links to related resources."""
+        request = self.context.get("request")
+        return {
+            "self": reverse(
+                "user-detail-update-destroy-api", kwargs={"pk": obj.pk}, request=request
+            ),
+            "posts": f"{reverse('post-list-create-api', request=request)}?author={obj.pk}",
+        }
 
     class Meta:
         model = CustomUser
         fields = (
-            "url",
             "id",
             "username",
             "email",
-            "last_activity_at",
-            "last_login",
             "date_joined",
+            "last_login",
+            "last_activity_at",
             "is_staff",
             "is_active",
-            "posts",
-            "likes",
+            "stats",
+            "links",
         )
         read_only_fields = (
             "id",
             "username",
             "email",
             "is_active",
+            "is_staff",
             "last_activity_at",
             "last_login",
             "date_joined",
-            "is_staff",
         )
+
+    def to_representation(self, instance):
+        """
+        Conditionally hide sensitive fields for non-owner, non-staff users.
+
+        Fields hidden from other users:
+            - email
+            - last_activity_at
+            - last_login
+            - is_staff
+            - is_active
+
+        Visibility:
+            - Owner (viewing own profile): all fields visible
+            - Staff: all fields visible
+            - Other authenticated users: sensitive fields hidden
+        """
+        ret = super().to_representation(instance)
+
+        if not self._is_owner_or_staff(instance):
+            for field in ("email", "last_activity_at", "last_login", "is_staff", "is_active"):
+                ret.pop(field, None)
+
+        return ret
 
 
 # ============================================================================

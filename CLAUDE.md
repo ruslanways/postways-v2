@@ -76,6 +76,20 @@ uv sync
 - REST endpoints under `/api/v1/`
 - Custom permissions: `OwnerOrAdmin`, `OwnerOrAdminOrReadOnly`, `ReadForAdminCreateForAnonymous`, `AuthenticatedReadOwnerOrAdminWrite`
 
+**User Profile Field Visibility**:
+
+Both API (`UserDetailSerializer`) and HTML templates (`customuser_detail.html`) enforce consistent visibility rules for sensitive user fields:
+
+| Field | Owner | Staff/Admin | Other Users |
+|-------|-------|-------------|-------------|
+| `username` | ✓ | ✓ | ✓ |
+| `date_joined` | ✓ | ✓ | ✓ |
+| `email` | ✓ | ✓ | ✗ |
+| `last_activity_at` | ✓ | ✓ | ✗ |
+| `last_login` | ✓ | ✓ | ✗ (API only) |
+| `is_staff` | ✓ | ✓ | ✗ (API only) |
+| `is_active` | ✓ | ✓ | ✗ (API only) |
+
 **JWT Authentication Details** (`apps/diary/views/api.py`):
 
 The project uses SimpleJWT with custom enhancements for secure token management:

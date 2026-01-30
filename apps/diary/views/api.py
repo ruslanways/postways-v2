@@ -231,7 +231,7 @@ class LikeAPIView(generics.ListAPIView):
     Analytics endpoint: list likes aggregated by date.
 
     Returns daily like counts for analytics purposes.
-    Supports filtering by date range and ordering.
+    Supports filtering by user, date range, and ordering.
     """
 
     queryset = (
@@ -242,6 +242,7 @@ class LikeAPIView(generics.ListAPIView):
     serializer_class = LikeSerializer
     filter_backends = DjangoFilterBackend, OrderingFilter
     filterset_fields = {
+        "user": ["exact"],
         "created_at": ["gte", "lte", "date__range"],
     }
     ordering_fields = "created_at", "likes"
