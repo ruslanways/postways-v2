@@ -63,3 +63,24 @@ class OwnerOrAdmin(permissions.BasePermission):
         # For user objects, check if obj is the same as request.user
         # For other objects, this would need to be adapted based on the model
         return obj == request.user or request.user.is_staff
+
+
+class AuthenticatedReadOwnerOrAdminWrite(permissions.BasePermission):
+    """
+    Permission that allows:
+    - Read access (GET, HEAD, OPTIONS) to authenticated users only
+    - Write access (DELETE) only to the object owner or staff
+
+    Used for user detail endpoints where any authenticated user can view profiles,
+    but only the user themselves or staff can delete the account.
+    """
+
+    def has_permission(self, request, view) -> bool:
+        """Check if user is authenticated."""
+        return request.user.is_authenticated
+
+    def has_object_permission(self, request, view, obj: Any) -> bool:
+        """Check if user has permission to access the object."""
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return obj == request.user or request.user.is_staff

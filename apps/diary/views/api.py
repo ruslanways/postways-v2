@@ -37,7 +37,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from ..models import CustomUser, Like, Post
 from ..permissions import (
-    OwnerOrAdmin,
+    AuthenticatedReadOwnerOrAdminWrite,
     OwnerOrAdminOrReadOnly,
     ReadForAdminCreateForAnonymous,
 )
@@ -132,7 +132,8 @@ class UserDetailAPIView(generics.RetrieveDestroyAPIView):
     """
     Retrieve or delete a user.
 
-    GET: Retrieve user details with their posts and likes.
+    GET: Retrieve user details with their posts and likes (authenticated users only).
+         Unpublished posts are only visible to the profile owner or staff.
     DELETE: Delete user (owner or admin only). Blacklists all JWT tokens before deletion.
 
     Note:
@@ -144,7 +145,7 @@ class UserDetailAPIView(generics.RetrieveDestroyAPIView):
 
     queryset = CustomUser.objects.all()
     serializer_class = UserDetailSerializer
-    permission_classes = (OwnerOrAdmin,)
+    permission_classes = (AuthenticatedReadOwnerOrAdminWrite,)
 
     def destroy(self, request, *args, **kwargs):
         """

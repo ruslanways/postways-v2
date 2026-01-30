@@ -346,7 +346,9 @@ class TestPostDetailView:
 
         assert response.status_code == 200
 
-    def test_unpublished_post_visible_to_staff(self, client, admin_user, unpublished_post):
+    def test_unpublished_post_visible_to_staff(
+        self, client, admin_user, unpublished_post
+    ):
         """Staff can view any unpublished post."""
         client.force_login(admin_user)
 

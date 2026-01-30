@@ -74,7 +74,7 @@ uv sync
 
 **API** (`apps/diary/views/api.py`):
 - REST endpoints under `/api/v1/`
-- Custom permissions: `OwnerOrAdmin`, `OwnerOrAdminOrReadOnly`, `ReadForAdminCreateForAnonymous`
+- Custom permissions: `OwnerOrAdmin`, `OwnerOrAdminOrReadOnly`, `ReadForAdminCreateForAnonymous`, `AuthenticatedReadOwnerOrAdminWrite`
 
 **JWT Authentication Details** (`apps/diary/views/api.py`):
 

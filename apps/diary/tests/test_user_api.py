@@ -205,15 +205,16 @@ class TestUserDetail:
         assert response.data["username"] == user.username
         assert response.data["email"] == user.email
 
-    def test_view_other_profile_forbidden(
+    def test_view_other_profile_allowed(
         self, authenticated_api_client, user, other_user
     ):
-        """Non-owner gets 403."""
+        """Authenticated user can view other profiles."""
         response = authenticated_api_client.get(
             reverse("user-detail-update-destroy-api", args=[other_user.id])
         )
 
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["username"] == other_user.username
 
     def test_admin_can_view_any_profile(self, admin_api_client, user):
         """Admin can view any user's profile."""
@@ -253,9 +254,7 @@ class TestUserDetail:
 
         assert response.status_code == status.HTTP_200_OK
         # Check that unpublished post URL is in the posts list
-        unpublished_post_url = reverse(
-            "post-detail-api", args=[unpublished_post.id]
-        )
+        unpublished_post_url = reverse("post-detail-api", args=[unpublished_post.id])
         assert any(unpublished_post_url in url for url in response.data["posts"])
 
     def test_admin_sees_unpublished_posts_on_any_profile(
@@ -268,10 +267,21 @@ class TestUserDetail:
 
         assert response.status_code == status.HTTP_200_OK
         # Check that unpublished post URL is in the posts list
-        unpublished_post_url = reverse(
-            "post-detail-api", args=[unpublished_post.id]
-        )
+        unpublished_post_url = reverse("post-detail-api", args=[unpublished_post.id])
         assert any(unpublished_post_url in url for url in response.data["posts"])
+
+    def test_non_owner_cannot_see_unpublished_posts(
+        self, other_user_api_client, user, unpublished_post
+    ):
+        """Non-owner cannot see unpublished posts on another user's profile."""
+        response = other_user_api_client.get(
+            reverse("user-detail-update-destroy-api", args=[user.id])
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        # Check that unpublished post URL is NOT in the posts list
+        unpublished_post_url = reverse("post-detail-api", args=[unpublished_post.id])
+        assert not any(unpublished_post_url in url for url in response.data["posts"])
 
 
 class TestUserUpdate:
