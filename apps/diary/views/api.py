@@ -120,12 +120,19 @@ class UserListAPIView(generics.ListCreateAPIView):
     List all users or create a new user.
 
     GET: List users (admin only), ordered by last_activity_at descending.
+         Includes stats (posts_count, likes_received) for each user.
     POST: Create new user (anonymous only - registration endpoint).
     """
 
-    queryset = CustomUser.objects.all().order_by("-last_activity_at")
     serializer_class = UserSerializer
     permission_classes = (ReadForAdminCreateForAnonymous,)
+
+    def get_queryset(self):
+        """Return users annotated with posts_count and likes_received."""
+        return CustomUser.objects.annotate(
+            posts_count=Count("posts", distinct=True),
+            likes_received=Count("posts__likes", distinct=True),
+        ).order_by("-last_activity_at")
 
 
 class CurrentUserAPIView(generics.RetrieveAPIView):

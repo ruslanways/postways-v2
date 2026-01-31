@@ -34,9 +34,12 @@ from .validators import MyUnicodeUsernameValidator
 
 class UserSerializer(serializers.HyperlinkedModelSerializer):
     """
-    Serializer for user registration.
+    Serializer for user registration and admin user listing.
 
-    Used for creating new user accounts via POST /api/v1/users/.
+    Used for:
+    - GET /api/v1/users/ (admin only): List users with stats
+    - POST /api/v1/users/ (anonymous): Create new user account
+
     Requires both 'password' and 'password2' fields to match for validation.
     Automatically hashes passwords using Django's password hashing.
 
@@ -49,12 +52,32 @@ class UserSerializer(serializers.HyperlinkedModelSerializer):
         - password2: Write-only, must match password
         - last_activity_at, last_login, date_joined: Read-only timestamps
         - is_staff, is_active: Read-only admin flags
+        - stats: Object with posts_count and likes_received (read-only, admin list only)
     """
 
     url = serializers.HyperlinkedIdentityField(
         view_name="user-detail-update-destroy-api"
     )
     password2 = serializers.CharField(style={"input_type": "password"}, write_only=True)
+    stats = serializers.SerializerMethodField(read_only=True)
+
+    def get_stats(self, obj):
+        """
+        Return post count and likes received from annotated queryset.
+
+        Only populated when queryset has posts_count and likes_received annotations
+        (admin list view). Returns None for registration responses.
+        """
+        posts_count = getattr(obj, "posts_count", None)
+        likes_received = getattr(obj, "likes_received", None)
+
+        if posts_count is None and likes_received is None:
+            return None
+
+        return {
+            "posts_count": posts_count or 0,
+            "likes_received": likes_received or 0,
+        }
 
     class Meta:
         model = CustomUser
@@ -70,6 +93,7 @@ class UserSerializer(serializers.HyperlinkedModelSerializer):
             "is_active",
             "password",
             "password2",
+            "stats",
         )
         extra_kwargs = {
             "password": {
