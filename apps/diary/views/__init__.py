@@ -9,6 +9,7 @@ All views are re-exported here for backward compatibility.
 """
 
 from .api import (
+    CurrentUserAPIView,
     EmailChangeAPIView,
     EmailVerifyAPIView,
     LikeAPIView,
@@ -76,6 +77,7 @@ __all__ = [
     "PostDeleteView",
     "UserDeleteView",
     # API views
+    "CurrentUserAPIView",
     "UserListAPIView",
     "UserDetailAPIView",
     "PostAPIView",

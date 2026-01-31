@@ -9,6 +9,8 @@ from .views import (
     AuthorDetailView,
     # Authors (HTML)
     AuthorListView,
+    # Users API
+    CurrentUserAPIView,
     CustomPasswordChangeView,
     CustomPasswordResetConfirmView,
     EmailChangeAPIView,
@@ -45,7 +47,6 @@ from .views import (
     TokenRecoveryAPIView,
     UserDeleteView,
     UserDetailAPIView,
-    # Users API
     UserListAPIView,
     UsernameChangeAPIView,
     UsernameChangeView,
@@ -103,6 +104,7 @@ api_v1_patterns = [
     path("", RootAPIView.as_view(), name="root-api"),
     # Users
     path("users/", UserListAPIView.as_view(), name="user-list-create-api"),
+    path("users/me/", CurrentUserAPIView.as_view(), name="current-user-api"),
     path(
         "users/<int:pk>/",
         UserDetailAPIView.as_view(),

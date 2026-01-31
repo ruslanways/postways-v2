@@ -128,6 +128,25 @@ class UserListAPIView(generics.ListCreateAPIView):
     permission_classes = (ReadForAdminCreateForAnonymous,)
 
 
+class CurrentUserAPIView(generics.RetrieveAPIView):
+    """
+    Retrieve the currently authenticated user's profile.
+
+    GET: Returns the current user's details including their posts and likes.
+         This endpoint allows users to discover their own user ID and profile
+         without needing to know it in advance.
+
+    URL: /api/v1/users/me/
+    """
+
+    serializer_class = UserDetailSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_object(self):
+        """Return the currently authenticated user."""
+        return self.request.user
+
+
 class UserDetailAPIView(generics.RetrieveDestroyAPIView):
     """
     Retrieve or delete a user.

@@ -361,6 +361,29 @@ class TestUserDetail:
         assert response.data["stats"]["likes_received"] == 0
 
 
+class TestCurrentUser:
+    """Tests for current user endpoint (GET /api/v1/users/me/)."""
+
+    def test_get_current_user(self, authenticated_api_client, user):
+        """Authenticated user can get their own profile via /me endpoint."""
+        response = authenticated_api_client.get(reverse("current-user-api"))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["id"] == user.id
+        assert response.data["username"] == user.username
+        # Owner should see all sensitive fields
+        assert response.data["email"] == user.email
+        assert "last_activity_at" in response.data
+        assert "stats" in response.data
+        assert "links" in response.data
+
+    def test_get_current_user_anonymous_unauthorized(self, api_client):
+        """Anonymous user gets 401."""
+        response = api_client.get(reverse("current-user-api"))
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
 class TestUserUpdate:
     """Tests for user update (PUT/PATCH not allowed - use dedicated endpoints)."""
 
