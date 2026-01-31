@@ -32,7 +32,8 @@ class OwnerOrAdminOrReadOnly(permissions.BasePermission):
 class ReadForAdminCreateForAnonymous(permissions.BasePermission):
     """
     View-level permission that allows:
-    - POST requests from anonymous users
+    - OPTIONS requests from anyone (for API discovery)
+    - POST requests from anonymous users (registration)
     - All other requests only from staff
 
     Used for endpoints like user registration where anonymous users can create
@@ -68,7 +69,8 @@ class OwnerOrAdmin(permissions.BasePermission):
 class AuthenticatedReadOwnerOrAdminWrite(permissions.BasePermission):
     """
     Permission that allows:
-    - Read access (GET, HEAD, OPTIONS) to authenticated users only
+    - OPTIONS requests from anyone (for API discovery)
+    - Read access (GET, HEAD) to authenticated users only
     - Write access (DELETE) only to the object owner or staff
 
     Used for user detail endpoints where any authenticated user can view profiles,
@@ -76,7 +78,9 @@ class AuthenticatedReadOwnerOrAdminWrite(permissions.BasePermission):
     """
 
     def has_permission(self, request, view) -> bool:
-        """Check if user is authenticated."""
+        """Check if user is authenticated (OPTIONS allowed for API discovery)."""
+        if request.method == "OPTIONS":
+            return True
         return request.user.is_authenticated
 
     def has_object_permission(self, request, view, obj: Any) -> bool:

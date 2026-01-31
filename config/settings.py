@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     # Local apps
     "apps.diary",
     # Third-party apps
+    "corsheaders",
     "rest_framework",
     "django_filters",
     "rest_framework_simplejwt",
@@ -66,6 +67,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -273,3 +275,13 @@ CACHES = {
 # ------------------------------------------------------------------------------
 CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/1"
 CELERY_RESULT_BACKEND = f"redis://{REDIS_HOST}:{REDIS_PORT}/1"
+
+
+# ------------------------------------------------------------------------------
+# Django CORS Headers
+# ------------------------------------------------------------------------------
+# In development, allow all origins. In production, set CORS_ALLOWED_ORIGINS env var.
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
