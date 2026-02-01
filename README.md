@@ -77,6 +77,33 @@ docker compose -f docker/docker-compose.yml exec web pytest --cov=apps --cov-rep
 - **Fixtures**: `apps/diary/tests/conftest.py` (factories and fixtures)
 - **Coverage output**: `var/coverage/` (data file and HTML reports)
 
+## HTML Endpoints
+
+Traditional Django views with session-based authentication.
+
+| URL | Access | Description |
+|-----|--------|-------------|
+| `/` | Public | Home page - lists published posts (most recent first) |
+| `/popular/` | Public | Popular posts - lists published posts by like count |
+| `/authors/` | Staff | User list with statistics and sortable columns |
+| `/authors/<id>/` | Public* | User profile with their posts |
+| `/authors/<id>/delete/` | Owner | Delete own account |
+| `/posts/` | Staff | All posts (including unpublished) for moderation |
+| `/posts/add/` | Authenticated | Create new post |
+| `/posts/<id>/` | Public* | View single post |
+| `/posts/<id>/edit/` | Owner/Staff | Edit post |
+| `/posts/<id>/delete/` | Owner/Staff | Delete post |
+| `/signup/` | Anonymous | User registration |
+| `/login/` | Anonymous | User login |
+| `/logout/` | Authenticated | User logout |
+| `/password_change/` | Authenticated | Change password |
+| `/password_reset/` | Anonymous | Request password reset |
+| `/username_change/` | Authenticated | Change username (30-day cooldown) |
+| `/email_change/` | Authenticated | Request email change |
+| `/email_verify/<token>/` | Public | Verify email change |
+
+*Unpublished posts and sensitive user fields visible only to owner/staff
+
 ## API Endpoints
 
 All API endpoints are under `/api/v1/` and use JWT authentication (except registration and public read endpoints).
@@ -84,7 +111,7 @@ All API endpoints are under `/api/v1/` and use JWT authentication (except regist
 ### API Root
 
 **`GET /api/v1/`**
-- Returns links to main API endpoints (posts, users, likes)
+- Returns hyperlinks to all API endpoints organized by category (users, auth, posts, likes)
 - No authentication required
 
 ---
@@ -163,15 +190,22 @@ All API endpoints are under `/api/v1/` and use JWT authentication (except regist
 - Create new user (anonymous/registration endpoint)
 - No authentication required
 
-**`GET /api/v1/users/<id>/`**
+**`GET /api/v1/users/me/`**
+- Retrieve current authenticated user's profile
+- Allows users to discover their own user ID
+- Returns same format as user detail endpoint
+
+**`GET /api/v1/users/{user_id_or_username}/`**
 - Retrieve user details with their posts and likes
-- Owner or admin only
+- Accepts numeric ID (e.g., `/users/42/`) or username (e.g., `/users/john_doe/`)
+- Authenticated users only
+- Sensitive fields (email, last_activity_at, etc.) visible only to owner or admin
 - All fields are read-only; use dedicated endpoints for changes:
   - Password: `/api/v1/auth/password/change/`
   - Username: `/api/v1/auth/username/change/`
   - Email: `/api/v1/auth/email/change/`
 
-**`DELETE /api/v1/users/<id>/`**
+**`DELETE /api/v1/users/{user_id_or_username}/`**
 - Delete user (owner or admin only)
 - Before deletion, blacklists all outstanding refresh tokens for that user
 - User deletion cascades to their posts and likes (via `on_delete=models.CASCADE`)
@@ -212,13 +246,15 @@ All API endpoints are under `/api/v1/` and use JWT authentication (except regist
 ### Like Endpoints
 
 **`GET /api/v1/likes/`**
-- Analytics endpoint: list likes aggregated by date
-- Returns daily like counts
-- Supports filtering: `?created__gte=2024-01-01&created__lte=2024-12-31`
-- Supports ordering: `?ordering=created` or `?ordering=likes`
+- Response format varies based on query parameters:
+  - No filters: Returns total like count (`{"total_likes": 42, "results": []}`)
+  - `?user={user_id}`: Returns user's likes with post info
+  - `?post={post_id}`: Returns post's likes with user info
+  - `?user={user_id}&post={post_id}`: Returns boolean (`{"liked": true}`)
+- Supports pagination for filtered results
 
-**`GET /api/v1/likes/<id>/`**
-- Retrieve a single like by ID with user and post references
+**`GET /api/v1/likes/{id}/`**
+- Retrieve a single like by ID with full user and post details
 
 **`POST /api/v1/likes/toggle/`**
 - Toggle like on a post (authenticated users only)
@@ -242,32 +278,35 @@ All API endpoints are under `/api/v1/` and use JWT authentication (except regist
 
 | Endpoint | Method | Auth Required | Purpose |
 |----------|--------|---------------|---------|
-| `/api/v1/` | GET | No | API root with links |
+| `/api/v1/` | GET | No | API root with hyperlinks |
 | `/api/v1/auth/login/` | POST | No | Standard JWT login |
 | `/api/v1/auth/mylogin/` | POST | No | Custom JWT login (cookie-based refresh) |
 | `/api/v1/auth/token/refresh/` | POST | No | Refresh access token |
 | `/api/v1/auth/token/verify/` | POST | No | Verify token validity |
 | `/api/v1/auth/token/recovery/` | POST | No | Password recovery via email |
-| `/api/v1/auth/password/reset/` | POST | Yes | Reset password (using recovery token, no old password) |
+| `/api/v1/auth/password/reset/` | POST | Yes* | Reset password (using recovery token) |
 | `/api/v1/auth/password/change/` | POST | Yes | Change password (requires current password) |
-| `/api/v1/auth/username/change/` | POST | Yes | Change username (requires password, 30-day cooldown) |
-| `/api/v1/auth/email/change/` | POST | Yes | Initiate email change (requires password, sends verification) |
+| `/api/v1/auth/username/change/` | POST | Yes | Change username (30-day cooldown) |
+| `/api/v1/auth/email/change/` | POST | Yes | Initiate email change |
 | `/api/v1/auth/email/verify/` | POST/GET | No | Verify email change token |
 | `/api/v1/users/` | GET | Admin | List users |
-| `/api/v1/users/` | POST | No | Register new user |
-| `/api/v1/users/<id>/` | GET | Owner/Admin | Get user details (read-only) |
-| `/api/v1/users/<id>/` | DELETE | Owner/Admin | Delete user (blacklists tokens, cascades posts/likes) |
+| `/api/v1/users/` | POST | No** | Register new user |
+| `/api/v1/users/me/` | GET | Yes | Get current user profile |
+| `/api/v1/users/{id_or_username}/` | GET | Yes | Get user details |
+| `/api/v1/users/{id_or_username}/` | DELETE | Owner/Admin | Delete user |
 | `/api/v1/posts/` | GET | No | List published posts |
 | `/api/v1/posts/` | POST | Yes | Create post |
-| `/api/v1/posts/<id>/` | GET | No* | Get post details |
-| `/api/v1/posts/<id>/` | PUT/PATCH | Owner | Update post |
-| `/api/v1/posts/<id>/` | DELETE | Owner/Admin | Delete post |
-| `/api/v1/likes/` | GET | No | Analytics: daily like counts |
-| `/api/v1/likes/<id>/` | GET | No | Get like details |
+| `/api/v1/posts/{id}/` | GET | No*** | Get post details |
+| `/api/v1/posts/{id}/` | PUT/PATCH | Owner | Update post |
+| `/api/v1/posts/{id}/` | DELETE | Owner/Admin | Delete post |
+| `/api/v1/likes/` | GET | No | Like data (varies by filter) |
+| `/api/v1/likes/{id}/` | GET | No | Get like details |
 | `/api/v1/likes/toggle/` | POST | Yes | Toggle like on post |
 | `/api/v1/likes/batch/` | GET | No | Batch get like counts |
 
-*Unpublished posts require owner/admin access
+*Uses recovery token from email
+**Anonymous only (registration)
+***Unpublished posts require Owner/Admin
 
 ## Authentication Overview
 
@@ -422,6 +461,8 @@ WebSocket connections use Django Channels' `AuthMiddlewareStack` (`config/asgi.p
 - Post management with async image processing (resizing, thumbnails, EXIF orientation fix)
 - Automatic media cleanup when posts are deleted or images are cleared/replaced (async via Celery, works with local storage and S3)
 - Real-time like updates via WebSocket
+- Popular posts view (sorted by like count)
+- Staff-only moderation views for users and posts
 - Background task processing with Celery
 - Secure password change with current password verification
 - Secure username change with password verification and 30-day cooldown

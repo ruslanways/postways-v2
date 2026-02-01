@@ -48,8 +48,8 @@ uv sync
 - `config/` - Django settings, URLs, ASGI/WSGI, Celery config
 - `apps/diary/` - Main application with models, views, API, WebSocket consumers
   - `views/` - Views package (separated for clean code organization)
-    - `html.py` - Traditional Django CBVs with session auth (HomeView, SignUp, PostCreateView, UsernameChangeView, EmailChangeView, EmailVerifyView, etc.)
-    - `api.py` - DRF views with JWT auth (UserListAPIView, PostAPIView, LikeCreateDestroyAPIView, EmailChangeAPIView, EmailVerifyAPIView, etc.)
+    - `html.py` - Traditional Django CBVs with session auth (HomeView, HomeViewPopular, SignUp, Login, PostListView, PostCreateView, PostDetailView, PostUpdateView, PostDeleteView, AuthorListView, AuthorDetailView, UsernameChangeView, EmailChangeView, EmailVerifyView, UserDeleteView, etc.)
+    - `api.py` - DRF views with JWT auth (RootAPIView, UserListAPIView, UserDetailAPIView, CurrentUserAPIView, PostAPIView, PostDetailAPIView, LikeAPIView, LikeDetailAPIView, LikeCreateDestroyAPIView, LikeBatchAPIView, EmailChangeAPIView, EmailVerifyAPIView, etc.)
     - `__init__.py` - Re-exports all views for backward-compatible imports
 - `docker/` - Dockerfile and docker-compose.yml
 
@@ -74,6 +74,9 @@ uv sync
 
 **API** (`apps/diary/views/api.py`):
 - REST endpoints under `/api/v1/`
+- API root returns organized hyperlinks by category (users, auth, posts, likes)
+- User endpoints support lookup by ID or username (e.g., `/users/42/` or `/users/john_doe/`)
+- `/api/v1/users/me/` endpoint for authenticated users to get their own profile
 - Custom permissions: `OwnerOrAdmin`, `OwnerOrAdminOrReadOnly`, `ReadForAdminCreateForAnonymous`, `AuthenticatedReadOwnerOrAdminWrite`
 
 **User Profile Field Visibility**:
@@ -98,6 +101,8 @@ The project uses SimpleJWT with custom enhancements for secure token management:
 |-----------|----------|---------|
 | `blacklist_user_tokens()` | `api.py` | Utility to blacklist all outstanding refresh tokens for a user |
 | `broadcast_like_update()` | `api.py` | Utility to broadcast like count updates via WebSocket |
+| `RootAPIView` | `api.py` | API root with organized hyperlinks by category |
+| `CurrentUserAPIView` | `api.py` | Get current authenticated user's profile (`/users/me/`) |
 | `MyTokenObtainPairView` | `api.py` | Custom login with httponly cookie for refresh token |
 | `MyTokenRefreshSerializer` | `serializers.py` | Fixes OutstandingToken tracking for rotated tokens |
 | `MyTokenRefreshView` | `api.py` | Uses custom serializer for proper blacklist support |
@@ -133,6 +138,27 @@ The project uses SimpleJWT with custom enhancements for secure token management:
 - Returns JSON for API requests (`/api/*`), HTML templates for browser requests
 - Templates located in `templates/` directory: `400.html`, `403.html`, `404.html`, `500.html`
 - 500 errors handled by `UncaughtExceptionMiddleware` with logging support
+
+**HTML Views** (`apps/diary/views/html.py`):
+
+| View Class | URL | Access | Purpose |
+|------------|-----|--------|---------|
+| `HomeView` | `/` | Public | Lists published posts, paginated, ordered by most recent |
+| `HomeViewPopular` | `/popular/` | Public | Lists published posts ordered by like count (popularity) |
+| `AuthorListView` | `/authors/` | Staff only | Lists all users with stats (posts, likes), sortable columns |
+| `AuthorDetailView` | `/authors/<id>/` | Public* | User profile with their posts |
+| `PostListView` | `/posts/` | Staff only | Lists all posts including unpublished, for moderation |
+| `PostCreateView` | `/posts/add/` | Authenticated | Create new post |
+| `PostDetailView` | `/posts/<id>/` | Public* | View single post with likes |
+| `PostUpdateView` | `/posts/<id>/edit/` | Owner/Staff | Edit post |
+| `PostDeleteView` | `/posts/<id>/delete/` | Owner/Staff | Delete post |
+| `UserDeleteView` | `/authors/<id>/delete/` | Owner only | Delete own account |
+
+*Unpublished posts and sensitive user fields visible only to owner/staff
+
+**Custom Mixins** (`apps/diary/views/html.py`):
+- `StaffRequiredMixin` - Requires `is_staff=True`, redirects with warning message
+- `PostOwnerOrStaffMixin` - Allows access to post owner or staff users
 
 **WebSocket - Real-time Likes** (`apps/diary/consumers.py`):
 
