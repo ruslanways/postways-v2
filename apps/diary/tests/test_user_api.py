@@ -234,7 +234,13 @@ class TestUserDetail:
 
         assert response.status_code == status.HTTP_200_OK
         # These fields should be hidden from non-owners
-        for field in ("email", "last_activity_at", "last_login", "is_staff", "is_active"):
+        for field in (
+            "email",
+            "last_activity_at",
+            "last_login",
+            "is_staff",
+            "is_active",
+        ):
             assert field not in response.data
         # These fields should still be visible
         assert "username" in response.data
@@ -250,7 +256,9 @@ class TestUserDetail:
 
         assert response.status_code == status.HTTP_200_OK
 
-    def test_admin_can_see_sensitive_fields_on_any_profile(self, admin_api_client, user):
+    def test_admin_can_see_sensitive_fields_on_any_profile(
+        self, admin_api_client, user
+    ):
         """Admin can see all sensitive fields on any user's profile."""
         response = admin_api_client.get(
             reverse("user-detail-update-destroy-api", args=[user.id])

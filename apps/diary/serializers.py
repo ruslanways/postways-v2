@@ -56,7 +56,9 @@ class UserSerializer(serializers.HyperlinkedModelSerializer):
     """
 
     url = serializers.HyperlinkedIdentityField(
-        view_name="user-detail-update-destroy-api"
+        view_name="user-detail-update-destroy-api",
+        lookup_field="pk",
+        lookup_url_kwarg="user_id_or_username",
     )
     password2 = serializers.CharField(style={"input_type": "password"}, write_only=True)
     stats = serializers.SerializerMethodField(read_only=True)
@@ -234,7 +236,9 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
         request = self.context.get("request")
         return {
             "self": reverse(
-                "user-detail-update-destroy-api", kwargs={"pk": obj.pk}, request=request
+                "user-detail-update-destroy-api",
+                kwargs={"user_id_or_username": obj.pk},
+                request=request,
             ),
             "posts": f"{reverse('post-list-create-api', request=request)}?author={obj.pk}",
         }
@@ -283,7 +287,13 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
         ret = super().to_representation(instance)
 
         if not self._is_owner_or_staff(instance):
-            for field in ("email", "last_activity_at", "last_login", "is_staff", "is_active"):
+            for field in (
+                "email",
+                "last_activity_at",
+                "last_login",
+                "is_staff",
+                "is_active",
+            ):
                 ret.pop(field, None)
 
         return ret
@@ -324,7 +334,10 @@ class PostSerializer(serializers.HyperlinkedModelSerializer):
         write_only=True, required=False, default=True, initial=True
     )
     author = serializers.HyperlinkedRelatedField(
-        read_only=True, view_name="user-detail-update-destroy-api"
+        read_only=True,
+        view_name="user-detail-update-destroy-api",
+        lookup_field="pk",
+        lookup_url_kwarg="user_id_or_username",
     )
     # Alternative approach to associate post with current user:
     # author = serializers.HiddenField(write_only=True, default=serializers.CurrentUserDefault())
@@ -369,7 +382,10 @@ class PostDetailSerializer(serializers.HyperlinkedModelSerializer):
 
     url = serializers.HyperlinkedIdentityField(view_name="post-detail-api")
     author = serializers.HyperlinkedRelatedField(
-        read_only=True, view_name="user-detail-update-destroy-api"
+        read_only=True,
+        view_name="user-detail-update-destroy-api",
+        lookup_field="pk",
+        lookup_url_kwarg="user_id_or_username",
     )
     likes = serializers.HyperlinkedRelatedField(
         many=True, read_only=True, view_name="like-detail-api"
@@ -433,7 +449,10 @@ class LikeDetailSerializer(serializers.HyperlinkedModelSerializer):
 
     url = serializers.HyperlinkedIdentityField(view_name="like-detail-api")
     user = serializers.HyperlinkedRelatedField(
-        read_only=True, view_name="user-detail-update-destroy-api"
+        read_only=True,
+        view_name="user-detail-update-destroy-api",
+        lookup_field="pk",
+        lookup_url_kwarg="user_id_or_username",
     )
     post = serializers.HyperlinkedRelatedField(
         read_only=True, view_name="post-detail-api"
@@ -457,7 +476,10 @@ class LikeCreateDestroySerializer(serializers.HyperlinkedModelSerializer):
 
     url = serializers.HyperlinkedIdentityField(view_name="like-detail-api")
     user = serializers.HyperlinkedRelatedField(
-        read_only=True, view_name="user-detail-update-destroy-api"
+        read_only=True,
+        view_name="user-detail-update-destroy-api",
+        lookup_field="pk",
+        lookup_url_kwarg="user_id_or_username",
     )
     post = serializers.PrimaryKeyRelatedField(queryset=Post.objects.all())
 

@@ -106,7 +106,7 @@ api_v1_patterns = [
     path("users/", UserListAPIView.as_view(), name="user-list-create-api"),
     path("users/me/", CurrentUserAPIView.as_view(), name="current-user-api"),
     path(
-        "users/<int:pk>/",
+        "users/<str:user_id_or_username>/",
         UserDetailAPIView.as_view(),
         name="user-detail-update-destroy-api",
     ),

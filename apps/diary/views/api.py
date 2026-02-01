@@ -16,7 +16,7 @@ import logging
 from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.db.models import Count
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
 
@@ -156,7 +156,14 @@ class CurrentUserAPIView(generics.RetrieveAPIView):
 
 class UserDetailAPIView(generics.RetrieveDestroyAPIView):
     """
-    Retrieve or delete a user.
+    Retrieve or delete a user by ID or username.
+
+    The identifier can be:
+    - A numeric ID (e.g., /users/42/)
+    - A username (e.g., /users/john_doe/)
+
+    If the identifier is purely numeric, ID lookup is tried first,
+    then falls back to username lookup.
 
     GET: Retrieve user details with their posts and likes (authenticated users only).
          Unpublished posts are only visible to the profile owner or staff.
@@ -172,6 +179,45 @@ class UserDetailAPIView(generics.RetrieveDestroyAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = UserDetailSerializer
     permission_classes = (AuthenticatedReadOwnerOrAdminWrite,)
+
+    def get_object(self):
+        """
+        Look up a user by ID or username via the `user_id_or_username` URL parameter.
+
+        Strategy:
+            1. If the identifier can be parsed as an integer, attempt a primary key lookup
+            first (pk is indexed, so this is the faster path).
+            2. If that fails or the identifier is non-numeric, fall back to a username lookup.
+            3. If neither matches, raise a 404.
+
+        Raises:
+            Http404: If no user is found or the identifier is empty/too long.
+        """
+        queryset = self.filter_queryset(self.get_queryset())
+        user_id_or_username = self.kwargs.get("user_id_or_username")
+
+        # Guard: reject missing or excessively long identifiers early
+        if not user_id_or_username or len(user_id_or_username) > 150:
+            raise Http404("User not found")
+
+        user = None
+
+        # Try primary key lookup first (EAFP style)
+        try:
+            pk = int(user_id_or_username)
+            user = queryset.filter(pk=pk).first()
+        except (ValueError, TypeError):
+            pass
+
+        # Fallback to username lookup if pk lookup failed or was skipped
+        if user is None:
+            user = queryset.filter(username=user_id_or_username).first()
+
+        if user is None:
+            raise Http404("User not found")
+
+        self.check_object_permissions(self.request, user)
+        return user
 
     def destroy(self, request, *args, **kwargs):
         """
