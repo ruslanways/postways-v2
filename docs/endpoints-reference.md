@@ -1,6 +1,6 @@
 # Postways API Reference
 
-Complete reference for all REST API endpoints in the Postways application.
+Complete reference for all REST API endpoints in the Postways-v2 application.
 
 ---
 
