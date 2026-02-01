@@ -32,7 +32,53 @@ docker compose -f docker/docker-compose.yml exec web pytest
 
 # Install dependencies (uses uv)
 uv sync
+
+# Run linter and formatter (ruff)
+ruff check --fix .
+ruff format .
+
+# Run pre-commit hooks manually
+pre-commit run --all-files
 ```
+
+## Code Quality
+
+The project uses **ruff** for linting and formatting, enforced via **pre-commit** hooks.
+
+### Pre-commit Setup
+
+Pre-commit hooks run automatically before each `git commit`, preventing code with linting/formatting issues from being committed.
+
+```bash
+# Install pre-commit hooks (one-time setup)
+pre-commit install
+
+# Run hooks manually on all files
+pre-commit run --all-files
+```
+
+### Ruff Configuration
+
+Ruff configuration is in `pyproject.toml`:
+- **Line length**: 88 characters
+- **Target**: Python 3.12
+- **Excluded**: migrations
+
+**Enabled rules:**
+| Code | Description |
+|------|-------------|
+| `E` | pycodestyle errors |
+| `F` | pyflakes |
+| `I` | isort (import sorting) |
+| `UP` | pyupgrade |
+| `B` | flake8-bugbear |
+| `SIM` | flake8-simplify |
+| `DJ` | flake8-django |
+
+### What Happens on Commit
+
+1. **Auto-fixable issues** (import order, formatting): Ruff fixes them automatically, commit is blocked, re-stage and commit again
+2. **Non-fixable issues** (unused variables, undefined names): Fix manually, then commit
 
 ## Architecture
 

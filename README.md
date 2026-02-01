@@ -28,7 +28,27 @@ docker compose -f docker/docker-compose.yml exec web pytest --cov=apps --cov-rep
 
 # Run tests in parallel with coverage
 docker compose -f docker/docker-compose.yml exec web pytest -n auto --cov=apps --cov-report=term-missing
+
+# Install pre-commit hooks (one-time setup, runs linter/formatter before commits)
+pre-commit install
 ```
+
+## Code Quality
+
+The project uses **ruff** for linting and formatting, enforced via **pre-commit** hooks.
+
+```bash
+# Run pre-commit hooks manually
+pre-commit run --all-files
+
+# Run ruff directly
+ruff check --fix .
+ruff format .
+```
+
+Pre-commit hooks run automatically on `git commit`. If issues are found:
+- **Auto-fixable** (imports, formatting): Files are fixed, re-stage with `git add -u` and commit again
+- **Non-fixable** (unused variables): Fix manually, then commit
 
 ## Testing
 
