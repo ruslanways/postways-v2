@@ -53,8 +53,8 @@ class TestPostList:
         post_data = next(p for p in response.data["results"] if p["id"] == post.id)
         assert "stats" in post_data
         assert post_data["stats"]["like_count"] == 1
-        # Anonymous users should see has_liked as null
-        assert post_data["stats"]["has_liked"] is None
+        # Anonymous users should not see has_liked field at all
+        assert "has_liked" not in post_data["stats"]
 
     def test_list_is_paginated(self, api_client, post_factory, user):
         """Post list is paginated."""

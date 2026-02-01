@@ -352,19 +352,16 @@ class PostListSerializer(serializers.HyperlinkedModelSerializer):
 
         Includes:
             - like_count: Total number of likes
-            - has_liked: Whether current user has liked (null if not authenticated)
+            - has_liked: Whether current user has liked (only for authenticated users)
         """
         request = self.context.get("request")
-        has_liked = getattr(obj, "has_liked", None)
+        stats = {"like_count": getattr(obj, "like_count", 0)}
 
-        # Return null for has_liked if user is not authenticated
-        if request and not request.user.is_authenticated:
-            has_liked = None
+        # Only include has_liked for authenticated users
+        if request and request.user.is_authenticated:
+            stats["has_liked"] = getattr(obj, "has_liked", False)
 
-        return {
-            "like_count": getattr(obj, "like_count", 0),
-            "has_liked": has_liked,
-        }
+        return stats
 
     class Meta:
         model = Post
@@ -428,6 +425,7 @@ class PostCreateSerializer(serializers.HyperlinkedModelSerializer):
             "updated_at",
             "published",
         )
+        read_only_fields = ("url", "id", "author", "created_at", "updated_at")
 
 
 class PostDetailSerializer(serializers.HyperlinkedModelSerializer):
