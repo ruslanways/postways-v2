@@ -210,7 +210,7 @@ class TestLikeList:
         response = api_client.get(reverse("like-list-api"))
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.data == {"total_likes": 5}
+        assert response.data == {"total_likes": 5, "results": []}
 
     def test_list_by_user_returns_paginated_likes(
         self, api_client, like_factory, user, post_factory

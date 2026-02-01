@@ -394,6 +394,9 @@ class LikeAPIView(generics.ListAPIView):
        Response: {"liked": true|false}
     """
 
+    filter_backends = (DjangoFilterBackend,)
+    filterset_fields = ["user", "post"]
+
     def get_queryset(self):
         """Return likes ordered by newest first, with related objects prefetched."""
         return Like.objects.select_related("user", "post").order_by("-created_at")
@@ -427,17 +430,14 @@ class LikeAPIView(generics.ListAPIView):
             liked = Like.objects.filter(user_id=user_id, post_id=post_id).exists()
             return Response({"liked": liked})
 
-        # Case 1: No filters - return total count
+        # Case 1: No filters - return total count (include "results" so DRF
+        # browsable API shows the filter form; see get_filter_form in BrowsableAPIRenderer)
         if not user_id and not post_id:
             total = Like.objects.count()
-            return Response({"total_likes": total})
+            return Response({"total_likes": total, "results": []})
 
         # Cases 2 & 3: Filter by user or post - return paginated list
-        queryset = self.get_queryset()
-        if user_id:
-            queryset = queryset.filter(user_id=user_id)
-        if post_id:
-            queryset = queryset.filter(post_id=post_id)
+        queryset = self.filter_queryset(self.get_queryset())
 
         page = self.paginate_queryset(queryset)
         if page is not None:
