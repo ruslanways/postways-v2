@@ -304,16 +304,92 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
 # ============================================================================
 
 
-class PostSerializer(serializers.HyperlinkedModelSerializer):
+class PostListSerializer(serializers.HyperlinkedModelSerializer):
     """
-    Serializer for post list and create operations.
+    Serializer for post list operations (read-only).
 
-    Used for GET/POST /api/v1/posts/.
-    Author is automatically set from the authenticated user in the view.
-    Includes like count as a read-only field.
+    Used for GET /api/v1/posts/.
+    Returns posts with truncated content (excerpt), author info, thumbnail, and stats.
 
     Fields:
         - url: Hyperlink to post detail endpoint
+        - id: Post ID
+        - author: Object with id, username, and URL
+        - title: Post title
+        - content_excerpt: Truncated content (max 200 chars with "...")
+        - thumbnail: Thumbnail image URL
+        - created_at, updated_at: Timestamps
+        - stats: Object with like_count and has_liked (for authenticated users)
+    """
+
+    url = serializers.HyperlinkedIdentityField(view_name="post-detail-api")
+    author = serializers.SerializerMethodField()
+    content_excerpt = serializers.SerializerMethodField()
+    stats = serializers.SerializerMethodField()
+
+    def get_author(self, obj):
+        """Return author info with id, username, and URL."""
+        request = self.context.get("request")
+        return {
+            "id": obj.author_id,
+            "username": obj.author.username,
+            "url": reverse(
+                "user-detail-update-destroy-api",
+                kwargs={"user_id_or_username": obj.author_id},
+                request=request,
+            ),
+        }
+
+    def get_content_excerpt(self, obj):
+        """Return truncated content (max 200 chars with '...')."""
+        if obj.content and len(obj.content) > 200:
+            return obj.content[:200] + "..."
+        return obj.content or ""
+
+    def get_stats(self, obj):
+        """
+        Return like statistics for the post.
+
+        Includes:
+            - like_count: Total number of likes
+            - has_liked: Whether current user has liked (null if not authenticated)
+        """
+        request = self.context.get("request")
+        has_liked = getattr(obj, "has_liked", None)
+
+        # Return null for has_liked if user is not authenticated
+        if request and not request.user.is_authenticated:
+            has_liked = None
+
+        return {
+            "like_count": getattr(obj, "like_count", 0),
+            "has_liked": has_liked,
+        }
+
+    class Meta:
+        model = Post
+        fields = (
+            "url",
+            "id",
+            "author",
+            "title",
+            "content_excerpt",
+            "thumbnail",
+            "created_at",
+            "updated_at",
+            "stats",
+        )
+
+
+class PostCreateSerializer(serializers.HyperlinkedModelSerializer):
+    """
+    Serializer for post create operations.
+
+    Used for POST /api/v1/posts/.
+    Author is automatically set from the authenticated user in the view.
+
+    Fields:
+        - url: Hyperlink to post detail endpoint (read-only)
         - id: Post ID (read-only)
         - author: Hyperlink to author's user detail (read-only, set automatically)
         - title: Post title (required)
@@ -321,7 +397,6 @@ class PostSerializer(serializers.HyperlinkedModelSerializer):
         - image: Post image file (optional)
         - created_at, updated_at: Read-only timestamps
         - published: Boolean flag (write-only, defaults to True)
-        - like_count: Total number of likes (read-only, computed field)
 
     Note:
         Author is set in the view using perform_create(). Alternative approaches
@@ -339,16 +414,12 @@ class PostSerializer(serializers.HyperlinkedModelSerializer):
         lookup_field="pk",
         lookup_url_kwarg="user_id_or_username",
     )
-    # Alternative approach to associate post with current user:
-    # author = serializers.HiddenField(write_only=True, default=serializers.CurrentUserDefault())
-    # author_id = serializers.IntegerField(read_only=True, default=serializers.CurrentUserDefault())
-    like_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Post
         fields = (
-            "id",
             "url",
+            "id",
             "author",
             "title",
             "content",
@@ -356,7 +427,6 @@ class PostSerializer(serializers.HyperlinkedModelSerializer):
             "created_at",
             "updated_at",
             "published",
-            "like_count",
         )
 
 

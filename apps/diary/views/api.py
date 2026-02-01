@@ -15,7 +15,7 @@ import logging
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
-from django.db.models import Count
+from django.db.models import Count, Exists, OuterRef
 from django.http import Http404, JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
@@ -24,7 +24,7 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, permissions, status
-from rest_framework.filters import OrderingFilter
+from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 from rest_framework.reverse import reverse
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
@@ -50,8 +50,9 @@ from ..serializers import (
     MyTokenRefreshSerializer,
     PasswordChangeSerializer,
     PasswordResetSerializer,
+    PostCreateSerializer,
     PostDetailSerializer,
-    PostSerializer,
+    PostListSerializer,
     TokenRecoverySerializer,
     UserDetailSerializer,
     UsernameChangeSerializer,
@@ -241,28 +242,67 @@ class PostAPIView(generics.ListCreateAPIView):
     """
     List published posts or create a new post.
 
-    GET: List published posts with like counts. Supports ordering by id/updated_at/created_at.
-    Supports filtering by author, created_at date, and updated_at date.
+    GET: List published posts with like counts and stats.
+         Supports ordering by id/updated_at/created_at (with -id tie-breaker).
+         Supports filtering by author, created_at date, updated_at date.
+         Supports search by title and content.
     POST: Create new post (authenticated users only). Author set automatically.
+
+    Response format (list):
+        - url: Hyperlink to post detail
+        - id: Post ID
+        - author: Object with id, username, and URL
+        - title: Post title
+        - content_excerpt: Truncated content (max 200 chars)
+        - thumbnail: Thumbnail image URL
+        - created_at, updated_at: Timestamps
+        - stats: Object with like_count and has_liked (null if not authenticated)
     """
 
-    serializer_class = PostSerializer
-    filter_backends = DjangoFilterBackend, OrderingFilter
+    filter_backends = DjangoFilterBackend, OrderingFilter, SearchFilter
     filterset_fields = {
         "author": ["exact"],
+        "author__username": ["exact", "icontains"],
         "created_at": ["gte", "lte", "date__range"],
         "updated_at": ["gte", "lte"],
     }
     ordering_fields = "id", "updated_at", "created_at"
+    search_fields = "title", "content"
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
+    def get_serializer_class(self):
+        """Use different serializers for list and create operations."""
+        if self.request.method == "POST":
+            return PostCreateSerializer
+        return PostListSerializer
+
     def get_queryset(self):
-        """Return only published posts with like count annotation."""
-        return (
-            Post.objects.exclude(published=False)
-            .annotate(like_count=Count("likes"))
-            .order_by("-updated_at")
-        )
+        """
+        Return only published posts with like count and has_liked annotations.
+
+        Ordering uses -id as a tie-breaker for stable pagination when multiple
+        rows share the same timestamp.
+        """
+        queryset = Post.objects.exclude(published=False).select_related("author")
+
+        # Annotate like count
+        queryset = queryset.annotate(like_count=Count("likes"))
+
+        # Annotate has_liked for authenticated users
+        user = self.request.user
+        if user.is_authenticated:
+            has_liked_subquery = Like.objects.filter(
+                post=OuterRef("pk"), user=user
+            )
+            queryset = queryset.annotate(has_liked=Exists(has_liked_subquery))
+        else:
+            queryset = queryset.annotate(
+                has_liked=Exists(Like.objects.none())
+            )
+            # has_liked will be False for anonymous; serializer shows null
+
+        # Default ordering with tie-breaker for stable pagination
+        return queryset.order_by("-updated_at", "-id")
 
     def perform_create(self, serializer):
         """Set the post author to the current user."""

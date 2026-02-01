@@ -43,7 +43,7 @@ class TestPostList:
         assert unpublished_post.id not in post_ids
 
     def test_list_includes_like_count(self, api_client, post, like_factory, user):
-        """Post list includes like_count."""
+        """Post list includes like_count in stats."""
         # Create some likes
         like_factory(post=post, user=user)
 
@@ -51,8 +51,10 @@ class TestPostList:
 
         assert response.status_code == status.HTTP_200_OK
         post_data = next(p for p in response.data["results"] if p["id"] == post.id)
-        assert "like_count" in post_data
-        assert post_data["like_count"] == 1
+        assert "stats" in post_data
+        assert post_data["stats"]["like_count"] == 1
+        # Anonymous users should see has_liked as null
+        assert post_data["stats"]["has_liked"] is None
 
     def test_list_is_paginated(self, api_client, post_factory, user):
         """Post list is paginated."""
@@ -67,6 +69,86 @@ class TestPostList:
         assert "next" in response.data
         assert "previous" in response.data
         assert "results" in response.data
+
+    def test_list_has_liked_authenticated(
+        self, authenticated_api_client, post, like_factory, user, other_user, post_factory
+    ):
+        """Authenticated user sees has_liked correctly."""
+        # User has liked this post
+        like_factory(post=post, user=user)
+        # Create another post that user hasn't liked
+        other_post = post_factory(author=other_user)
+
+        response = authenticated_api_client.get(reverse("post-list-create-api"))
+
+        assert response.status_code == status.HTTP_200_OK
+        liked_post = next(p for p in response.data["results"] if p["id"] == post.id)
+        unliked_post = next(p for p in response.data["results"] if p["id"] == other_post.id)
+        assert liked_post["stats"]["has_liked"] is True
+        assert unliked_post["stats"]["has_liked"] is False
+
+    def test_list_content_excerpt(self, api_client, post_factory, user):
+        """Content is truncated to 200 chars with ellipsis."""
+        long_content = "A" * 300
+        post = post_factory(author=user, content=long_content)
+
+        response = api_client.get(reverse("post-list-create-api"))
+
+        assert response.status_code == status.HTTP_200_OK
+        post_data = next(p for p in response.data["results"] if p["id"] == post.id)
+        assert "content_excerpt" in post_data
+        assert len(post_data["content_excerpt"]) == 203  # 200 + "..."
+        assert post_data["content_excerpt"].endswith("...")
+
+    def test_list_author_username(self, api_client, post):
+        """Author includes username and URL."""
+        response = api_client.get(reverse("post-list-create-api"))
+
+        assert response.status_code == status.HTTP_200_OK
+        post_data = next(p for p in response.data["results"] if p["id"] == post.id)
+        assert "author" in post_data
+        assert "username" in post_data["author"]
+        assert "url" in post_data["author"]
+        assert "id" in post_data["author"]
+
+    def test_list_search_by_title(self, api_client, post_factory, user):
+        """Can search posts by title."""
+        post1 = post_factory(author=user, title="Unique Searchable Title")
+        post_factory(author=user, title="Other Post")
+
+        response = api_client.get(
+            reverse("post-list-create-api"), {"search": "Unique Searchable"}
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        post_ids = [p["id"] for p in response.data["results"]]
+        assert post1.id in post_ids
+        assert len(post_ids) == 1
+
+    def test_list_search_by_content(self, api_client, post_factory, user):
+        """Can search posts by content."""
+        post1 = post_factory(author=user, content="special keyword here")
+        post_factory(author=user, content="normal content")
+
+        response = api_client.get(
+            reverse("post-list-create-api"), {"search": "special keyword"}
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        post_ids = [p["id"] for p in response.data["results"]]
+        assert post1.id in post_ids
+
+    def test_list_filter_by_author_username(self, api_client, post, other_user_post):
+        """Can filter posts by author username."""
+        response = api_client.get(
+            reverse("post-list-create-api"),
+            {"author__username": post.author.username},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        post_ids = [p["id"] for p in response.data["results"]]
+        assert post.id in post_ids
+        assert other_user_post.id not in post_ids
 
 
 class TestPostCreate:
