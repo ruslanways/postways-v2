@@ -28,6 +28,30 @@ from .models import CustomUser, Like, Post
 from .validators import MyUnicodeUsernameValidator
 
 # ============================================================================
+# Utilities
+# ============================================================================
+
+
+def is_owner_or_staff(request, owner_id):
+    """
+    Check if request user is the owner or staff.
+
+    Args:
+        request: The HTTP request object
+        owner_id: The ID of the owner to check against
+
+    Returns:
+        bool: True if user is authenticated and is either the owner or staff
+    """
+    return (
+        request
+        and request.user
+        and request.user.is_authenticated
+        and (request.user.pk == owner_id or request.user.is_staff)
+    )
+
+
+# ============================================================================
 # User Serializers
 # ============================================================================
 
@@ -198,13 +222,7 @@ class UserDetailSerializer(serializers.HyperlinkedModelSerializer):
 
     def _is_owner_or_staff(self, obj):
         """Check if request user is profile owner or staff."""
-        request = self.context.get("request")
-        return (
-            request
-            and request.user
-            and request.user.is_authenticated
-            and (request.user.pk == obj.pk or request.user.is_staff)
-        )
+        return is_owner_or_staff(self.context.get("request"), obj.pk)
 
     def get_stats(self, obj):
         """
@@ -472,13 +490,7 @@ class PostDetailSerializer(serializers.HyperlinkedModelSerializer):
 
     def _is_owner_or_staff(self, obj):
         """Check if request user is post owner or staff."""
-        request = self.context.get("request")
-        return (
-            request
-            and request.user
-            and request.user.is_authenticated
-            and (request.user.pk == obj.author_id or request.user.is_staff)
-        )
+        return is_owner_or_staff(self.context.get("request"), obj.author_id)
 
     def get_author(self, obj):
         """Return author info with id, username, and URL."""

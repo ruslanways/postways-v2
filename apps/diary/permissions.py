@@ -49,23 +49,6 @@ class ReadForAdminCreateForAnonymous(permissions.BasePermission):
         return request.user.is_staff
 
 
-class OwnerOrAdmin(permissions.BasePermission):
-    """
-    Object-level permission that allows access only to:
-    - The object itself (when obj is a user object matching request.user)
-    - Staff users
-
-    Used for user-related endpoints where users can only access their own data,
-    or staff can access any user's data.
-    """
-
-    def has_object_permission(self, request, view, obj: Any) -> bool:
-        """Check if user has permission to access the object."""
-        # For user objects, check if obj is the same as request.user
-        # For other objects, this would need to be adapted based on the model
-        return obj == request.user or request.user.is_staff
-
-
 class AuthenticatedReadOwnerOrAdminWrite(permissions.BasePermission):
     """
     Permission that allows:
