@@ -280,9 +280,7 @@ class TestLikeList:
         assert response.status_code == status.HTTP_200_OK
         assert response.data == {"liked": True}
 
-    def test_list_by_user_and_post_returns_liked_false(
-        self, api_client, user, post
-    ):
+    def test_list_by_user_and_post_returns_liked_false(self, api_client, user, post):
         """Filter by both user and post returns liked: false when no like."""
         response = api_client.get(
             reverse("like-list-api"), {"user": user.id, "post": post.id}
@@ -314,7 +312,7 @@ class TestLikeList:
         self, api_client, like_factory, user, post_factory
     ):
         """Likes filtered by user are paginated."""
-        for i in range(3):
+        for _ in range(3):
             like_factory(user=user, post=post_factory())
 
         response = api_client.get(reverse("like-list-api"), {"user": user.id})
@@ -348,7 +346,9 @@ class TestLikeDetail:
         assert "title" in response.data["post"]
         assert "url" in response.data["post"]
 
-    def test_detail_truncates_long_post_title(self, api_client, like_factory, post_factory):
+    def test_detail_truncates_long_post_title(
+        self, api_client, like_factory, post_factory
+    ):
         """Long post titles are truncated to 50 chars."""
         long_title = "A" * 100
         post = post_factory(title=long_title)

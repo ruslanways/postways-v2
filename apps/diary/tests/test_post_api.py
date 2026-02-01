@@ -71,7 +71,13 @@ class TestPostList:
         assert "results" in response.data
 
     def test_list_has_liked_authenticated(
-        self, authenticated_api_client, post, like_factory, user, other_user, post_factory
+        self,
+        authenticated_api_client,
+        post,
+        like_factory,
+        user,
+        other_user,
+        post_factory,
     ):
         """Authenticated user sees has_liked correctly."""
         # User has liked this post
@@ -83,7 +89,9 @@ class TestPostList:
 
         assert response.status_code == status.HTTP_200_OK
         liked_post = next(p for p in response.data["results"] if p["id"] == post.id)
-        unliked_post = next(p for p in response.data["results"] if p["id"] == other_post.id)
+        unliked_post = next(
+            p for p in response.data["results"] if p["id"] == other_post.id
+        )
         assert liked_post["stats"]["has_liked"] is True
         assert unliked_post["stats"]["has_liked"] is False
 
@@ -349,14 +357,18 @@ class TestPostDetail:
         # User has liked this post
         like_factory(post=post, user=user)
 
-        response = authenticated_api_client.get(reverse("post-detail-api", args=[post.id]))
+        response = authenticated_api_client.get(
+            reverse("post-detail-api", args=[post.id])
+        )
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["stats"]["has_liked"] is True
 
     def test_view_has_liked_not_liked(self, authenticated_api_client, post):
         """Authenticated user sees has_liked=False when not liked."""
-        response = authenticated_api_client.get(reverse("post-detail-api", args=[post.id]))
+        response = authenticated_api_client.get(
+            reverse("post-detail-api", args=[post.id])
+        )
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["stats"]["has_liked"] is False
@@ -384,7 +396,9 @@ class TestPostDetail:
 
     def test_view_published_visible_for_owner(self, authenticated_api_client, post):
         """Owner sees published field."""
-        response = authenticated_api_client.get(reverse("post-detail-api", args=[post.id]))
+        response = authenticated_api_client.get(
+            reverse("post-detail-api", args=[post.id])
+        )
 
         assert response.status_code == status.HTTP_200_OK
         assert "published" in response.data

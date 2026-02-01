@@ -312,14 +312,10 @@ class PostAPIView(generics.ListCreateAPIView):
         # Annotate has_liked for authenticated users
         user = self.request.user
         if user.is_authenticated:
-            has_liked_subquery = Like.objects.filter(
-                post=OuterRef("pk"), user=user
-            )
+            has_liked_subquery = Like.objects.filter(post=OuterRef("pk"), user=user)
             queryset = queryset.annotate(has_liked=Exists(has_liked_subquery))
         else:
-            queryset = queryset.annotate(
-                has_liked=Exists(Like.objects.none())
-            )
+            queryset = queryset.annotate(has_liked=Exists(Like.objects.none()))
             # has_liked will be False for anonymous; serializer shows null
 
         # Default ordering with tie-breaker for stable pagination
