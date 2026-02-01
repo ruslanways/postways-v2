@@ -1008,16 +1008,43 @@ class RootAPIView(generics.GenericAPIView):
     """
     API root endpoint.
 
-    Returns links to the main API endpoints for discoverability.
+    Returns links to all API endpoints organized by category for discoverability.
     """
 
     def get(self, request):
-        """Return hyperlinks to main API endpoints."""
+        """Return hyperlinks to all API endpoints."""
+        # Get base URL without encoding (e.g., "http://127.0.0.1:8000")
+        base_url = request.build_absolute_uri("/").rstrip("/")
+
         return Response(
             {
-                "posts": reverse("post-list-create-api", request=request),
-                "users": reverse("user-list-create-api", request=request),
-                "likes": reverse("like-list-api", request=request),
+                "users": {
+                    "list": reverse("user-list-create-api", request=request),
+                    "me": reverse("current-user-api", request=request),
+                    "detail": f"{base_url}/api/v1/users/{{user_id_or_username}}/",
+                },
+                "auth": {
+                    "login": reverse("login-api", request=request),
+                    "login_with_cookie": reverse("my-login-api", request=request),
+                    "token_verify": reverse("token-verify-api", request=request),
+                    "token_refresh": reverse("token-refresh-api", request=request),
+                    "token_recovery": reverse("token-recovery-api", request=request),
+                    "password_change": reverse("password-change-api", request=request),
+                    "password_reset": reverse("password-reset-api", request=request),
+                    "username_change": reverse("username-change-api", request=request),
+                    "email_change": reverse("email-change-api", request=request),
+                    "email_verify": reverse("email-verify-api", request=request),
+                },
+                "posts": {
+                    "list": reverse("post-list-create-api", request=request),
+                    "detail": f"{base_url}/api/v1/posts/{{post_id}}/",
+                },
+                "likes": {
+                    "list": reverse("like-list-api", request=request),
+                    "detail": f"{base_url}/api/v1/likes/{{like_id}}/",
+                    "toggle": reverse("like-toggle-api", request=request),
+                    "batch": reverse("like-batch-api", request=request),
+                },
             }
         )
 
