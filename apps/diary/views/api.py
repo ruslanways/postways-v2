@@ -44,9 +44,10 @@ from ..permissions import (
 from ..serializers import (
     EmailChangeSerializer,
     EmailVerifySerializer,
+    LikeByPostSerializer,
+    LikeByUserSerializer,
     LikeCreateDestroySerializer,
     LikeDetailSerializer,
-    LikeSerializer,
     MyTokenRefreshSerializer,
     PasswordChangeSerializer,
     PasswordResetSerializer,
@@ -376,30 +377,85 @@ class PostDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
 
 class LikeAPIView(generics.ListAPIView):
     """
-    Analytics endpoint: list likes aggregated by date.
+    Like statistics and filtering endpoint.
 
-    Returns daily like counts for analytics purposes.
-    Supports filtering by user, date range, and ordering.
+    Behavior depends on query parameters:
+
+    1. No filters: Returns total like count
+       GET /api/v1/likes/
+       Response: {"total_likes": 42}
+
+    2. Filter by user: Returns paginated user's likes with post info
+       GET /api/v1/likes/?user={id}
+       Response: Paginated list with post title (max 50 chars) and URL
+
+    3. Filter by post: Returns paginated post's likes with user info
+       GET /api/v1/likes/?post={id}
+       Response: Paginated list with username and user URL
+
+    4. Filter by both: Returns whether the specific like exists
+       GET /api/v1/likes/?user={id}&post={id}
+       Response: {"liked": true|false}
     """
 
-    queryset = (
-        Like.objects.values("created_at__date")
-        .annotate(likes=Count("id"))
-        .order_by("-created_at__date")
-    )
-    serializer_class = LikeSerializer
-    filter_backends = DjangoFilterBackend, OrderingFilter
-    filterset_fields = {
-        "user": ["exact"],
-        "created_at": ["gte", "lte", "date__range"],
-    }
-    ordering_fields = "created_at", "likes"
+    def get_queryset(self):
+        """Return likes ordered by newest first, with related objects prefetched."""
+        return Like.objects.select_related("user", "post").order_by("-created_at")
+
+    def get_serializer_class(self):
+        """Return appropriate serializer based on query parameters."""
+        user_id = self.request.query_params.get("user")
+        post_id = self.request.query_params.get("post")
+
+        if user_id and not post_id:
+            return LikeByUserSerializer
+        if post_id and not user_id:
+            return LikeByPostSerializer
+        # For both or neither, we handle specially in list()
+        return LikeByUserSerializer
+
+    def list(self, request, *args, **kwargs):
+        """
+        Handle different response formats based on filters.
+
+        - No filters: Return total like count
+        - User only: Return paginated likes with post titles
+        - Post only: Return paginated likes with usernames
+        - Both: Return boolean indicating if like exists
+        """
+        user_id = request.query_params.get("user")
+        post_id = request.query_params.get("post")
+
+        # Case 4: Both user and post - return boolean
+        if user_id and post_id:
+            liked = Like.objects.filter(user_id=user_id, post_id=post_id).exists()
+            return Response({"liked": liked})
+
+        # Case 1: No filters - return total count
+        if not user_id and not post_id:
+            total = Like.objects.count()
+            return Response({"total_likes": total})
+
+        # Cases 2 & 3: Filter by user or post - return paginated list
+        queryset = self.get_queryset()
+        if user_id:
+            queryset = queryset.filter(user_id=user_id)
+        if post_id:
+            queryset = queryset.filter(post_id=post_id)
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 
 class LikeDetailAPIView(generics.RetrieveAPIView):
-    """Retrieve a single like by ID with user and post references."""
+    """Retrieve a single like by ID with user and post details."""
 
-    queryset = Like.objects.all()
+    queryset = Like.objects.select_related("user", "post")
     serializer_class = LikeDetailSerializer
 
 

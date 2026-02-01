@@ -557,20 +557,77 @@ class PostDetailSerializer(serializers.HyperlinkedModelSerializer):
 # ============================================================================
 
 
-class LikeSerializer(serializers.Serializer):
+class LikeByUserSerializer(serializers.HyperlinkedModelSerializer):
     """
-    Serializer for like analytics/aggregation data.
+    Serializer for likes filtered by user.
 
-    Used for analytics endpoints that return aggregated like counts by date.
-    This is a simple serializer for read-only aggregated data, not a model serializer.
+    Used for GET /api/v1/likes/?user={id} to show a user's likes.
+    Returns likes with post title (truncated to 50 chars) and post URL.
 
     Fields:
-        - created_at__date: Date of the aggregation (from Like.created_at field)
-        - likes: Count of likes on that date
+        - url: Hyperlink to like detail endpoint
+        - id: Like ID
+        - created_at: Timestamp when like was created
+        - post: Object with id, title (truncated), and URL
     """
 
-    created_at__date = serializers.DateField()
-    likes = serializers.IntegerField()
+    url = serializers.HyperlinkedIdentityField(view_name="like-detail-api")
+    post = serializers.SerializerMethodField()
+
+    def get_post(self, obj):
+        """Return post info with id, truncated title, and URL."""
+        request = self.context.get("request")
+        title = obj.post.title
+        if len(title) > 50:
+            title = title[:50] + "..."
+        return {
+            "id": obj.post_id,
+            "title": title,
+            "url": reverse(
+                "post-detail-api",
+                kwargs={"pk": obj.post_id},
+                request=request,
+            ),
+        }
+
+    class Meta:
+        model = Like
+        fields = ("url", "id", "created_at", "post")
+
+
+class LikeByPostSerializer(serializers.HyperlinkedModelSerializer):
+    """
+    Serializer for likes filtered by post.
+
+    Used for GET /api/v1/likes/?post={id} to show a post's likes.
+    Returns likes with username and user URL.
+
+    Fields:
+        - url: Hyperlink to like detail endpoint
+        - id: Like ID
+        - created_at: Timestamp when like was created
+        - user: Object with id, username, and URL
+    """
+
+    url = serializers.HyperlinkedIdentityField(view_name="like-detail-api")
+    user = serializers.SerializerMethodField()
+
+    def get_user(self, obj):
+        """Return user info with id, username, and URL."""
+        request = self.context.get("request")
+        return {
+            "id": obj.user_id,
+            "username": obj.user.username,
+            "url": reverse(
+                "user-detail-update-destroy-api",
+                kwargs={"user_id_or_username": obj.user_id},
+                request=request,
+            ),
+        }
+
+    class Meta:
+        model = Like
+        fields = ("url", "id", "created_at", "user")
 
 
 class LikeDetailSerializer(serializers.HyperlinkedModelSerializer):
@@ -584,20 +641,42 @@ class LikeDetailSerializer(serializers.HyperlinkedModelSerializer):
         - url: Hyperlink to like detail endpoint
         - id: Like ID (read-only)
         - created_at: Timestamp when like was created (read-only)
-        - user: Hyperlink to user who created the like (read-only)
-        - post: Hyperlink to the liked post (read-only)
+        - user: Object with id, username, and URL
+        - post: Object with id, title (truncated to 50 chars), and URL
     """
 
     url = serializers.HyperlinkedIdentityField(view_name="like-detail-api")
-    user = serializers.HyperlinkedRelatedField(
-        read_only=True,
-        view_name="user-detail-update-destroy-api",
-        lookup_field="pk",
-        lookup_url_kwarg="user_id_or_username",
-    )
-    post = serializers.HyperlinkedRelatedField(
-        read_only=True, view_name="post-detail-api"
-    )
+    user = serializers.SerializerMethodField()
+    post = serializers.SerializerMethodField()
+
+    def get_user(self, obj):
+        """Return user info with id, username, and URL."""
+        request = self.context.get("request")
+        return {
+            "id": obj.user_id,
+            "username": obj.user.username,
+            "url": reverse(
+                "user-detail-update-destroy-api",
+                kwargs={"user_id_or_username": obj.user_id},
+                request=request,
+            ),
+        }
+
+    def get_post(self, obj):
+        """Return post info with id, truncated title, and URL."""
+        request = self.context.get("request")
+        title = obj.post.title
+        if len(title) > 50:
+            title = title[:50] + "..."
+        return {
+            "id": obj.post_id,
+            "title": title,
+            "url": reverse(
+                "post-detail-api",
+                kwargs={"pk": obj.post_id},
+                request=request,
+            ),
+        }
 
     class Meta:
         model = Like

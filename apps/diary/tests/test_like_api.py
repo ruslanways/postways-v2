@@ -200,26 +200,124 @@ class TestLikeBatch:
 
 
 class TestLikeList:
-    """Tests for like list endpoint (GET /api/v1/likes/) - analytics."""
+    """Tests for like list endpoint (GET /api/v1/likes/)."""
 
-    def test_list_returns_aggregated_data(self, api_client, like_factory):
-        """Returns likes aggregated by date."""
-        # Create some likes
+    def test_list_no_filters_returns_total_count(self, api_client, like_factory):
+        """No filters returns total like count."""
         for _ in range(5):
             like_factory()
 
         response = api_client.get(reverse("like-list-api"))
 
         assert response.status_code == status.HTTP_200_OK
-        assert "results" in response.data
-        # Should have aggregated data with date and count
-        for result in response.data["results"]:
-            assert "created_at__date" in result
-            assert "likes" in result
+        assert response.data == {"total_likes": 5}
 
-    def test_list_is_paginated(self, api_client):
-        """Like list is paginated."""
-        response = api_client.get(reverse("like-list-api"))
+    def test_list_by_user_returns_paginated_likes(
+        self, api_client, like_factory, user, post_factory
+    ):
+        """Filter by user returns paginated likes with post titles."""
+        posts = [post_factory(title=f"Post {i}") for i in range(3)]
+        for p in posts:
+            like_factory(user=user, post=p)
+
+        response = api_client.get(reverse("like-list-api"), {"user": user.id})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert "results" in response.data
+        assert len(response.data["results"]) == 3
+        for result in response.data["results"]:
+            assert "url" in result
+            assert "id" in result
+            assert "created_at" in result
+            assert "post" in result
+            assert "title" in result["post"]
+            assert "url" in result["post"]
+
+    def test_list_by_user_truncates_long_titles(
+        self, api_client, like_factory, user, post_factory
+    ):
+        """Long post titles are truncated to 50 chars."""
+        long_title = "A" * 100
+        post = post_factory(title=long_title)
+        like_factory(user=user, post=post)
+
+        response = api_client.get(reverse("like-list-api"), {"user": user.id})
+
+        assert response.status_code == status.HTTP_200_OK
+        title = response.data["results"][0]["post"]["title"]
+        assert len(title) == 53  # 50 chars + "..."
+        assert title.endswith("...")
+
+    def test_list_by_post_returns_paginated_likes(
+        self, api_client, like_factory, post, user_factory
+    ):
+        """Filter by post returns paginated likes with usernames."""
+        users = [user_factory(username=f"user{i}") for i in range(3)]
+        for u in users:
+            like_factory(user=u, post=post)
+
+        response = api_client.get(reverse("like-list-api"), {"post": post.id})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert "results" in response.data
+        assert len(response.data["results"]) == 3
+        for result in response.data["results"]:
+            assert "url" in result
+            assert "id" in result
+            assert "created_at" in result
+            assert "user" in result
+            assert "username" in result["user"]
+            assert "url" in result["user"]
+
+    def test_list_by_user_and_post_returns_liked_true(
+        self, api_client, like, user, post
+    ):
+        """Filter by both user and post returns liked: true when like exists."""
+        response = api_client.get(
+            reverse("like-list-api"), {"user": user.id, "post": post.id}
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data == {"liked": True}
+
+    def test_list_by_user_and_post_returns_liked_false(
+        self, api_client, user, post
+    ):
+        """Filter by both user and post returns liked: false when no like."""
+        response = api_client.get(
+            reverse("like-list-api"), {"user": user.id, "post": post.id}
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data == {"liked": False}
+
+    def test_list_by_user_ordered_newest_first(
+        self, api_client, like_factory, user, post_factory
+    ):
+        """Likes filtered by user are ordered by newest first."""
+        import time
+
+        posts = []
+        for i in range(3):
+            p = post_factory(title=f"Post {i}")
+            like_factory(user=user, post=p)
+            posts.append(p)
+            time.sleep(0.01)  # Ensure different timestamps
+
+        response = api_client.get(reverse("like-list-api"), {"user": user.id})
+
+        assert response.status_code == status.HTTP_200_OK
+        # Newest first means the last created post should be first
+        assert response.data["results"][0]["post"]["id"] == posts[-1].id
+
+    def test_list_by_user_is_paginated(
+        self, api_client, like_factory, user, post_factory
+    ):
+        """Likes filtered by user are paginated."""
+        for i in range(3):
+            like_factory(user=user, post=post_factory())
+
+        response = api_client.get(reverse("like-list-api"), {"user": user.id})
 
         assert response.status_code == status.HTTP_200_OK
         assert "count" in response.data
@@ -232,15 +330,36 @@ class TestLikeDetail:
     """Tests for like detail endpoint (GET /api/v1/likes/{id}/)."""
 
     def test_detail_returns_like(self, api_client, like):
-        """Returns like detail with user and post references."""
+        """Returns like detail with user and post info."""
         response = api_client.get(reverse("like-detail-api", args=[like.id]))
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["id"] == like.id
-        assert "user" in response.data
-        assert "post" in response.data
-        assert "created_at" in response.data
         assert "url" in response.data
+        assert "created_at" in response.data
+        # User should include id, username, and url
+        assert "user" in response.data
+        assert "id" in response.data["user"]
+        assert "username" in response.data["user"]
+        assert "url" in response.data["user"]
+        # Post should include id, title, and url
+        assert "post" in response.data
+        assert "id" in response.data["post"]
+        assert "title" in response.data["post"]
+        assert "url" in response.data["post"]
+
+    def test_detail_truncates_long_post_title(self, api_client, like_factory, post_factory):
+        """Long post titles are truncated to 50 chars."""
+        long_title = "A" * 100
+        post = post_factory(title=long_title)
+        like = like_factory(post=post)
+
+        response = api_client.get(reverse("like-detail-api", args=[like.id]))
+
+        assert response.status_code == status.HTTP_200_OK
+        title = response.data["post"]["title"]
+        assert len(title) == 53  # 50 chars + "..."
+        assert title.endswith("...")
 
     def test_detail_nonexistent_like(self, api_client):
         """Non-existent like returns 404."""
