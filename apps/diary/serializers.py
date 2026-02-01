@@ -319,12 +319,14 @@ class PostListSerializer(serializers.HyperlinkedModelSerializer):
         - content_excerpt: Truncated content (max 200 chars with "...")
         - thumbnail: Thumbnail image URL
         - created_at, updated_at: Timestamps
+        - likes: Hyperlink to likes filtered by this post
         - stats: Object with like_count and has_liked (for authenticated users)
     """
 
     url = serializers.HyperlinkedIdentityField(view_name="post-detail-api")
     author = serializers.SerializerMethodField()
     content_excerpt = serializers.SerializerMethodField()
+    likes = serializers.SerializerMethodField()
     stats = serializers.SerializerMethodField()
 
     def get_author(self, obj):
@@ -345,6 +347,11 @@ class PostListSerializer(serializers.HyperlinkedModelSerializer):
         if obj.content and len(obj.content) > 200:
             return obj.content[:200] + "..."
         return obj.content or ""
+
+    def get_likes(self, obj):
+        """Return hyperlink to likes filtered by this post."""
+        request = self.context.get("request")
+        return f"{reverse('like-list-api', request=request)}?post={obj.pk}"
 
     def get_stats(self, obj):
         """
@@ -374,6 +381,7 @@ class PostListSerializer(serializers.HyperlinkedModelSerializer):
             "thumbnail",
             "created_at",
             "updated_at",
+            "likes",
             "stats",
         )
 
@@ -394,6 +402,7 @@ class PostCreateSerializer(serializers.HyperlinkedModelSerializer):
         - image: Post image file (optional)
         - created_at, updated_at: Read-only timestamps
         - published: Boolean flag (write-only, defaults to True)
+        - likes: Hyperlink to likes filtered by this post (read-only)
 
     Note:
         Author is set in the view using perform_create(). Alternative approaches
@@ -411,59 +420,18 @@ class PostCreateSerializer(serializers.HyperlinkedModelSerializer):
         lookup_field="pk",
         lookup_url_kwarg="user_id_or_username",
     )
+    likes = serializers.SerializerMethodField()
+
+    def get_likes(self, obj):
+        """Return hyperlink to likes filtered by this post."""
+        request = self.context.get("request")
+        return f"{reverse('like-list-api', request=request)}?post={obj.pk}"
 
     class Meta:
         model = Post
         fields = (
             "url",
             "id",
-            "author",
-            "title",
-            "content",
-            "image",
-            "created_at",
-            "updated_at",
-            "published",
-        )
-        read_only_fields = ("url", "id", "author", "created_at", "updated_at")
-
-
-class PostDetailSerializer(serializers.HyperlinkedModelSerializer):
-    """
-    Serializer for post detail, update, and delete operations.
-
-    Used for GET/PUT/PATCH/DELETE /api/v1/posts/{id}/.
-    Includes all likes as hyperlinked relationships.
-    Title and content are optional for partial updates.
-
-    Fields:
-        - url: Hyperlink to post detail endpoint
-        - id: Post ID (read-only)
-        - author: Hyperlink to author's user detail (read-only)
-        - title: Post title (optional for updates)
-        - content: Post content (optional for updates)
-        - image: Post image file (optional)
-        - created_at, updated_at: Read-only timestamps
-        - published: Publication status
-        - likes: Hyperlinked list of all likes on this post (read-only)
-    """
-
-    url = serializers.HyperlinkedIdentityField(view_name="post-detail-api")
-    author = serializers.HyperlinkedRelatedField(
-        read_only=True,
-        view_name="user-detail-update-destroy-api",
-        lookup_field="pk",
-        lookup_url_kwarg="user_id_or_username",
-    )
-    likes = serializers.HyperlinkedRelatedField(
-        many=True, read_only=True, view_name="like-detail-api"
-    )
-
-    class Meta:
-        model = Post
-        fields = (
-            "id",
-            "url",
             "author",
             "title",
             "content",
@@ -473,10 +441,115 @@ class PostDetailSerializer(serializers.HyperlinkedModelSerializer):
             "published",
             "likes",
         )
+        read_only_fields = ("url", "id", "author", "created_at", "updated_at")
+
+
+class PostDetailSerializer(serializers.HyperlinkedModelSerializer):
+    """
+    Serializer for post detail, update, and delete operations.
+
+    Used for GET/PUT/PATCH/DELETE /api/v1/posts/{id}/.
+    Title and content are optional for partial updates.
+
+    Fields:
+        - url: Hyperlink to post detail endpoint
+        - id: Post ID (read-only)
+        - author: Object with id, username, and URL
+        - title: Post title (optional for updates)
+        - content: Post content (optional for updates)
+        - image: Post image file (optional)
+        - thumbnail: Thumbnail image URL (read-only)
+        - created_at, updated_at: Read-only timestamps
+        - published: Publication status (owner/admin only)
+        - likes: Hyperlink to likes filtered by this post
+        - stats: Object with likes_count and has_liked (for authenticated users)
+    """
+
+    url = serializers.HyperlinkedIdentityField(view_name="post-detail-api")
+    author = serializers.SerializerMethodField()
+    likes = serializers.SerializerMethodField()
+    stats = serializers.SerializerMethodField()
+
+    def _is_owner_or_staff(self, obj):
+        """Check if request user is post owner or staff."""
+        request = self.context.get("request")
+        return (
+            request
+            and request.user
+            and request.user.is_authenticated
+            and (request.user.pk == obj.author_id or request.user.is_staff)
+        )
+
+    def get_author(self, obj):
+        """Return author info with id, username, and URL."""
+        request = self.context.get("request")
+        return {
+            "id": obj.author_id,
+            "username": obj.author.username,
+            "url": reverse(
+                "user-detail-update-destroy-api",
+                kwargs={"user_id_or_username": obj.author_id},
+                request=request,
+            ),
+        }
+
+    def get_likes(self, obj):
+        """Return hyperlink to likes filtered by this post."""
+        request = self.context.get("request")
+        return f"{reverse('like-list-api', request=request)}?post={obj.pk}"
+
+    def get_stats(self, obj):
+        """
+        Return like statistics for the post.
+
+        Includes:
+            - likes_count: Total number of likes
+            - has_liked: Whether current user has liked (only for authenticated users)
+        """
+        request = self.context.get("request")
+        stats = {"likes_count": getattr(obj, "likes_count", obj.likes.count())}
+
+        # Only include has_liked for authenticated users
+        if request and request.user.is_authenticated:
+            stats["has_liked"] = getattr(obj, "has_liked", False)
+
+        return stats
+
+    class Meta:
+        model = Post
+        fields = (
+            "url",
+            "id",
+            "author",
+            "title",
+            "content",
+            "image",
+            "thumbnail",
+            "created_at",
+            "updated_at",
+            "published",
+            "likes",
+            "stats",
+        )
         extra_kwargs = {
             "title": {"required": False},
             "content": {"required": False},
         }
+
+    def to_representation(self, instance):
+        """
+        Conditionally hide published field for non-owner, non-staff users.
+
+        The published field is only visible to:
+            - Post owner
+            - Staff users
+        """
+        ret = super().to_representation(instance)
+
+        if not self._is_owner_or_staff(instance):
+            ret.pop("published", None)
+
+        return ret
 
 
 # ============================================================================

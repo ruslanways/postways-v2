@@ -150,6 +150,15 @@ class TestPostList:
         assert post.id in post_ids
         assert other_user_post.id not in post_ids
 
+    def test_list_has_likes_hyperlink(self, api_client, post):
+        """Post list includes likes hyperlink for each post."""
+        response = api_client.get(reverse("post-list-create-api"))
+
+        assert response.status_code == status.HTTP_200_OK
+        post_data = next(p for p in response.data["results"] if p["id"] == post.id)
+        assert "likes" in post_data
+        assert f"?post={post.id}" in post_data["likes"]
+
 
 class TestPostCreate:
     """Tests for post creation endpoint (POST /api/v1/posts/)."""
@@ -264,6 +273,29 @@ class TestPostCreate:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "content" in response.data
 
+    def test_create_response_no_stats(self, authenticated_api_client):
+        """Post create response does not include stats (no has_liked)."""
+        response = authenticated_api_client.post(
+            reverse("post-list-create-api"),
+            {"title": "New Post", "content": "New content here"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        # Create response should not have stats field
+        assert "stats" not in response.data
+
+    def test_create_response_has_likes_hyperlink(self, authenticated_api_client):
+        """Post create response includes likes hyperlink."""
+        response = authenticated_api_client.post(
+            reverse("post-list-create-api"),
+            {"title": "New Post", "content": "New content here"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert "likes" in response.data
+        post_id = response.data["id"]
+        assert f"?post={post_id}" in response.data["likes"]
+
 
 class TestPostDetail:
     """Tests for post detail endpoint (GET /api/v1/posts/{id}/)."""
@@ -303,12 +335,84 @@ class TestPostDetail:
 
         assert response.status_code == status.HTTP_200_OK
 
-    def test_view_includes_likes(self, api_client, post, like):
-        """Post detail includes likes."""
+    def test_view_includes_likes_count(self, api_client, post, like):
+        """Post detail includes likes_count in stats."""
+        response = api_client.get(reverse("post-detail-api", args=[post.id]))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["stats"]["likes_count"] == 1
+
+    def test_view_has_liked_authenticated(
+        self, authenticated_api_client, post, like_factory, user
+    ):
+        """Authenticated user sees has_liked correctly."""
+        # User has liked this post
+        like_factory(post=post, user=user)
+
+        response = authenticated_api_client.get(reverse("post-detail-api", args=[post.id]))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["stats"]["has_liked"] is True
+
+    def test_view_has_liked_not_liked(self, authenticated_api_client, post):
+        """Authenticated user sees has_liked=False when not liked."""
+        response = authenticated_api_client.get(reverse("post-detail-api", args=[post.id]))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["stats"]["has_liked"] is False
+
+    def test_view_has_liked_not_shown_anonymous(self, api_client, post):
+        """Anonymous user does not see has_liked field."""
+        response = api_client.get(reverse("post-detail-api", args=[post.id]))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert "has_liked" not in response.data["stats"]
+
+    def test_view_published_hidden_for_others(self, other_user_api_client, post):
+        """Non-owner does not see published field."""
+        response = other_user_api_client.get(reverse("post-detail-api", args=[post.id]))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert "published" not in response.data
+
+    def test_view_published_hidden_for_anonymous(self, api_client, post):
+        """Anonymous user does not see published field."""
+        response = api_client.get(reverse("post-detail-api", args=[post.id]))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert "published" not in response.data
+
+    def test_view_published_visible_for_owner(self, authenticated_api_client, post):
+        """Owner sees published field."""
+        response = authenticated_api_client.get(reverse("post-detail-api", args=[post.id]))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert "published" in response.data
+        assert response.data["published"] is True
+
+    def test_view_published_visible_for_admin(self, admin_api_client, post):
+        """Admin sees published field."""
+        response = admin_api_client.get(reverse("post-detail-api", args=[post.id]))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert "published" in response.data
+
+    def test_view_has_url_field(self, api_client, post):
+        """Post detail has url as the first field."""
+        response = api_client.get(reverse("post-detail-api", args=[post.id]))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert "url" in response.data
+        # Should NOT have links section
+        assert "links" not in response.data
+
+    def test_view_has_likes_hyperlink(self, api_client, post):
+        """Post detail has likes hyperlink field."""
         response = api_client.get(reverse("post-detail-api", args=[post.id]))
 
         assert response.status_code == status.HTTP_200_OK
         assert "likes" in response.data
+        assert f"?post={post.id}" in response.data["likes"]
 
     def test_view_nonexistent_post(self, api_client):
         """Non-existent post returns 404."""

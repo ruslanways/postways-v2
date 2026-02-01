@@ -123,6 +123,7 @@ class UserListAPIView(generics.ListCreateAPIView):
     GET: List users (admin only), ordered by last_activity_at descending.
          Includes stats (posts_count, likes_received) for each user.
     POST: Create new user (anonymous only - registration endpoint).
+          Returns user profile format (same as GET /api/v1/users/{id}/).
     """
 
     serializer_class = UserSerializer
@@ -134,6 +135,25 @@ class UserListAPIView(generics.ListCreateAPIView):
             posts_count=Count("posts", distinct=True),
             likes_received=Count("posts__likes", distinct=True),
         ).order_by("-last_activity_at")
+
+    def create(self, request, *args, **kwargs):
+        """
+        Create a new user and return profile-format response.
+
+        Uses UserSerializer for validation and creation, but returns
+        the response using UserDetailSerializer to match the profile
+        endpoint format (GET /api/v1/users/{id}/).
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        # Return response using UserDetailSerializer for consistent profile format
+        response_serializer = UserDetailSerializer(user, context={"request": request})
+        headers = self.get_success_headers(response_serializer.data)
+        return Response(
+            response_serializer.data, status=status.HTTP_201_CREATED, headers=headers
+        )
 
 
 class CurrentUserAPIView(generics.RetrieveAPIView):
@@ -313,14 +333,30 @@ class PostDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     """
     Retrieve, update, or delete a post.
 
-    GET: Retrieve post (published only, unless owner/admin).
+    GET: Retrieve post with stats (likes_count), thumbnail, and author info.
+         Published only, unless owner/admin.
     PUT/PATCH: Update post (owner only).
     DELETE: Delete post (owner or admin).
     """
 
-    queryset = Post.objects.all()
     serializer_class = PostDetailSerializer
     permission_classes = (OwnerOrAdminOrReadOnly,)
+
+    def get_queryset(self):
+        """Return posts with likes_count and has_liked annotations."""
+        queryset = Post.objects.select_related("author").annotate(
+            likes_count=Count("likes")
+        )
+
+        # Annotate has_liked for authenticated users
+        user = self.request.user
+        if user.is_authenticated:
+            has_liked_subquery = Like.objects.filter(post=OuterRef("pk"), user=user)
+            queryset = queryset.annotate(has_liked=Exists(has_liked_subquery))
+        else:
+            queryset = queryset.annotate(has_liked=Exists(Like.objects.none()))
+
+        return queryset
 
     def retrieve(self, request, *args, **kwargs):
         """Return 403 for unpublished posts unless user is owner or admin."""
