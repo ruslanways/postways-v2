@@ -67,16 +67,18 @@ function connectWebSocket(forceReconnect = false) {
 
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   socket = new WebSocket(
-    `${protocol}//${window.location.host}/ws/socket-server/`,
+    `${protocol}//${window.location.host}/ws/socket-server/`
   );
 
   socket.onmessage = (event) => {
     const { post_id, like_count } = JSON.parse(event.data);
 
     // Only update if this post is on the current page and element exists
-    const countEl = document.getElementById(post_id)?.querySelector(".count");
+    const countEl = document
+      .getElementById(String(post_id))
+      ?.querySelector(".count");
     if (countEl) {
-      countEl.textContent = like_count;
+      countEl.textContent = String(like_count);
     }
   };
 
@@ -147,7 +149,7 @@ async function refreshLikeCounts() {
 
   try {
     const response = await fetch(
-      `/api/v1/likes/batch/?ids=${postIds.join(",")}`,
+      `/api/v1/likes/batch/?ids=${postIds.join(",")}`
     );
     if (!response.ok) {
       console.warn("Failed to refresh likes:", response.status);
@@ -186,7 +188,8 @@ connectWebSocket();
 // Reconnect and refresh when page is restored from bfcache or back/forward navigation
 window.addEventListener("pageshow", (event) => {
   const navEntries = performance.getEntriesByType("navigation");
-  const isBackForward = navEntries.length > 0 && navEntries[0].type === "back_forward";
+  const isBackForward =
+    navEntries.length > 0 && navEntries[0].type === "back_forward";
 
   if (event.persisted || isBackForward) {
     connectWebSocket(true);

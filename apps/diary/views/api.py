@@ -108,8 +108,8 @@ def broadcast_like_update(post_id, user_id, like_count):
             "likes",
             {
                 "type": "like.message",
-                "post_id": str(post_id),
-                "like_count": str(like_count),
+                "post_id": post_id,
+                "like_count": like_count,
                 "user_id": user_id,
             },
         )
@@ -516,7 +516,11 @@ class LikeCreateDestroyAPIView(generics.CreateAPIView):
             # Query inside transaction to ensure consistency
             like_count = Like.objects.filter(post=post).count()
 
-        broadcast_like_update(post.id, user.id, like_count)
+            transaction.on_commit(
+                lambda pid=post.id, uid=user.id, cnt=like_count: broadcast_like_update(
+                    pid, uid, cnt
+                )
+            )
 
         return response
 
