@@ -193,10 +193,12 @@ if IS_PRODUCTION:
     }
     AWS_QUERYSTRING_AUTH = False  # Public URLs without query string auth
 
-    # Custom domain for S3 (optional: use CloudFront or direct S3)
-    # AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
-    # Or with CloudFront:
-    # AWS_S3_CUSTOM_DOMAIN = "media.postways.com"
+    # Domain for media URLs: CDN if set, otherwise regional S3 endpoint (not legacy global)
+    _s3_domain = env("CDN_DOMAIN", default=None) or (
+        f"{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com"
+    )
+    AWS_S3_CUSTOM_DOMAIN = _s3_domain
+    MEDIA_URL = f"https://{_s3_domain}/"
 
     STORAGES = {
         "default": {
@@ -209,12 +211,6 @@ if IS_PRODUCTION:
             "BACKEND": "django.contrib.staticfiles.storage.ManifestStaticFilesStorage",
         },
     }
-
-    # Media URL points to S3 bucket (or CloudFront if configured)
-    MEDIA_URL = (
-        f"https://{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com/"
-    )
-
 else:
     # ------------------------------------------------------------------------------
     # Development: Local filesystem storage

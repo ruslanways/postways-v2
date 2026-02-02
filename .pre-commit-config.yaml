@@ -3,5 +3,8 @@ repos:
     rev: v0.14.14
     hooks:
       - id: ruff
-        args: ["check", "--fix"]
+        args: ["--fix", "."]
+        pass_filenames: false
       - id: ruff-format
+        args: ["."]
+        pass_filenames: false
