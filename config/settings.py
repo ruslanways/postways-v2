@@ -4,6 +4,10 @@ Django settings for this project.
 This file is intentionally kept small and explicit. Values are primarily loaded
 from environment variables (optionally via a local `.env` file next to this
 module) to keep secrets out of source control and enable 12-factor deployment.
+
+Environment modes (controlled by DJANGO_ENV):
+- development (default): DEBUG=True, local filesystem storage, permissive settings
+- production: DEBUG=False, S3 media, ManifestStaticFilesStorage, security hardening
 """
 
 from pathlib import Path
@@ -24,21 +28,41 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Environment
 # ------------------------------------------------------------------------------
 env = environ.Env(
-    DEBUG=(bool, False),
+    DJANGO_ENV=(str, "development"),
     REDIS_HOST=(str, "redis"),
     REDIS_PORT=(int, 6379),
 )
 
 env.read_env(Path(__file__).parent / ".env")
 
+DJANGO_ENV = env("DJANGO_ENV")
 SECRET_KEY = env("DJANGO_SECRET_KEY")
-DEBUG = env("DEBUG")
+
+IS_PRODUCTION = DJANGO_ENV == "production"
+DEBUG = not IS_PRODUCTION
 
 
 # ------------------------------------------------------------------------------
 # Security / Hosts
 # ------------------------------------------------------------------------------
-ALLOWED_HOSTS = ["*"]
+if IS_PRODUCTION:
+    ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
+    CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS")
+
+    # Security settings for production (CloudFlare handles SSL termination)
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = "DENY"
+
+    # HSTS is handled by CloudFlare, so we don't set it here
+    # SECURE_HSTS_SECONDS = 31536000
+    # SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    # SECURE_HSTS_PRELOAD = True
+else:
+    ALLOWED_HOSTS = ["*"]
 
 
 # ==============================================================================
@@ -62,6 +86,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
     "channels",
+    "storages",
 ]
 
 MIDDLEWARE = [
@@ -150,8 +175,61 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-MEDIA_URL = "media/"
-MEDIA_ROOT = BASE_DIR / "media"
+if IS_PRODUCTION:
+    # ------------------------------------------------------------------------------
+    # Production: ManifestStaticFilesStorage + S3 for media
+    # ------------------------------------------------------------------------------
+    # AWS S3 configuration for media files
+    AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
+    AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
+    AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME", default="eu-central-1")
+
+    # S3 settings
+    AWS_S3_FILE_OVERWRITE = False  # Don't overwrite files with same name
+    AWS_DEFAULT_ACL = None  # Use bucket's default ACL
+    AWS_S3_OBJECT_PARAMETERS = {
+        "CacheControl": "max-age=86400",  # 1 day cache for media
+    }
+    AWS_QUERYSTRING_AUTH = False  # Public URLs without query string auth
+
+    # Custom domain for S3 (optional: use CloudFront or direct S3)
+    # AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
+    # Or with CloudFront:
+    # AWS_S3_CUSTOM_DOMAIN = "media.postways.com"
+
+    STORAGES = {
+        "default": {
+            # S3 storage for media (user uploads)
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+        },
+        "staticfiles": {
+            # ManifestStaticFilesStorage for hashed static file names
+            # Enables aggressive browser caching with cache-busting on changes
+            "BACKEND": "django.contrib.staticfiles.storage.ManifestStaticFilesStorage",
+        },
+    }
+
+    # Media URL points to S3 bucket (or CloudFront if configured)
+    MEDIA_URL = (
+        f"https://{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com/"
+    )
+
+else:
+    # ------------------------------------------------------------------------------
+    # Development: Local filesystem storage
+    # ------------------------------------------------------------------------------
+    MEDIA_URL = "media/"
+    MEDIA_ROOT = BASE_DIR / "media"
+
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
 
 
 # ==============================================================================
