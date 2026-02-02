@@ -149,7 +149,8 @@ async function refreshLikeCounts() {
 
   try {
     const response = await fetch(
-      `/api/v1/likes/batch/?ids=${postIds.join(",")}`
+      `/api/v1/likes/batch/?ids=${postIds.join(",")}`,
+      { cache: "no-store" }
     );
     if (!response.ok) {
       console.warn("Failed to refresh likes:", response.status);
@@ -185,12 +186,14 @@ async function refreshLikeCounts() {
 // Initial WebSocket connection
 connectWebSocket();
 
-// Reconnect and refresh when page is restored from bfcache or back/forward navigation
+// Reconnect and refresh when returning to page via back/forward navigation
 window.addEventListener("pageshow", (event) => {
-  const navEntries = performance.getEntriesByType("navigation");
-  const isBackForward =
-    navEntries.length > 0 && navEntries[0].type === "back_forward";
+  const navEntry = performance.getEntriesByType("navigation")[0];
+  const isBackForward = navEntry?.type === "back_forward";
 
+  // Refresh if:
+  // - bfcache restoration (persisted=true), OR
+  // - back/forward navigation (browser may serve cached HTML)
   if (event.persisted || isBackForward) {
     connectWebSocket(true);
     refreshLikeCounts();
