@@ -45,7 +45,9 @@ def process_post_image(post_id):
     img.save(img_buffer, format=img_format)
     img_buffer.seek(0)
     default_storage.delete(post.image.name)
-    default_storage.save(post.image.name, ContentFile(img_buffer.read()))
+    img_content = ContentFile(img_buffer.read())
+    img_content.content_type = f"image/{img_format.lower()}"
+    default_storage.save(post.image.name, img_content)
 
     # Generate thumbnail: 300x300 cropped to fit
     thumbnail_size = (300, 300)
@@ -64,7 +66,9 @@ def process_post_image(post_id):
     thumb_buffer = BytesIO()
     thumb_img.save(thumb_buffer, format=img_format)
     thumb_buffer.seek(0)
-    default_storage.save(thumbnail_rel_path, ContentFile(thumb_buffer.read()))
+    thumb_content = ContentFile(thumb_buffer.read())
+    thumb_content.content_type = f"image/{img_format.lower()}"
+    default_storage.save(thumbnail_rel_path, thumb_content)
 
     # Update thumbnail field using filter().update() to avoid recursion
     Post.objects.filter(pk=post_id).update(thumbnail=thumbnail_rel_path)
