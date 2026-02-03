@@ -10,25 +10,25 @@ Postways is a Django-based diary/blog application with both traditional HTML vie
 
 ```bash
 # Start all services (web, db, redis, celery worker, celery beat)
-docker compose -f docker/docker-compose.yml up
+docker compose -f docker/docker-compose.dev.yml up
 
 # First-time setup (after containers are running)
 mkdir -p logs
 
 # Run Django management commands inside the container
-docker compose -f docker/docker-compose.yml exec web python manage.py <command>
+docker compose -f docker/docker-compose.dev.yml exec web python manage.py <command>
 
 # Apply migrations
-docker compose -f docker/docker-compose.yml exec web python manage.py migrate
+docker compose -f docker/docker-compose.dev.yml exec web python manage.py migrate
 
 # Generate demo data
-docker compose -f docker/docker-compose.yml exec web python manage.py seed_demo_data
+docker compose -f docker/docker-compose.dev.yml exec web python manage.py seed_demo_data
 
 # Create superuser
-docker compose -f docker/docker-compose.yml exec web python manage.py createsuperuser
+docker compose -f docker/docker-compose.dev.yml exec web python manage.py createsuperuser
 
 # Run tests (see Testing section below for more options)
-docker compose -f docker/docker-compose.yml exec web pytest
+docker compose -f docker/docker-compose.dev.yml exec web pytest
 
 # Install dependencies (uses uv)
 uv sync
@@ -97,7 +97,7 @@ Ruff configuration is in `pyproject.toml`:
     - `html.py` - Traditional Django CBVs with session auth (HomeView, HomeViewPopular, SignUp, Login, PostListView, PostCreateView, PostDetailView, PostUpdateView, PostDeleteView, AuthorListView, AuthorDetailView, UsernameChangeView, EmailChangeView, EmailVerifyView, UserDeleteView, etc.)
     - `api.py` - DRF views with JWT auth (RootAPIView, UserListAPIView, UserDetailAPIView, CurrentUserAPIView, PostAPIView, PostDetailAPIView, LikeAPIView, LikeDetailAPIView, LikeCreateDestroyAPIView, LikeBatchAPIView, EmailChangeAPIView, EmailVerifyAPIView, etc.)
     - `__init__.py` - Re-exports all views for backward-compatible imports
-- `docker/` - Dockerfile and docker-compose.yml
+- `docker/` - Dockerfile, docker-compose.dev.yml, docker-compose.prod.yml, nginx/
 
 ### Key Components
 
@@ -507,7 +507,7 @@ The application uses Celery for asynchronous task processing with two components
 | `config/celery.py` | Celery app configuration and beat schedule |
 | `apps/diary/tasks.py` | Task definitions |
 | `config/settings.py` | Redis broker configuration (`CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`) |
-| `docker/docker-compose.yml` | Worker and beat service definitions |
+| `docker/docker-compose.dev.yml` | Worker and beat service definitions |
 
 #### Configuration
 
@@ -576,46 +576,46 @@ The project uses **pytest** with pytest-django, pytest-factoryboy, pytest-xdist,
 
 ```bash
 # Run all tests
-docker compose -f docker/docker-compose.yml exec web pytest
+docker compose -f docker/docker-compose.dev.yml exec web pytest
 
 # Run tests with verbose output
-docker compose -f docker/docker-compose.yml exec web pytest -v
+docker compose -f docker/docker-compose.dev.yml exec web pytest -v
 
 # Run a specific test file
-docker compose -f docker/docker-compose.yml exec web pytest apps/diary/tests/test_user_api.py
+docker compose -f docker/docker-compose.dev.yml exec web pytest apps/diary/tests/test_user_api.py
 
 # Run a specific test class or function
-docker compose -f docker/docker-compose.yml exec web pytest apps/diary/tests/test_user_api.py::TestUserList
-docker compose -f docker/docker-compose.yml exec web pytest apps/diary/tests/test_user_api.py::TestUserList::test_list_users_as_admin
+docker compose -f docker/docker-compose.dev.yml exec web pytest apps/diary/tests/test_user_api.py::TestUserList
+docker compose -f docker/docker-compose.dev.yml exec web pytest apps/diary/tests/test_user_api.py::TestUserList::test_list_users_as_admin
 
 # Run tests matching a keyword expression
-docker compose -f docker/docker-compose.yml exec web pytest -k "user and not delete"
+docker compose -f docker/docker-compose.dev.yml exec web pytest -k "user and not delete"
 ```
 
 ### Parallel Execution (pytest-xdist)
 
 ```bash
 # Run tests in parallel using all available CPU cores
-docker compose -f docker/docker-compose.yml exec web pytest -n auto
+docker compose -f docker/docker-compose.dev.yml exec web pytest -n auto
 
 # Run tests using a specific number of workers
-docker compose -f docker/docker-compose.yml exec web pytest -n 4
+docker compose -f docker/docker-compose.dev.yml exec web pytest -n 4
 ```
 
 ### Code Coverage (pytest-cov)
 
 ```bash
 # Run tests with coverage report (terminal output)
-docker compose -f docker/docker-compose.yml exec web pytest --cov=apps
+docker compose -f docker/docker-compose.dev.yml exec web pytest --cov=apps
 
 # Run tests with coverage and show missing lines
-docker compose -f docker/docker-compose.yml exec web pytest --cov=apps --cov-report=term-missing
+docker compose -f docker/docker-compose.dev.yml exec web pytest --cov=apps --cov-report=term-missing
 
 # Generate HTML coverage report (output to var/coverage/htmlcov/)
-docker compose -f docker/docker-compose.yml exec web pytest --cov=apps --cov-report=html
+docker compose -f docker/docker-compose.dev.yml exec web pytest --cov=apps --cov-report=html
 
 # Combined: parallel + coverage + missing lines
-docker compose -f docker/docker-compose.yml exec web pytest -n auto --cov=apps --cov-report=term-missing
+docker compose -f docker/docker-compose.dev.yml exec web pytest -n auto --cov=apps --cov-report=term-missing
 ```
 
 ### Coverage Configuration

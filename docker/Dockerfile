@@ -10,6 +10,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Put the project virtual environment outside /app so it isn't affected by bind mounts.
 ENV UV_PROJECT_ENVIRONMENT=/opt/venv
 
+# Build argument: set to "production" to skip dev dependencies
+ARG ENVIRONMENT=development
+
 # Install OS dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
@@ -24,8 +27,12 @@ WORKDIR /app
 # Copy dependency files first (better layer caching)
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies into the project virtualenv as root during build
-RUN uv sync --frozen
+# Install dependencies: production skips dev dependencies
+RUN if [ "$ENVIRONMENT" = "production" ]; then \
+        uv sync --frozen --no-dev; \
+    else \
+        uv sync --frozen; \
+    fi
 
 # Copy application code
 COPY . .

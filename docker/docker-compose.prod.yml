@@ -1,0 +1,133 @@
+name: postways-v2-prod
+
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        ENVIRONMENT: production
+    image: postways-v2:latest
+    env_file:
+      - ../config/.env
+    environment:
+      - DJANGO_ENV=production
+    volumes:
+      # Static files volume (shared with nginx)
+      - static_files:/app/staticfiles
+      # Logs volume for persistence
+      - app_logs:/app/logs
+    expose:
+      - "8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: daphne config.asgi:application -b 0.0.0.0 -p 8000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - static_files:/var/www/postways-v2/static:ro
+      # CloudFlare Origin certificates (bind mount from host)
+      - /etc/ssl/cloudflare:/etc/ssl/cloudflare:ro
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db:
+    image: postgres:16-alpine
+    env_file:
+      - ../config/.env
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} -h 127.0.0.1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  celery_worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        ENVIRONMENT: production
+    image: postways-v2:latest
+    env_file:
+      - ../config/.env
+    environment:
+      - DJANGO_ENV=production
+    volumes:
+      - app_logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A config worker -l info --concurrency=2
+    restart: unless-stopped
+
+  celery_beat:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        ENVIRONMENT: production
+    image: postways-v2:latest
+    env_file:
+      - ../config/.env
+    environment:
+      - DJANGO_ENV=production
+    volumes:
+      - celery_beat_data:/app/var
+      - app_logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: sh -c "mkdir -p /app/var && celery -A config beat -l info -s /app/var/celerybeat-schedule"
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  redis_data:
+  static_files:
+  celery_beat_data:
+  app_logs:

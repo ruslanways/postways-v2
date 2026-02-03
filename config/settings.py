@@ -49,11 +49,11 @@ if IS_PRODUCTION:
     ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
     CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS")
 
-    # Security settings for production (CloudFlare handles SSL termination)
+    # Security settings for production (nginx reverse proxy)
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    USE_X_FORWARDED_HOST = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = "DENY"
 
@@ -172,7 +172,7 @@ USE_TZ = True
 # STATIC & MEDIA FILES
 # ==============================================================================
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 if IS_PRODUCTION:
@@ -215,7 +215,7 @@ else:
     # ------------------------------------------------------------------------------
     # Development: Local filesystem storage
     # ------------------------------------------------------------------------------
-    MEDIA_URL = "media/"
+    MEDIA_URL = "/media/"
     MEDIA_ROOT = BASE_DIR / "media"
 
     STORAGES = {

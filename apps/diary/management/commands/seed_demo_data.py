@@ -17,8 +17,8 @@ Usage:
     # Clear existing data before seeding (preserves staff/superusers)
     python manage.py seed_demo_data --clear
 
-    # Docker usage
-    docker compose -f docker/docker-compose.yml exec web python manage.py seed_demo_data
+    # Docker usage (development)
+    docker compose -f docker/docker-compose.dev.yml exec web python manage.py seed_demo_data
 
 Arguments:
     --users       Number of demo users to create (default: 10)

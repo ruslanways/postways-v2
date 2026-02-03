@@ -6,28 +6,28 @@ A Django-based diary/blog application with both traditional HTML views and a RES
 
 ```bash
 # Start all services (web, db, redis, celery worker, celery beat)
-docker compose -f docker/docker-compose.yml up
+docker compose -f docker/docker-compose.dev.yml up
 
 # First-time setup (after containers are running)
 mkdir -p logs
 
 # Apply migrations
-docker compose -f docker/docker-compose.yml exec web python manage.py migrate
+docker compose -f docker/docker-compose.dev.yml exec web python manage.py migrate
 
 # Generate demo data
-docker compose -f docker/docker-compose.yml exec web python manage.py seed_demo_data
+docker compose -f docker/docker-compose.dev.yml exec web python manage.py seed_demo_data
 
 # Create superuser
-docker compose -f docker/docker-compose.yml exec web python manage.py createsuperuser
+docker compose -f docker/docker-compose.dev.yml exec web python manage.py createsuperuser
 
 # Run tests (basic)
-docker compose -f docker/docker-compose.yml exec web pytest
+docker compose -f docker/docker-compose.dev.yml exec web pytest
 
 # Run tests with coverage and missing lines
-docker compose -f docker/docker-compose.yml exec web pytest --cov=apps --cov-report=term-missing
+docker compose -f docker/docker-compose.dev.yml exec web pytest --cov=apps --cov-report=term-missing
 
 # Run tests in parallel with coverage
-docker compose -f docker/docker-compose.yml exec web pytest -n auto --cov=apps --cov-report=term-missing
+docker compose -f docker/docker-compose.dev.yml exec web pytest -n auto --cov=apps --cov-report=term-missing
 
 # Install pre-commit hooks (one-time setup, runs linter/formatter before commits)
 pre-commit install
@@ -69,26 +69,26 @@ The project uses **pytest** with several plugins for comprehensive testing.
 
 All commands should be prefixed with:
 ```bash
-docker compose -f docker/docker-compose.yml exec web
+docker compose -f docker/docker-compose.dev.yml exec web
 ```
 
 ### Examples
 
 ```bash
 # Run a specific test file
-docker compose -f docker/docker-compose.yml exec web pytest apps/diary/tests/test_user_api.py
+docker compose -f docker/docker-compose.dev.yml exec web pytest apps/diary/tests/test_user_api.py
 
 # Run a specific test class
-docker compose -f docker/docker-compose.yml exec web pytest apps/diary/tests/test_user_api.py::TestUserList
+docker compose -f docker/docker-compose.dev.yml exec web pytest apps/diary/tests/test_user_api.py::TestUserList
 
 # Run tests matching a pattern
-docker compose -f docker/docker-compose.yml exec web pytest -k "user and not delete"
+docker compose -f docker/docker-compose.dev.yml exec web pytest -k "user and not delete"
 
 # Full CI-style run: parallel + coverage + missing lines
-docker compose -f docker/docker-compose.yml exec web pytest -n auto --cov=apps --cov-report=term-missing
+docker compose -f docker/docker-compose.dev.yml exec web pytest -n auto --cov=apps --cov-report=term-missing
 
 # Generate HTML coverage report (view at var/coverage/htmlcov/index.html)
-docker compose -f docker/docker-compose.yml exec web pytest --cov=apps --cov-report=html
+docker compose -f docker/docker-compose.dev.yml exec web pytest --cov=apps --cov-report=html
 ```
 
 ### Test Configuration
@@ -494,6 +494,6 @@ WebSocket connections use Django Channels' `AuthMiddlewareStack` (`config/asgi.p
 
 - `config/` - Django settings, URLs, ASGI/WSGI, Celery config
 - `apps/diary/` - Main application with models, views, API, WebSocket consumers
-- `docker/` - Dockerfile and docker-compose.yml
+- `docker/` - Dockerfile, docker-compose.dev.yml, docker-compose.prod.yml, nginx/
 
 For more detailed documentation, see [CLAUDE.md](CLAUDE.md).
