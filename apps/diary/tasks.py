@@ -13,6 +13,25 @@ from celery import shared_task
 from PIL import Image, ImageOps
 
 
+def _normalize_image_format(pil_format):
+    """
+    Normalize PIL image format to a web-safe format.
+
+    Some formats like MPO (Multi-Picture Object from iPhones) are not recognized
+    by browsers, causing them to download instead of display. This normalizes
+    such formats to their web-compatible equivalents.
+    """
+    # MPO is JPEG-based (used by iPhones for depth/HDR photos)
+    # Browsers don't recognize image/mpo, so normalize to JPEG
+    if pil_format in ("MPO", None):
+        return "JPEG"
+    # Only allow web-safe formats
+    if pil_format in ("JPEG", "PNG", "GIF", "WEBP"):
+        return pil_format
+    # Default everything else to JPEG
+    return "JPEG"
+
+
 @shared_task
 def process_post_image(post_id):
     """Process uploaded image: resize and generate thumbnail."""
@@ -30,7 +49,7 @@ def process_post_image(post_id):
     with post.image.open("rb") as f:
         img = Image.open(f)
         img.load()  # Load image data before closing file
-        img_format = img.format or "JPEG"
+        img_format = _normalize_image_format(img.format)
 
     max_size = (2000, 2000)
 
