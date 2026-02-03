@@ -159,6 +159,10 @@ class Post(models.Model):
             super().save(*args, **kwargs)
             return
 
+        # Normalize content-type before initial save to S3
+        # Prevents CDN caching wrong type (e.g., image/mpo from iPhones)
+        self._normalize_image_content_type()
+
         old_image, old_thumbnail, is_new_image = self._track_image_changes()
         super().save(*args, **kwargs)
         self._cleanup_old_images(old_image, old_thumbnail)
@@ -168,6 +172,21 @@ class Post(models.Model):
     def get_absolute_url(self):
         """Return the absolute URL for this post."""
         return reverse("post-detail", kwargs={"pk": self.id})
+
+    def _normalize_image_content_type(self):
+        """
+        Normalize the content-type of uploaded images to web-safe types.
+
+        iPhone photos often have content-type 'image/mpo' which browsers
+        download instead of display. This normalizes to 'image/jpeg'.
+        """
+        if not self.image or not hasattr(self.image.file, "content_type"):
+            return
+
+        content_type = getattr(self.image.file, "content_type", "")
+        # MPO (Multi-Picture Object) is JPEG-based, normalize to image/jpeg
+        if content_type in ("image/mpo", "image/heic", "image/heif"):
+            self.image.file.content_type = "image/jpeg"
 
     def _track_image_changes(self):
         """
