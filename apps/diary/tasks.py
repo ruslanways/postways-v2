@@ -1,7 +1,10 @@
 from datetime import timedelta
+from io import BytesIO
 from pathlib import Path
 
 from django.conf import settings
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.core.mail import send_mail
 from django.core.management import call_command
 from django.utils import timezone
@@ -23,40 +26,48 @@ def process_post_image(post_id):
     if not post.image:
         return
 
-    with Image.open(post.image.path) as img:
-        img_format = img.format
-        max_size = (2000, 2000)
+    # Read image from storage (works with both local and S3)
+    with post.image.open("rb") as f:
+        img = Image.open(f)
+        img.load()  # Load image data before closing file
+        img_format = img.format or "JPEG"
 
-        # Apply EXIF orientation (fixes rotated phone photos)
-        img_copy = ImageOps.exif_transpose(img)
+    max_size = (2000, 2000)
 
-        # Resize main image while maintaining aspect ratio
-        img_copy.thumbnail(max_size, Image.Resampling.LANCZOS)
-        img_copy.save(post.image.path, format=img_format)
+    # Apply EXIF orientation (fixes rotated phone photos)
+    img = ImageOps.exif_transpose(img)
 
-        # Generate thumbnail: 300x300 cropped to fit
-        thumbnail_size = (300, 300)
-        thumb_img = ImageOps.fit(
-            img_copy,
-            thumbnail_size,
-            method=Image.Resampling.LANCZOS,
-            centering=(0.5, 0.5),
-        )
+    # Resize main image while maintaining aspect ratio
+    img.thumbnail(max_size, Image.Resampling.LANCZOS)
 
-        # Ensure thumbnail directory exists
-        thumbnail_dir = Path(settings.MEDIA_ROOT) / "diary/images/thumbnails"
-        thumbnail_dir.mkdir(parents=True, exist_ok=True)
+    # Save resized image back to storage
+    img_buffer = BytesIO()
+    img.save(img_buffer, format=img_format)
+    img_buffer.seek(0)
+    default_storage.delete(post.image.name)
+    default_storage.save(post.image.name, ContentFile(img_buffer.read()))
 
-        # Generate thumbnail filename with 'thumb_' prefix
-        original_filename = Path(post.image.name).name
-        thumbnail_path = thumbnail_dir / f"thumb_{original_filename}"
+    # Generate thumbnail: 300x300 cropped to fit
+    thumbnail_size = (300, 300)
+    thumb_img = ImageOps.fit(
+        img,
+        thumbnail_size,
+        method=Image.Resampling.LANCZOS,
+        centering=(0.5, 0.5),
+    )
 
-        # Save thumbnail image
-        thumb_img.save(thumbnail_path, format=img_format)
+    # Generate thumbnail path
+    original_filename = Path(post.image.name).name
+    thumbnail_rel_path = f"diary/images/thumbnails/thumb_{original_filename}"
 
-        # Update thumbnail field using filter().update() to avoid recursion
-        thumbnail_rel_path = thumbnail_path.relative_to(settings.MEDIA_ROOT)
-        Post.objects.filter(pk=post_id).update(thumbnail=str(thumbnail_rel_path))
+    # Save thumbnail to storage
+    thumb_buffer = BytesIO()
+    thumb_img.save(thumb_buffer, format=img_format)
+    thumb_buffer.seek(0)
+    default_storage.save(thumbnail_rel_path, ContentFile(thumb_buffer.read()))
+
+    # Update thumbnail field using filter().update() to avoid recursion
+    Post.objects.filter(pk=post_id).update(thumbnail=thumbnail_rel_path)
 
 
 @shared_task
