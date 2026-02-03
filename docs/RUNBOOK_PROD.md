@@ -107,6 +107,7 @@ dc up -d --build db redis
 dc run --rm web python manage.py migrate --noinput
 dc run --rm web python manage.py collectstatic --noinput
 dc up -d --build
+dc restart nginx  # re-resolve web container IP
 ```
 
 **Notes:**
@@ -128,6 +129,7 @@ dc up -d --build
 ```bash
 git pull
 dc up -d --build
+dc restart nginx  # re-resolve web container IP
 ```
 
 ---

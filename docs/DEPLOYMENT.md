@@ -212,6 +212,9 @@ git pull origin main
 docker compose -f docker/docker-compose.prod.yml build
 docker compose -f docker/docker-compose.prod.yml up -d
 
+# Re-resolve web container IP (nginx caches DNS)
+docker compose -f docker/docker-compose.prod.yml restart nginx
+
 # Apply migrations (if any)
 docker compose -f docker/docker-compose.prod.yml exec web python manage.py migrate --noinput
 
