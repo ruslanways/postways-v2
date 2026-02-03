@@ -175,7 +175,8 @@ dc exec nginx nginx -s reload
 **From inside Docker network:**
 
 ```bash
-dc exec nginx curl -I http://web:8000/
+# Verify web container is accepting connections
+dc exec web python -c "import socket; s=socket.socket(); s.connect(('localhost', 8000)); s.close(); print('OK')"
 ```
 
 **From your laptop — verify:**

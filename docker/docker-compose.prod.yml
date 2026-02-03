@@ -27,7 +27,7 @@ services:
     command: daphne config.asgi:application -b 0.0.0.0 -p 8000
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      test: ["CMD", "python", "-c", "import socket; s=socket.socket(); s.connect(('localhost', 8000)); s.close()"]
       interval: 30s
       timeout: 10s
       retries: 3

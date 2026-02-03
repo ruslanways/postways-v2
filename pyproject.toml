@@ -19,12 +19,12 @@ dependencies = [
     "django-cors-headers>=4.7,<5.0",
     "django-storages>=1.14.6",
     "boto3>=1.42.39",
+    "faker>=40.1.2",
 ]
 
 [dependency-groups]
 dev = [
     "djlint>=1.36.4",
-    "faker>=40.1.2",
     "pre-commit>=4.5.1",
     "pytest-cov>=7.0.0",
     "pytest-django>=4.11.1",

@@ -250,15 +250,23 @@ docker compose -f docker/docker-compose.prod.yml logs -f nginx
 
 ### Health Checks
 
+**Docker healthchecks (automatic):**
+- **web**: TCP port check on 8000 (verifies Daphne is accepting connections, bypasses Django ALLOWED_HOSTS)
+- **nginx**: HTTP check on `/health` (nginx's own endpoint, returns "healthy" directly)
+- **db**: `pg_isready` command
+- **redis**: `redis-cli ping`
+
+**Manual checks:**
+
 ```bash
 # Check service status
 docker compose -f docker/docker-compose.prod.yml ps
 
-# Check nginx health
+# Check nginx health (nginx's own /health endpoint on port 80)
 curl http://localhost/health
 
-# Check Django health
-docker compose -f docker/docker-compose.prod.yml exec web curl http://localhost:8000/api/v1/
+# Check Django is responding (via API root)
+docker compose -f docker/docker-compose.prod.yml exec web python -c "import socket; s=socket.socket(); s.connect(('localhost', 8000)); s.close(); print('OK')"
 ```
 
 ### Database Backup

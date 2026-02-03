@@ -3,21 +3,13 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.http import HttpResponse
 from django.urls import include, path
 
 admin.site.site_header = "Postways administration"
 admin.site.site_title = "Postways site admin"
 admin.site.index_title = "Site administration"
 
-
-def health_check(request):
-    """Simple health check endpoint for container orchestration."""
-    return HttpResponse("ok", content_type="text/plain")
-
-
 urlpatterns = [
-    path("health/", health_check, name="health-check"),
     path("admin/", admin.site.urls),
     path("", include("apps.diary.urls")),
 ]
