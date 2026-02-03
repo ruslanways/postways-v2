@@ -124,6 +124,8 @@ class Command(BaseCommand):
                 hours=random.randint(0, 23),
                 minutes=random.randint(0, 59),
             )
+            # Cap to current time to avoid future dates
+            post_date = min(post_date, now)
 
             post = Post(
                 author=author,
