@@ -1,8 +1,8 @@
 """
 Validators for the diary application.
 
-This module provides custom validators for username validation and content
-profanity checking.
+This module provides custom validators for username validation, content
+profanity checking, and image size validation.
 """
 
 import string
@@ -67,4 +67,27 @@ def profanity(content: Any) -> None:
             _("Using profanity (%(words)s) is prohibited. Please correct the content."),
             code="invalid",
             params={"words": ", ".join(sorted(profanity_check))},
+        )
+
+
+# Image size validation constants
+MAX_IMAGE_SIZE_MB = 10
+MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024
+
+
+def validate_image_size(value):
+    """
+    Validate that uploaded image doesn't exceed size limit.
+
+    Args:
+        value: The uploaded file object
+
+    Raises:
+        ValidationError: If the file exceeds MAX_IMAGE_SIZE_MB
+    """
+    if value and value.size > MAX_IMAGE_SIZE_BYTES:
+        raise ValidationError(
+            _("Image file too large. Maximum size is %(max_size)s MB."),
+            code="file_too_large",
+            params={"max_size": MAX_IMAGE_SIZE_MB},
         )

@@ -25,7 +25,11 @@ from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.utils import datetime_from_epoch
 
 from .models import CustomUser, Like, Post
-from .validators import MyUnicodeUsernameValidator
+from .validators import (
+    MAX_IMAGE_SIZE_BYTES,
+    MAX_IMAGE_SIZE_MB,
+    MyUnicodeUsernameValidator,
+)
 
 # ============================================================================
 # Utilities
@@ -445,6 +449,25 @@ class PostCreateSerializer(serializers.HyperlinkedModelSerializer):
         request = self.context.get("request")
         return f"{reverse('like-list-api', request=request)}?post={obj.pk}"
 
+    def validate_image(self, value):
+        """
+        Validate that uploaded image doesn't exceed size limit.
+
+        Args:
+            value: The uploaded file object
+
+        Returns:
+            The validated file object
+
+        Raises:
+            ValidationError: If the file exceeds MAX_IMAGE_SIZE_MB
+        """
+        if value and value.size > MAX_IMAGE_SIZE_BYTES:
+            raise serializers.ValidationError(
+                f"Image file too large. Maximum size is {MAX_IMAGE_SIZE_MB} MB."
+            )
+        return value
+
     class Meta:
         model = Post
         fields = (
@@ -526,6 +549,25 @@ class PostDetailSerializer(serializers.HyperlinkedModelSerializer):
             stats["has_liked"] = getattr(obj, "has_liked", False)
 
         return stats
+
+    def validate_image(self, value):
+        """
+        Validate that uploaded image doesn't exceed size limit.
+
+        Args:
+            value: The uploaded file object
+
+        Returns:
+            The validated file object
+
+        Raises:
+            ValidationError: If the file exceeds MAX_IMAGE_SIZE_MB
+        """
+        if value and value.size > MAX_IMAGE_SIZE_BYTES:
+            raise serializers.ValidationError(
+                f"Image file too large. Maximum size is {MAX_IMAGE_SIZE_MB} MB."
+            )
+        return value
 
     class Meta:
         model = Post

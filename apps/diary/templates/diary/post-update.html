@@ -7,12 +7,12 @@
 
 <div class="form-container form-container--post">
   <h1>Update Post</h1>
-  
+
   <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
 
     {{ form.non_field_errors }}
-    
+
     <div class="form-group">
       <label for="{{ form.title.id_for_label }}" class="form-label">{{ form.title.label }}</label>
       {{ form.title }}
@@ -66,5 +66,23 @@
     </div>
   </form>
 </div>
+
+<script>
+(function() {
+  const MAX_IMAGE_SIZE_MB = 10;
+  const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
+
+  const imageInput = document.querySelector('input[type="file"]');
+  if (!imageInput) return;
+
+  imageInput.addEventListener('change', function() {
+    const file = this.files[0];
+    if (file && file.size > MAX_IMAGE_SIZE_BYTES) {
+      alert('Image file too large. Maximum size is ' + MAX_IMAGE_SIZE_MB + ' MB.\nYour file: ' + (file.size / 1024 / 1024).toFixed(1) + ' MB');
+      this.value = '';
+    }
+  });
+})();
+</script>
 
 {% endblock %}

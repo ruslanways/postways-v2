@@ -22,7 +22,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from .models import CustomUser, Post
-from .validators import MyUnicodeUsernameValidator
+from .validators import MyUnicodeUsernameValidator, validate_image_size
 
 
 class FormControlMixin:
@@ -186,7 +186,14 @@ class AddPostForm(FormControlMixin, forms.ModelForm):
     Form for creating new blog posts.
 
     Includes fields for title, content, image upload, and publish status.
+    Image uploads are limited to 10 MB.
     """
+
+    image = forms.ImageField(
+        required=False,
+        validators=[validate_image_size],
+        help_text=_("Upload an image (max 10 MB). Will be automatically resized."),
+    )
 
     class Meta:
         model = Post
