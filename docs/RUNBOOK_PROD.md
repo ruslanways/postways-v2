@@ -102,6 +102,7 @@ dc logs -n 100 nginx
 - Environment variable changes
 
 ```bash
+cd /srv/postways-v2/
 git pull
 dc up -d --build db redis
 dc run --rm web python manage.py migrate --noinput
