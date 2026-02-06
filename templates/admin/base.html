@@ -205,7 +205,10 @@
                   {% if user.is_staff %}
                     <a class="dropdown-item" href="{% url 'author-list' %}">All Users</a>
                     <a class="dropdown-item" href="{% url 'post-list' %}">All Posts</a>
+                    <a class="dropdown-item" href="{% url 'root-api' %}">API</a>
                     <a class="dropdown-item active" href="{% url 'admin:index' %}">Admin Site</a>
+                  {% else %}
+                    <a class="dropdown-item" href="{% url 'root-api' %}">API</a>
                   {% endif %}
                   <form method="post" action="{% url 'logout' %}">
                     {% csrf_token %}
@@ -218,6 +221,7 @@
             {% else %}
               <li>
                 <div class="auth-buttons">
+                  <a href="{% url 'root-api' %}" class="btn btn-secondary">API</a>
                   <a href="{% url 'signup' %}" class="btn btn-secondary">Sign up</a>
                   <a href="{% url 'login' %}" class="btn btn-primary">Log in</a>
                 </div>
@@ -240,7 +244,14 @@
                   <a class="nav-link" href="{% url 'post-list' %}">All Posts</a>
                 </div>
                 <div class="nav-item">
+                  <a class="nav-link" href="{% url 'root-api' %}">API</a>
+                </div>
+                <div class="nav-item">
                   <a class="nav-link active" href="{% url 'admin:index' %}">Admin Site</a>
+                </div>
+              {% else %}
+                <div class="nav-item">
+                  <a class="nav-link" href="{% url 'root-api' %}">API</a>
                 </div>
               {% endif %}
               <div class="nav-item">
@@ -265,6 +276,9 @@
               </div>
               <div class="nav-item">
                 <a href="{% url 'login' %}" class="nav-link">Log in</a>
+              </div>
+              <div class="nav-item">
+                <a href="{% url 'root-api' %}" class="nav-link">API</a>
               </div>
             {% endif %}
           </div>

@@ -88,7 +88,10 @@
                      href="{% url 'author-list' %}">All Users</a>
                   <a class="dropdown-item {% if view.template_name == 'diary/post_list.html' %}active{% endif %}"
                      href="{% url 'post-list' %}">All Posts</a>
+                  <a class="dropdown-item" href="{% url 'root-api' %}">API</a>
                   <a class="dropdown-item" href="{% url 'admin:index' %}">Admin Site</a>
+                {% else %}
+                  <a class="dropdown-item" href="{% url 'root-api' %}">API</a>
                 {% endif %}
                 <form method="post" action="{% url 'logout' %}">
                   {% csrf_token %}
@@ -101,6 +104,7 @@
           {% else %}
             <li>
               <div class="auth-buttons">
+                <a href="{% url 'root-api' %}" class="btn btn-secondary">API</a>
                 <a href="{% url 'signup' %}"
                    class="btn btn-secondary {% if view.template_name == 'registration/signup.html' %}active{% endif %}">Sign up</a>
                 <a href="{% url 'login' %}"
@@ -128,7 +132,14 @@
                    href="{% url 'post-list' %}">All Posts</a>
               </div>
               <div class="nav-item">
+                <a class="nav-link" href="{% url 'root-api' %}">API</a>
+              </div>
+              <div class="nav-item">
                 <a class="nav-link" href="{% url 'admin:index' %}">Admin Site</a>
+              </div>
+            {% else %}
+              <div class="nav-item">
+                <a class="nav-link" href="{% url 'root-api' %}">API</a>
               </div>
             {% endif %}
             <div class="nav-item">
@@ -155,6 +166,9 @@
             <div class="nav-item">
               <a href="{% url 'login' %}"
                  class="nav-link {% if view.template_name == 'registration/login.html' %}selected{% endif %}">Log in</a>
+            </div>
+            <div class="nav-item">
+              <a href="{% url 'root-api' %}" class="nav-link">API</a>
             </div>
           {% endif %}
         </div>
@@ -186,7 +200,7 @@
             {% endif %}
             <li class="page-item disabled">
               <span class="page-link">
-                <span class="page-label">Page </span>{{ page_obj.number }}<span class="page-label"> of </span><span class="page-separator"> / </span>{{ page_obj.paginator.num_pages }}
+                <span class="page-label">Page</span>{{ page_obj.number }}<span class="page-label">of</span><span class="page-separator">/</span>{{ page_obj.paginator.num_pages }}
               </span>
             </li>
             {% if page_obj.has_next %}
