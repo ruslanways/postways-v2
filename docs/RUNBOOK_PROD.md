@@ -128,6 +128,7 @@ dc restart nginx  # re-resolve web container IP
 - No env changes
 
 ```bash
+cd /srv/postways-v2
 git pull
 dc up -d --build
 dc restart nginx  # re-resolve web container IP
