@@ -88,6 +88,8 @@ Ruff configuration is in `pyproject.toml`:
 - **Redis** for Channels (WebSocket) and Celery broker
 - **Daphne** ASGI server for WebSocket support
 - **Celery** for background tasks (worker + beat scheduler)
+- **django-prometheus** for application metrics
+- **Grafana Alloy** for shipping metrics and logs to Grafana Cloud
 - **uv** for Python package management
 
 ### Project Structure
@@ -97,7 +99,7 @@ Ruff configuration is in `pyproject.toml`:
     - `html.py` - Traditional Django CBVs with session auth (HomeView, HomeViewPopular, SignUp, Login, PostListView, PostCreateView, PostDetailView, PostUpdateView, PostDeleteView, AuthorListView, AuthorDetailView, UsernameChangeView, EmailChangeView, EmailVerifyView, UserDeleteView, etc.)
     - `api.py` - DRF views with JWT auth (RootAPIView, UserListAPIView, UserDetailAPIView, CurrentUserAPIView, PostAPIView, PostDetailAPIView, LikeAPIView, LikeDetailAPIView, LikeCreateDestroyAPIView, LikeBatchAPIView, EmailChangeAPIView, EmailVerifyAPIView, etc.)
     - `__init__.py` - Re-exports all views for backward-compatible imports
-- `docker/` - Dockerfile, docker-compose.dev.yml, docker-compose.prod.yml, nginx/
+- `docker/` - Dockerfile, docker-compose.dev.yml, docker-compose.prod.yml, nginx/, alloy/
 
 ### Key Components
 
@@ -561,12 +563,70 @@ Both Celery components run as separate containers:
 
 Both depend on PostgreSQL and Redis being healthy before starting.
 
+### Monitoring
+
+The project uses **django-prometheus** + **Grafana Alloy** to ship metrics and logs to **Grafana Cloud**.
+
+#### Key Files
+
+| File | Purpose |
+|------|---------|
+| `config/settings.py` | `django_prometheus` in INSTALLED_APPS, middleware, DB backend |
+| `config/urls.py` | `/metrics` endpoint (via `django_prometheus.urls`) |
+| `docker/alloy/config.alloy` | Alloy config — scrapes `/metrics`, tails container logs, pushes to Grafana Cloud |
+| `docker/nginx/nginx.conf` | Blocks `/metrics` from public access in production |
+| `docker/docker-compose.dev.yml` | Alloy service for dev |
+| `docker/docker-compose.prod.yml` | Alloy service for prod |
+
+#### How It Works
+
+```
+Django (/metrics) ──┐
+                    ├── Grafana Alloy ──► Grafana Cloud (metrics + logs)
+Container logs ─────┘
+```
+
+- **django-prometheus** exposes application metrics at `/metrics` (request counts, latency, DB queries)
+- **Prometheus middleware** wraps all Django middleware (`PrometheusBeforeMiddleware` first, `PrometheusAfterMiddleware` last)
+- **DB backend** is `django_prometheus.db.backends.postgresql` (wraps standard backend, adds query metrics)
+- **Grafana Alloy** runs as a sidecar container that:
+  - Scrapes `/metrics` every 15s and pushes to Grafana Cloud Prometheus
+  - Tails all Docker container logs via Docker socket and pushes to Grafana Cloud Loki
+- **nginx** blocks `/metrics` from public access (returns 404)
+
+#### Key Metrics
+
+| Metric | Description |
+|--------|-------------|
+| `django_http_requests_total_by_method_total` | Request count by HTTP method |
+| `django_http_responses_total_by_status_total` | Response count by status code |
+| `django_http_requests_latency_including_middlewares_seconds` | Request latency histogram |
+| `django_db_execute_total` | Database query count |
+| `django_db_query_duration_seconds` | Database query duration histogram |
+
+#### Environment Variables
+
+Grafana Cloud credentials in `config/.env`:
+- `GRAFANA_METRICS_URL`, `GRAFANA_METRICS_USERNAME` — Prometheus remote write
+- `GRAFANA_LOGS_URL`, `GRAFANA_LOGS_USERNAME` — Loki log push
+- `GRAFANA_API_KEY` — shared API key for both
+
+#### Log Queries (Grafana Cloud Loki)
+
+| Query | What it shows |
+|-------|--------------|
+| `{container=~".*web.*"}` | Django/Daphne logs |
+| `{container=~".*celery_worker.*"}` | Celery task logs |
+| `{container=~".*db.*"}` | PostgreSQL logs |
+| `{container=~".*web.*"} \|= "ERROR"` | Django error logs |
+
 ### Environment Configuration
 
 Environment variables loaded from `config/.env`:
 - `DJANGO_SECRET_KEY`, `DEBUG`, `DATABASE_URL`
 - `REDIS_HOST`, `REDIS_PORT`
 - Email settings: `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `DEFAULT_FROM_EMAIL`, `WEEKLY_RECIPIENTS`
+- Grafana Cloud: `GRAFANA_METRICS_URL`, `GRAFANA_METRICS_USERNAME`, `GRAFANA_LOGS_URL`, `GRAFANA_LOGS_USERNAME`, `GRAFANA_API_KEY`
 
 ## Testing
 

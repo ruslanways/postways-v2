@@ -466,6 +466,45 @@ WebSocket connections use Django Channels' `AuthMiddlewareStack` (`config/asgi.p
 - Authenticates WebSocket connections using session or JWT
 - Allows real-time like updates to authenticated users
 
+## Monitoring
+
+The project uses **django-prometheus** for application metrics and **Grafana Alloy** to ship metrics and logs to **Grafana Cloud**.
+
+### What's Monitored
+
+| Data | Source | Destination |
+|------|--------|-------------|
+| **Application metrics** | django-prometheus (`/metrics` endpoint) | Grafana Cloud Prometheus |
+| **Container logs** | All Docker container stdout/stderr | Grafana Cloud Loki |
+
+### Architecture
+
+```
+Django (/metrics) ──┐
+                    ├── Grafana Alloy ──► Grafana Cloud (metrics + logs)
+Container logs ─────┘
+```
+
+- **`/metrics`** is blocked by nginx in production (only accessible internally by Alloy)
+- Alloy scrapes metrics every 15s and tails container logs in real-time
+- Grafana Cloud provides dashboards, alerting, and log exploration
+
+### Key Metrics
+
+| Metric | Description |
+|--------|-------------|
+| `django_http_requests_total_by_method_total` | Request count by HTTP method |
+| `django_http_responses_total_by_status_total` | Response count by status code |
+| `django_http_requests_latency_including_middlewares_seconds` | Request latency histogram |
+| `django_db_execute_total` | Database query count |
+| `django_db_query_duration_seconds` | Database query duration histogram |
+
+### Setup
+
+1. Sign up at [grafana.com](https://grafana.com) (free tier: 10k metrics, 50GB logs)
+2. Copy Prometheus and Loki credentials to `config/.env` (see `config/env.dev.example`)
+3. Alloy container starts automatically with `docker compose up`
+
 ## Tech Stack
 
 - **Django 5.2** with Django REST Framework
@@ -473,6 +512,7 @@ WebSocket connections use Django Channels' `AuthMiddlewareStack` (`config/asgi.p
 - **Redis** for Channels (WebSocket) and Celery broker
 - **Daphne** ASGI server for WebSocket support
 - **Celery** for background tasks (worker + beat scheduler)
+- **Grafana Alloy** for shipping metrics and logs to Grafana Cloud
 - **uv** for Python package management
 
 ## Features
@@ -494,6 +534,6 @@ WebSocket connections use Django Channels' `AuthMiddlewareStack` (`config/asgi.p
 
 - `config/` - Django settings, URLs, ASGI/WSGI, Celery config
 - `apps/diary/` - Main application with models, views, API, WebSocket consumers
-- `docker/` - Dockerfile, docker-compose.dev.yml, docker-compose.prod.yml, nginx/
+- `docker/` - Dockerfile, docker-compose.dev.yml, docker-compose.prod.yml, nginx/, alloy/
 
 For more detailed documentation, see [CLAUDE.md](CLAUDE.md).

@@ -1,0 +1,70 @@
+// =============================================================================
+// METRICS — Scrape Django and push to Grafana Cloud
+// =============================================================================
+
+prometheus.scrape "django" {
+  targets = [{
+    __address__ = "web:8000",
+  }]
+  metrics_path = "/metrics"
+  scrape_interval = "15s"
+  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+prometheus.remote_write "grafana_cloud" {
+  endpoint {
+    url = sys.env("GRAFANA_METRICS_URL")
+    basic_auth {
+      username = sys.env("GRAFANA_METRICS_USERNAME")
+      password = sys.env("GRAFANA_API_KEY")
+    }
+  }
+}
+
+// =============================================================================
+// LOGS — Collect Docker container logs and push to Grafana Cloud Loki
+// =============================================================================
+
+// Discover all Docker containers
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+// Extract container name as a label
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_compose_service"]
+    target_label  = "service"
+  }
+}
+
+// Collect logs from discovered containers
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.process.docker.receiver]
+}
+
+// Parse Docker log format
+loki.process "docker" {
+  stage.docker {}
+  forward_to = [loki.write.grafana_cloud.receiver]
+}
+
+// Push logs to Grafana Cloud Loki
+loki.write "grafana_cloud" {
+  endpoint {
+    url = sys.env("GRAFANA_LOGS_URL")
+    basic_auth {
+      username = sys.env("GRAFANA_LOGS_USERNAME")
+      password = sys.env("GRAFANA_API_KEY")
+    }
+  }
+}

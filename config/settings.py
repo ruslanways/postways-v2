@@ -87,9 +87,11 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     "channels",
     "storages",
+    "django_prometheus",
 ]
 
 MIDDLEWARE = [
+    "django_prometheus.middleware.PrometheusBeforeMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
@@ -100,6 +102,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "apps.diary.middleware.UserLastActivityMiddleware",
     "apps.diary.middleware.UncaughtExceptionMiddleware",
+    "django_prometheus.middleware.PrometheusAfterMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -130,6 +133,7 @@ ASGI_APPLICATION = "config.asgi.application"
 DATABASES = {
     "default": env.db(),
 }
+DATABASES["default"]["ENGINE"] = "django_prometheus.db.backends.postgresql"
 
 
 # ==============================================================================

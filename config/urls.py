@@ -11,6 +11,7 @@ admin.site.index_title = "Site administration"
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("", include("django_prometheus.urls")),
     path("", include("apps.diary.urls")),
 ]
 

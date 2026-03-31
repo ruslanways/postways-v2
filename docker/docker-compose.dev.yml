@@ -25,7 +25,7 @@ services:
     env_file:
       - ../config/.env
     volumes:
-      - postways-v2-db_data:/var/lib/postgresql/data
+      - db_data:/var/lib/postgresql/data
     ports:
       # 5432 and 5433 are taken on the host; expose Postgres on 5434 for local access (psql/GUI tools).
       - "5434:5432"
@@ -41,7 +41,7 @@ services:
   redis:
     image: redis:7-alpine
     volumes:
-      - postways-v2-redis_data:/data
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -84,6 +84,18 @@ services:
     command: sh -c "mkdir -p /app/var && celery -A config beat -l info"
     restart: unless-stopped
 
+  alloy:
+    image: grafana/alloy:v1.9.0
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    env_file:
+      - ../config/.env
+    command: run /etc/alloy/config.alloy
+    depends_on:
+      - web
+    restart: unless-stopped
+
 volumes:
-  postways-v2-db_data:
-  postways-v2-redis_data:
+  db_data:
+  redis_data:
