@@ -606,8 +606,8 @@ Container logs ─────┘
 | `django_db_execute_total` | Database query count |
 | `django_db_query_duration_seconds` | Database query duration histogram |
 | `django_cache_get_total` | Cache GET operations |
-| `django_cache_hits_total` | Cache hits |
-| `django_cache_misses_total` | Cache misses |
+| `django_cache_get_hits_total` | Cache hits |
+| `django_cache_get_misses_total` | Cache misses |
 
 #### Environment Variables
 
