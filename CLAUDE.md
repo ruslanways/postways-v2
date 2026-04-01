@@ -24,6 +24,12 @@ docker compose -f docker/docker-compose.dev.yml exec web python manage.py migrat
 # Generate demo data
 docker compose -f docker/docker-compose.dev.yml exec web python manage.py seed_demo_data
 
+# Generate likes only on existing posts (from existing demo users)
+docker compose -f docker/docker-compose.dev.yml exec web python manage.py seed_demo_data --likes-only
+
+# Generate likes on a specific post (up to 10 likes)
+docker compose -f docker/docker-compose.dev.yml exec web python manage.py seed_demo_data --likes-only --post-id=42 --max-likes=10
+
 # Create superuser
 docker compose -f docker/docker-compose.dev.yml exec web python manage.py createsuperuser
 

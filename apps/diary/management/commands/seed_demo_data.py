@@ -73,12 +73,26 @@ class Command(BaseCommand):
             action="store_true",
             help="Download random images from picsum.photos for each post",
         )
+        parser.add_argument(
+            "--likes-only",
+            action="store_true",
+            help="Only generate likes on existing posts from existing non-staff users",
+        )
+        parser.add_argument(
+            "--post-id",
+            type=int,
+            help="Generate likes only for a specific post (use with --likes-only)",
+        )
 
     @transaction.atomic
     def handle(self, *args, **options):
         users_count = options["users"]
         posts_count = options["posts"]
         max_likes = options["max_likes"]
+
+        if options["likes_only"]:
+            self._generate_likes_only(max_likes, post_id=options["post_id"])
+            return
 
         if options["clear"]:
             self.stdout.write("Clearing existing data...")
@@ -162,6 +176,47 @@ class Command(BaseCommand):
         Like.objects.bulk_create(likes_to_create, ignore_conflicts=True)
 
         self.stdout.write(self.style.SUCCESS("Demo data created successfully"))
+
+    def _generate_likes_only(self, max_likes, post_id=None):
+        """Generate likes on existing posts from existing non-staff users."""
+        users = list(User.objects.filter(is_staff=False, is_superuser=False))
+        if not users:
+            self.stderr.write(
+                self.style.ERROR(
+                    "No non-staff users found. Run seed_demo_data first to create users."
+                )
+            )
+            return
+
+        if post_id:
+            try:
+                posts = [Post.objects.get(pk=post_id)]
+            except Post.DoesNotExist:
+                self.stderr.write(
+                    self.style.ERROR(f"Post with id={post_id} not found.")
+                )
+                return
+        else:
+            posts = list(Post.objects.all())
+
+        if not posts:
+            self.stderr.write(self.style.ERROR("No posts found."))
+            return
+
+        # Clear existing likes from demo users on target posts
+        Like.objects.filter(user__in=users, post__in=posts).delete()
+
+        self.stdout.write(
+            f"Generating likes from {len(users)} users on {len(posts)} post(s)..."
+        )
+        likes_to_create = []
+        for post in posts:
+            likers = random.sample(users, random.randint(0, min(len(users), max_likes)))
+            for user in likers:
+                likes_to_create.append(Like(user=user, post=post))
+
+        Like.objects.bulk_create(likes_to_create, ignore_conflicts=True)
+        self.stdout.write(self.style.SUCCESS(f"Created {len(likes_to_create)} likes"))
 
     def _download_random_image(self):
         """Download a random image from picsum.photos with varied dimensions."""
