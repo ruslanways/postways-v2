@@ -18,7 +18,7 @@
         <th class="text-center"><a href="{% url 'author-list' %}posts__likes__count/" class="sortable{% if current_sort == 'posts__likes__count' %} active {{ sort_direction }}{% endif %}">Likes received</a></th>
       </tr>
       <tr class="summary-row">
-        <td>{{ object_list.count }}</td>
+        <td>{{ object_list|length }}</td>
         <td></td>
         <td></td>
         <td class="text-center">{{ posts }}</td>

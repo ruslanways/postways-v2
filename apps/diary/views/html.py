@@ -21,7 +21,16 @@ from django.contrib.auth.views import (
     PasswordResetConfirmView,
     PasswordResetView,
 )
-from django.db.models import BooleanField, Count, Exists, OuterRef, Value
+from django.db.models import (
+    BooleanField,
+    Count,
+    Exists,
+    IntegerField,
+    OuterRef,
+    Subquery,
+    Value,
+)
+from django.db.models.functions import Coalesce
 from django.shortcuts import redirect, resolve_url
 from django.urls import reverse, reverse_lazy
 from django.utils.encoding import force_bytes
@@ -385,9 +394,36 @@ class AuthorListView(StaffRequiredMixin, ListView):
             ordering = self.request.session.get(session_key, "id")
 
         return CustomUser.objects.annotate(
-            Count("posts", distinct=True),
-            Count("likes", distinct=True),
-            Count("posts__likes", distinct=True),
+            posts__count=Coalesce(
+                Subquery(
+                    Post.objects.filter(author=OuterRef("pk"))
+                    .values("author")
+                    .annotate(c=Count("id"))
+                    .values("c"),
+                    output_field=IntegerField(),
+                ),
+                Value(0),
+            ),
+            likes__count=Coalesce(
+                Subquery(
+                    Like.objects.filter(user=OuterRef("pk"))
+                    .values("user")
+                    .annotate(c=Count("id"))
+                    .values("c"),
+                    output_field=IntegerField(),
+                ),
+                Value(0),
+            ),
+            posts__likes__count=Coalesce(
+                Subquery(
+                    Like.objects.filter(post__author=OuterRef("pk"))
+                    .values("post__author")
+                    .annotate(c=Count("id"))
+                    .values("c"),
+                    output_field=IntegerField(),
+                ),
+                Value(0),
+            ),
         ).order_by(ordering)
 
     def get_context_data(self, **kwargs):
