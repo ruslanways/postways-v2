@@ -571,7 +571,7 @@ The project uses **django-prometheus** + **Grafana Alloy** to ship metrics and l
 
 | File | Purpose |
 |------|---------|
-| `config/settings.py` | `django_prometheus` in INSTALLED_APPS, middleware, DB backend |
+| `config/settings.py` | `django_prometheus` in INSTALLED_APPS, middleware, DB/cache backends |
 | `config/urls.py` | `/metrics` endpoint (via `django_prometheus.urls`) |
 | `docker/alloy/config.alloy` | Alloy config — scrapes `/metrics`, tails container logs, pushes to Grafana Cloud |
 | `docker/nginx/nginx.conf` | Blocks `/metrics` from public access in production |
@@ -589,6 +589,8 @@ Container logs ─────┘
 - **django-prometheus** exposes application metrics at `/metrics` (request counts, latency, DB queries)
 - **Prometheus middleware** wraps all Django middleware (`PrometheusBeforeMiddleware` first, `PrometheusAfterMiddleware` last)
 - **DB backend** is `django_prometheus.db.backends.postgresql` (wraps standard backend, adds query metrics)
+- **Cache backend** is `django_prometheus.cache.backends.redis.RedisCache` (wraps standard backend, adds cache hit/miss metrics)
+- **Migration metrics** are disabled (`PROMETHEUS_EXPORT_MIGRATIONS = False`) to avoid unnecessary DB queries on every scrape
 - **Grafana Alloy** runs as a sidecar container that:
   - Scrapes `/metrics` every 15s and pushes to Grafana Cloud Prometheus
   - Tails all Docker container logs via Docker socket and pushes to Grafana Cloud Loki
@@ -603,6 +605,9 @@ Container logs ─────┘
 | `django_http_requests_latency_including_middlewares_seconds` | Request latency histogram |
 | `django_db_execute_total` | Database query count |
 | `django_db_query_duration_seconds` | Database query duration histogram |
+| `django_cache_get_total` | Cache GET operations |
+| `django_cache_hits_total` | Cache hits |
+| `django_cache_misses_total` | Cache misses |
 
 #### Environment Variables
 

@@ -90,6 +90,8 @@ INSTALLED_APPS = [
     "django_prometheus",
 ]
 
+PROMETHEUS_EXPORT_MIGRATIONS = False
+
 MIDDLEWARE = [
     "django_prometheus.middleware.PrometheusBeforeMiddleware",
     "django.middleware.security.SecurityMiddleware",
@@ -342,7 +344,7 @@ CHANNEL_LAYERS = {
 # ------------------------------------------------------------------------------
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "BACKEND": "django_prometheus.cache.backends.redis.RedisCache",
         "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}/2",
     },
 }

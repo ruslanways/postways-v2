@@ -486,6 +486,7 @@ Container logs ─────┘
 ```
 
 - **`/metrics`** is blocked by nginx in production (only accessible internally by Alloy)
+- DB and cache backends are wrapped by django-prometheus for query and hit/miss metrics
 - Alloy scrapes metrics every 15s and tails container logs in real-time
 - Grafana Cloud provides dashboards, alerting, and log exploration
 
@@ -498,6 +499,9 @@ Container logs ─────┘
 | `django_http_requests_latency_including_middlewares_seconds` | Request latency histogram |
 | `django_db_execute_total` | Database query count |
 | `django_db_query_duration_seconds` | Database query duration histogram |
+| `django_cache_get_total` | Cache GET operations |
+| `django_cache_hits_total` | Cache hits |
+| `django_cache_misses_total` | Cache misses |
 
 ### Setup
 
