@@ -344,7 +344,7 @@ CHANNEL_LAYERS = {
 # ------------------------------------------------------------------------------
 CACHES = {
     "default": {
-        "BACKEND": "django_prometheus.cache.backends.redis.RedisCache",
+        "BACKEND": "django_prometheus.cache.backends.redis.NativeRedisCache",
         "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}/2",
     },
 }
