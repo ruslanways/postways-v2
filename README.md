@@ -1,3 +1,5 @@
+[![CI](https://github.com/ruslanways/postways-v2/actions/workflows/ci.yml/badge.svg?event=push)](https://github.com/ruslanways/postways-v2/actions/workflows/ci.yml)
+
 # Postways
 
 A Django-based diary/blog application with both traditional HTML views and a REST API. Features user authentication (session + JWT), post management with image processing, likes with real-time WebSocket updates, and background task processing.
