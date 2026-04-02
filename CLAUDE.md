@@ -12,9 +12,6 @@ Postways is a Django-based diary/blog application with both traditional HTML vie
 # Start all services (web, db, redis, celery worker, celery beat)
 docker compose -f docker/docker-compose.dev.yml up
 
-# First-time setup (after containers are running)
-mkdir -p logs
-
 # Run Django management commands inside the container
 docker compose -f docker/docker-compose.dev.yml exec web python manage.py <command>
 

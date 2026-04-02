@@ -268,16 +268,15 @@ LOGGING = {
         },
     },
     "handlers": {
-        "middleware_file": {
+        "console": {
             "level": "WARNING",
-            "class": "logging.FileHandler",
-            "filename": BASE_DIR / "logs" / "middleware.log",
+            "class": "logging.StreamHandler",
             "formatter": "verbose",
         },
     },
     "loggers": {
         "apps.diary.middleware": {
-            "handlers": ["middleware_file"],
+            "handlers": ["console"],
             "level": "WARNING",
             "propagate": False,
         },

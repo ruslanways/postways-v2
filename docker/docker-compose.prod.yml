@@ -15,8 +15,6 @@ services:
     volumes:
       # Static files volume (shared with nginx)
       - static_files:/app/staticfiles
-      # Logs volume for persistence
-      - app_logs:/app/logs
     expose:
       - "8000"
     depends_on:
@@ -93,8 +91,6 @@ services:
       - ../config/.env
     environment:
       - DJANGO_ENV=production
-    volumes:
-      - app_logs:/app/logs
     depends_on:
       db:
         condition: service_healthy
@@ -116,7 +112,6 @@ services:
       - DJANGO_ENV=production
     volumes:
       - celery_beat_data:/app/var
-      - app_logs:/app/logs
     depends_on:
       db:
         condition: service_healthy
@@ -143,4 +138,3 @@ volumes:
   redis_data:
   static_files:
   celery_beat_data:
-  app_logs:

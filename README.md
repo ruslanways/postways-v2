@@ -11,9 +11,6 @@ A Django-based diary/blog application with both traditional HTML views and a RES
 # Start all services (web, db, redis, celery worker, celery beat)
 docker compose -f docker/docker-compose.dev.yml up
 
-# First-time setup (after containers are running)
-mkdir -p logs
-
 # Apply migrations
 docker compose -f docker/docker-compose.dev.yml exec web python manage.py migrate
 
