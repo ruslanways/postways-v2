@@ -1,4 +1,5 @@
 [![CI](https://github.com/ruslanways/postways-v2/actions/workflows/ci.yml/badge.svg?event=push)](https://github.com/ruslanways/postways-v2/actions/workflows/ci.yml)
+[![Deploy](https://github.com/ruslanways/postways-v2/actions/workflows/deploy.yml/badge.svg?event=workflow_dispatch)](https://github.com/ruslanways/postways-v2/actions/workflows/deploy.yml)
 
 # Postways
 
@@ -516,6 +517,30 @@ Container logs ─────┘
 1. Sign up at [grafana.com](https://grafana.com) (free tier: 10k metrics, 50GB logs)
 2. Copy Prometheus and Loki credentials to `config/.env` (see `config/env.dev.example`)
 3. Alloy container starts automatically with `docker compose up`
+
+## CI/CD
+
+The project uses **GitHub Actions** for continuous integration and deployment.
+
+### CI (`.github/workflows/ci.yml`)
+
+Runs automatically on every push to `main` and on pull requests. Two jobs run in parallel:
+
+| Job | What it does |
+|-----|-------------|
+| `lint` | Runs `ruff check` and `ruff format --check` |
+| `test` | Runs `pytest -n auto` with PostgreSQL 16 and Redis 7 service containers |
+
+### Deploy (`.github/workflows/deploy.yml`)
+
+Triggered manually via the "Run workflow" button in the GitHub Actions UI. SSHes into the production server and runs the [Safe Default Deploy](docs/RUNBOOK_PROD.md).
+
+### GitHub Secrets Required
+
+| Secret | Description |
+|--------|-------------|
+| `LIGHTSAIL_HOST` | Production server public IP |
+| `LIGHTSAIL_SSH_KEY` | Private SSH key for the `ubuntu` user (dedicated deploy key) |
 
 ## Tech Stack
 

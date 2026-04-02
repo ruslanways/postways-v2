@@ -631,6 +631,43 @@ Grafana Cloud credentials in `config/.env`:
 | `{container=~".*db.*"}` | PostgreSQL logs |
 | `{container=~".*web.*"} \|= "ERROR"` | Django error logs |
 
+### CI/CD
+
+The project uses **GitHub Actions** for continuous integration and deployment.
+
+#### Key Files
+
+| File | Purpose |
+|------|---------|
+| `.github/workflows/ci.yml` | Lint + test on push/PR to `main` |
+| `.github/workflows/deploy.yml` | Manual deploy to production via SSH |
+
+#### CI Workflow (`.github/workflows/ci.yml`)
+
+Triggered on push to `main` and pull requests. Two parallel jobs:
+
+- **`lint`** — installs dependencies with `uv`, runs `ruff check .` and `ruff format --check .`
+- **`test`** — runs `pytest -x --tb=short -q -n auto` with PostgreSQL 16 and Redis 7 as GitHub Actions service containers
+
+Tests run natively on the runner (not inside Docker) for speed. Environment variables (`DATABASE_URL`, `DJANGO_SECRET_KEY`, `REDIS_HOST`, `REDIS_PORT`) are set to CI-specific values in the workflow file.
+
+#### Deploy Workflow (`.github/workflows/deploy.yml`)
+
+Triggered manually via `workflow_dispatch` (GitHub Actions UI button). Uses `appleboy/ssh-action@v1` to SSH into the Lightsail server and execute the Safe Default Deploy from `docs/RUNBOOK_PROD.md`:
+
+```
+git pull → build db/redis → migrate → collectstatic → build all → restart nginx
+```
+
+Concurrency control (`group: deploy`) prevents simultaneous deploys.
+
+#### GitHub Secrets
+
+| Secret | Description |
+|--------|-------------|
+| `LIGHTSAIL_HOST` | Production server public IP |
+| `LIGHTSAIL_SSH_KEY` | Private SSH key for the `ubuntu` user (dedicated deploy key, separate from personal SSH key) |
+
 ### Environment Configuration
 
 Environment variables loaded from `config/.env`:
