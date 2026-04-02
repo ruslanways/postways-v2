@@ -1,0 +1,27 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ubuntu
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          script: |
+            cd /srv/postways-v2
+            git pull
+            docker compose -f docker/docker-compose.prod.yml up -d --build db redis
+            docker compose -f docker/docker-compose.prod.yml run --rm web python manage.py migrate --noinput
+            docker compose -f docker/docker-compose.prod.yml run --rm web python manage.py collectstatic --noinput
+            docker compose -f docker/docker-compose.prod.yml up -d --build
+            docker compose -f docker/docker-compose.prod.yml restart nginx
