@@ -357,6 +357,13 @@ CELERY_RESULT_BACKEND = f"redis://{REDIS_HOST}:{REDIS_PORT}/1"
 
 
 # ------------------------------------------------------------------------------
+# Kafka
+# ------------------------------------------------------------------------------
+KAFKA_BOOTSTRAP_SERVERS = env("KAFKA_BOOTSTRAP_SERVERS", default="kafka:9092")
+KAFKA_TOPIC_POST_EVENTS = env("KAFKA_TOPIC_POST_EVENTS", default="post-events")
+
+
+# ------------------------------------------------------------------------------
 # Django CORS Headers
 # ------------------------------------------------------------------------------
 # In development, allow all origins. In production, set CORS_ALLOWED_ORIGINS env var.

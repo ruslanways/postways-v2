@@ -487,6 +487,7 @@ class LikeCreateDestroyAPIView(generics.CreateAPIView):
 
         post = serializer.validated_data["post"]
         user = request.user
+        created = False
 
         with transaction.atomic():
             # Lock existing like row if present to prevent race conditions
@@ -507,6 +508,7 @@ class LikeCreateDestroyAPIView(generics.CreateAPIView):
                     response = Response(
                         serializer.data, status=status.HTTP_201_CREATED, headers=headers
                     )
+                    created = True
                 except IntegrityError:
                     # Race condition: another request created the like concurrently
                     # Treat as toggle: delete the just-created like
@@ -516,11 +518,28 @@ class LikeCreateDestroyAPIView(generics.CreateAPIView):
             # Query inside transaction to ensure consistency
             like_count = Like.objects.filter(post=post).count()
 
-            transaction.on_commit(
-                lambda pid=post.id, uid=user.id, cnt=like_count: broadcast_like_update(
-                    pid, uid, cnt
-                )
-            )
+            # Gather data for Kafka event while inside transaction
+            if created:
+                author = post.author
+                kafka_kwargs = {
+                    "like_id": serializer.instance.id,
+                    "post_id": post.id,
+                    "post_title": post.title,
+                    "liker_id": user.id,
+                    "liker_username": user.username,
+                    "author_id": author.id,
+                    "author_email": author.email,
+                    "author_username": author.username,
+                }
+
+            def _on_commit(pid=post.id, uid=user.id, cnt=like_count):
+                broadcast_like_update(pid, uid, cnt)
+                if created:
+                    from apps.diary.kafka_producer import publish_post_liked_event
+
+                    publish_post_liked_event(**kafka_kwargs)
+
+            transaction.on_commit(_on_commit)
 
         return response
 
