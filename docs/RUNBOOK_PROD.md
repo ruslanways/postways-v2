@@ -16,6 +16,7 @@ Follow it literally. When unsure → use the [Safe Default Deploy](#3-safe-defau
 | After server reboot | [§5 Restart](#5-restart-after-reboot) |
 | Check logs | [§9 Logs](#9-logs) |
 | Rollback | [§10 Rollback](#10-rollback) |
+| Hibernate / restore (stop billing) | [RUNBOOK_HIBERNATE.md](RUNBOOK_HIBERNATE.md) |
 
 ---
 
