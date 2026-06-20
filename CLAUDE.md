@@ -653,7 +653,7 @@ Tests run natively on the runner (not inside Docker) for speed. Environment vari
 Triggered manually via `workflow_dispatch` (GitHub Actions UI button). Uses `appleboy/ssh-action@v1` to SSH into the Lightsail server and execute the Safe Default Deploy from `docs/RUNBOOK_PROD.md`:
 
 ```
-git pull → build db/redis → migrate → collectstatic → build all → restart nginx
+git pull → build db/redis/web → migrate → collectstatic → build all → restart nginx
 ```
 
 Concurrency control (`group: deploy`) prevents simultaneous deploys.

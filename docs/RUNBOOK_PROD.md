@@ -104,7 +104,7 @@ dc logs -n 100 nginx
 ```bash
 cd /srv/postways-v2/
 git pull
-dc up -d --build db redis
+dc up -d --build db redis web  # build web before migrate so new migrations are present
 dc run --rm web python manage.py migrate --noinput
 dc run --rm web python manage.py collectstatic --noinput
 dc up -d --build

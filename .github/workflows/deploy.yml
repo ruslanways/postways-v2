@@ -20,7 +20,7 @@ jobs:
           script: |
             cd /srv/postways-v2
             git pull
-            docker compose -f docker/docker-compose.prod.yml up -d --build db redis
+            docker compose -f docker/docker-compose.prod.yml up -d --build db redis web
             docker compose -f docker/docker-compose.prod.yml run --rm web python manage.py migrate --noinput
             docker compose -f docker/docker-compose.prod.yml run --rm web python manage.py collectstatic --noinput
             docker compose -f docker/docker-compose.prod.yml up -d --build
