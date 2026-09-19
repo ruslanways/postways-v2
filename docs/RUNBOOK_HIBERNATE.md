@@ -44,6 +44,13 @@ restore.
 | Project dir **[on server]** | `/srv/postways-v2` |
 | Compose file **[on server]** | `docker/docker-compose.prod.yml` |
 | DNS | Cloudflare A record → instance public IP |
+| Registrar | **Cloudflare** (transferred from AWS on 2026-09-19; expires 2027-10-24) |
+
+> **Domain renewal is no longer AWS's job.** `postways.net` is registered with
+> Cloudflare Registrar — AWS auto-renew is off and the domain is gone from the
+> account (`aws route53domains list-domains` returns `[]`). Keep a valid payment
+> method on the Cloudflare account; nothing else renews it. Hibernation does not
+> touch the domain, the DNS zone, or the S3 bucket named after it.
 
 > **Confirm the AZ before you start** (needed for restore):
 > ```bash
@@ -127,10 +134,45 @@ aws lightsail release-static-ip --profile default \
   --static-ip-name postways-v2-aws-lightsail-static-ip
 ```
 
-> **Want to keep the same IP instead?** Skip A6. You then keep paying ~$3.60/mo
-> while hibernated (total ~$4.30/mo) but avoid the DNS change on restore.
+> **Want to keep the same IP instead?** Skip A6 and A7. You then keep paying
+> ~$3.60/mo while hibernated (total ~$4.30/mo) but avoid the DNS change on
+> restore.
 
-### A7. Verify everything is gone
+### A7. Neutralize the DNS record (do not skip)
+
+The Cloudflare `A` records for `@` and `www` still hold the IP you just
+released. AWS reassigns that address to another customer within days — after
+which Cloudflare keeps proxying your domain's traffic to a stranger's server:
+`Host: postways.net`, the request path, and any `sessionid` / `csrftoken`
+cookies returning visitors still send, all behind a padlock that still looks
+valid to them.
+
+In the Cloudflare dashboard:
+
+1. **DNS → Records** — set **Content** for `@` and `www` to `192.0.2.1`
+   (RFC 5737 TEST-NET-1, permanently unroutable). Leave both **proxied**.
+   Visitors now get a Cloudflare `522` page and no third party is in the path.
+   Deleting the two records works equally well — `MX` (Email Routing) and
+   `media` are separate records and are unaffected either way.
+2. **SSL/TLS → Overview** — set the mode to **Full (strict)**. Under plain
+   *Full*, Cloudflare accepts whatever certificate the origin presents without
+   checking the name, so a stranger's server gets proxied silently. Strict
+   requires a certificate valid for `postways.net`, which no one else can
+   produce. nginx serves Cloudflare Origin certificates
+   (`docker/nginx/nginx.conf`), which Cloudflare's Origin CA trusts, so strict
+   is the correct mode both while hibernated and after restore.
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' --max-time 30 https://postways.net/
+# expect 522 (Cloudflare cannot reach 192.0.2.1) - NOT 200, 404, or any
+# response carrying origin headers
+```
+
+> **This already happened once.** From 2026-06-21 to 2026-09-19 the record still
+> pointed at the released IP `18.193.58.255`, by then an AWS load balancer
+> belonging to someone else — and Cloudflare was proxying the domain to it.
+
+### A8. Verify everything is gone
 
 ```bash
 aws lightsail get-instances  --profile default --query 'instances[].name'
@@ -140,7 +182,8 @@ aws lightsail get-instance-snapshots --profile default \
 ```
 
 Expect: **no instance**, **no static IP**, and **one snapshot** in `available`
-state. ✅ You are now paying ~$0.70/mo (snapshot storage only).
+state — plus `https://postways.net/` returning **522** from step A7.
+✅ You are now paying ~$0.70/mo (snapshot storage only).
 
 ---
 
@@ -203,8 +246,11 @@ aws lightsail put-instance-public-ports --profile default \
 
 ### B5. Update Cloudflare DNS
 
-In the Cloudflare dashboard, edit the **A record** for the domain to point to
-the **new IP** from step B3. (Skip if you kept the old IP — see note in A6.)
+In the Cloudflare dashboard, **DNS → Records**, replace the `192.0.2.1`
+placeholder from step A7 with the **new IP** from step B3, for both `@` and
+`www`. Keep them **proxied**, and leave SSL/TLS on **Full (strict)** — the
+Origin certificates baked into the snapshot satisfy it. (Skip if you kept the
+old IP — see note in A6.)
 
 ### B6. Start the app
 
