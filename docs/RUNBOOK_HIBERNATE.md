@@ -172,6 +172,16 @@ curl -s -o /dev/null -w '%{http_code}\n' --max-time 30 https://postways.net/
 > pointed at the released IP `18.193.58.255`, by then an AWS load balancer
 > belonging to someone else — and Cloudflare was proxying the domain to it.
 
+> **Optional: show a page instead of 522.** Deploy a Cloudflare Worker
+> (`postways-hibernate`, "Start with Hello World!" template, free tier) that
+> returns a static "taking a break" HTML page, then add **Workers Routes**
+> for `postways.net/*` and `www.postways.net/*` pointing to it. Leave
+> **"Protect with Cloudflare Access" unchecked** — the page must be publicly
+> visible, not behind a login wall. DNS records and SSL mode stay as
+> configured above; the Worker intercepts before Cloudflare reaches the
+> origin, so `postways.net` returns 200 with the dummy page instead of 522.
+> On restore, delete the Worker (or its two routes) — see step B5.
+
 ### A8. Verify everything is gone
 
 ```bash
@@ -251,6 +261,10 @@ placeholder from step A7 with the **new IP** from step B3, for both `@` and
 `www`. Keep them **proxied**, and leave SSL/TLS on **Full (strict)** — the
 Origin certificates baked into the snapshot satisfy it. (Skip if you kept the
 old IP — see note in A6.)
+
+If you deployed the optional `postways-hibernate` Worker from step A7, also
+delete it (or its two Workers Routes) now — otherwise it keeps intercepting
+requests and the restored app never receives traffic.
 
 ### B6. Start the app
 
